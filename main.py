@@ -306,10 +306,10 @@ for event in longpoll.listen():
             
         parts = msg.split()
         
-        if msg_lower in ["💰 баланс", "баланс"]:
+        if msg_lower in ["💰 баланс", "баланс", "Баланс", "@badbotikzarabotok 💰 Баланс"]:
             send_msg(peer, f"👀 Ваш баланс: {num_to_str(user['balance'])}", get_main_keyboard())
 
-        elif msg_lower in ["👤 профиль", "профиль", "проф", "проф я"]:
+        elif msg_lower in ["👤 профиль", "профиль", "проф", "проф", "я", "@badbotikzarabotok 👤 Профиль"]:
             target_id = uid
             if len(parts) > 1 and parts.lower() not in ["я"]:
                 parsed = parse_target(parts, 1, message_obj)
@@ -383,7 +383,7 @@ for event in longpoll.listen():
             pending_donations.pop(don_id, None)
             continue
 
-        elif msg_lower.startswith("вывод") or msg_lower.startswith("💸 вывод") or msg_lower in ["💸 вывод", "вывод"]:
+        elif msg_lower.startswith("вывод") or msg_lower.startswith("💸 Вывод") or msg_lower in ["💸 вывод", "вывод", "@badbotikzarabotok 💸 Вывод"]:
             if len(parts) < 2 and msg_lower in ["вывод", "💸 вывод"]:
                 send_msg(peer, "💡 Подсказка: вывод [сумма]", get_main_keyboard())
                 continue
@@ -398,7 +398,7 @@ for event in longpoll.listen():
                 send_msg(peer, "❌ Недостаточно средств на балансе или сумма указана неверно!", get_main_keyboard())
             continue
 
-        elif msg_lower in ["🛍 магазин", "магазин"]:
+        elif msg_lower in ["🛍 магазин", "магазин", "Магазин", "🛍 Магазин", "@badbotikzarabotok 🛍 Магазин"]:
             send_msg(peer, "🛍️ Добро пожаловать в магазин услуг! Листайте карточки под этим сообщением:", template=get_shop_carousel())
 
         elif msg_lower.startswith("получить снятие кд на кликер"):
@@ -419,7 +419,7 @@ for event in longpoll.listen():
             db.update_user_field(uid, 'x2_until', time.time() + 43200)
             send_msg(peer, "✅ Списание успешно! Множитель х2 кликов на 12 часов успешно активирован!", get_main_keyboard())
 
-        elif msg_lower in ["🕹 mini-игры", "мини-игры", "🕹 mini-игры"]:
+        elif msg_lower in ["🕹 mini-игры", "мини-игры", "🕹 mini-игры", "@badbotikzarabotok 🕹 Мини-игры"]:
             games_text = (
                 f"🎲 **СПИСОК МИНИ-ИГР:**\n\n"
                 f"• Клик - доход 15мк за клик (доступно раз в 3 секунды) [Работает Везде]\n\n"
@@ -465,7 +465,7 @@ for event in longpoll.listen():
             send_msg(peer, f"🕵️‍♂️ **ЗАГАДКА (+40 мк)**\n\n{riddle['q']}\n\n⚠️ Внимание: у тебя есть ровно 1 попытка!")
             continue
 
-        elif msg_lower in ["🎁 бонус", "бонус"]:
+        elif msg_lower in ["🎁 бонус", "бонус", "@badbotikzarabotok 🎁 Бонус"]:
             now = time.time()
             if (now - user['last_daily']) < 86400: 
                 send_msg(peer, "❌ Вы уже забирали ежедневный бонус! Приходите завтра.", get_main_keyboard())
@@ -475,7 +475,7 @@ for event in longpoll.listen():
             db.add_balance(uid, win_amount)
             send_msg(peer, f"🎁 Ежедневный бонус: {num_to_str(win_amount)}", get_main_keyboard())
 
-        elif msg_lower in ["🛠 тех. поддержка", "тех. поддержка", "поддержка", "техподдержка"]:
+        elif msg_lower in ["🛠 тех. поддержка", "тех. поддержка", "поддержка", "техподдержка", "🛠 Тех. поддержка", "@badbotikzarabotok 🛠 Тех. поддержка"]:
             send_msg(peer, "⚠️ Тех. Администратор отвечает в течении 12 часов!\n\n👇 Нажми на белую кнопку ниже для перехода:", keyboard=get_support_keyboard())
             continue
 
