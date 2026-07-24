@@ -317,7 +317,7 @@ for event in longpoll.listen():
         elif msg_lower in ["👤 профиль", "профиль", "проф", "проф я"]:
             target_id = uid
             if len(parts) > 1 and parts[1].lower() not in ["я"]:
-                parsed = parse_target(parts, 1, event_raw)
+                parsed = parse_target(parts, 1, message_obj)
                 if parsed: target_id = parsed
                 
             t_user = db.get_user(target_id)
@@ -445,7 +445,7 @@ for event in longpoll.listen():
             if peer not in ALLOWED_KICK_CHATS:
                 send_msg(peer, "❌ Исключение участников работает только в официальных чатах бота!", get_main_keyboard())
                 continue
-            target_id = parse_target(parts, 1, event_raw)
+            target_id = parse_target(parts, 1, message_obj)
             if target_id:
                 try:
                     vk.messages.removeChatUser(chat_id=chat_idx, user_id=target_id)
@@ -466,7 +466,7 @@ for event in longpoll.listen():
             continue
 
         elif msg_lower.startswith("bal ") and user['moder_rank'] >= 1:
-            target_id = parse_target(parts, 1, event_raw)
+            target_id = parse_target(parts, 1, message_obj)
             if target_id: send_msg(peer, f"🍻 Баланс игрока {get_user_mention(target_id)}: {num_to_str(db.get_user(target_id)['balance'])}", get_main_keyboard())
 
         elif msg_lower == "//logs" and user['moder_rank'] >= 2:
@@ -478,7 +478,7 @@ for event in longpoll.listen():
                 send_msg(peer, txt, get_main_keyboard())
 
         elif msg_lower.startswith("//giveaward ") and user['moder_rank'] >= 2:
-            target_id = parse_target(parts, 1, event_raw)
+            target_id = parse_target(parts, 1, message_obj)
             if target_id:
                 db.update_user_field(target_id, 'has_legendary', 1)
                 send_msg(peer, f"✅ Игроку {get_user_mention(target_id)} успешно присвоена метка ♠️ THE LEGENDARY!", get_main_keyboard())
@@ -487,7 +487,7 @@ for event in longpoll.listen():
             if len(parts) < 3: continue
             try: days = int(parts[1])
             except: continue
-            target_id = parse_target(parts, 2, event_raw)
+            target_id = parse_target(parts, 2, message_obj)
             if target_id:
                 if days == 0:
                     db.update_user_field(target_id, 'ban_until', 0.0)
@@ -509,7 +509,7 @@ for event in longpoll.listen():
             if len(parts) < 3: continue
             try: rank = int(parts[1])
             except: continue
-            target_id = parse_target(parts, 2, event_raw)
+            target_id = parse_target(parts, 2, message_obj)
             if target_id:
                 if user['moder_rank'] == 3 and rank > 2: continue
                 if user['moder_rank'] == 4 and rank > 3: continue
@@ -520,7 +520,7 @@ for event in longpoll.listen():
         elif msg_lower.startswith("//set0 ") and user['moder_rank'] >= 4:
             if len(parts) < 3: continue
             mode = parts[1].lower()
-            target_id = parse_target(parts, 2, event_raw)
+            target_id = parse_target(parts, 2, message_obj)
             if not target_id: continue
             if mode == "nk": db.update_user_field(target_id, 'nickname', 'Игрок')
             elif mode == "cl": db.update_user_field(target_id, 'clicks_count', 0)
@@ -536,7 +536,7 @@ for event in longpoll.listen():
             send_msg(peer, f"✅ Операция //set0 {mode} успешно выполнена для {get_user_mention(target_id)}.", get_main_keyboard())
 
         elif msg_lower.startswith("пополнить ") and user['moder_rank'] == 5:
-            target_id = parse_target(parts, 1, event_raw)
+            target_id = parse_target(parts, 1, message_obj)
             if target_id and len(parts) > 2:
                 amount = str_to_num(parts)
                 if amount:
