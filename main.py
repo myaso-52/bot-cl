@@ -101,9 +101,8 @@ def num_to_str(num):
     return str(num)
 
 def parse_user_id(text):
-    text = text.strip()
+    text = text.strip().replace('@', '').replace(')', '').replace('(', '')
     if '://vk.com' in text: text = text.split('://vk.com')[-1].replace(']', '').replace('[', '').strip()
-    if '@' in text: text = text.split('@')[-1].strip()
     if '[id' in text and '|' in text:
         try: return int(text.split('[id')[-1].split('|')[0])
         except: pass
@@ -451,6 +450,10 @@ for event in longpoll.listen():
                     if res.status_code == 200 and res.json().get("answer") == "success":
                         success = True; break
                         
+                    res = requests.patch(url, json=payload, headers={"Content-Type": "application/json"}, timeout=4)
+                    if res.status_code == 200 and res.json().get("answer") == "success":
+                        success = True; break
+                        
                     last_err = f"Код {res.status_code}, Текст: {res.text}"
                 except Exception as e:
                     last_err = str(e)
@@ -492,11 +495,11 @@ for event in longpoll.listen():
             continue
 
         elif msg_lower in ["🛍 магазин", "магазин"]:
-            send_msg(peer, "🛍️ Maгазин услуг:", template=get_shop_carousel())
+            send_msg(peer, "🛍️ Магазин услуг:", template=get_shop_carousel())
             continue
 
         elif msg_lower.startswith("получить снятие кд") or msg_lower.startswith("получить множитель"):
-            item = SHOP_ITEMS[0] if "кд" in msg_lower else SHOP_ITEMS[1]
+            item = SHOP_ITEMS if "кд" in msg_lower else SHOP_ITEMS
             user = db.get_user(uid)
             if user['balance'] < item["cost_coins"]:
                 send_msg(peer, "❌ Недостаточно средств!", get_main_keyboard())
@@ -761,6 +764,6 @@ for event in longpoll.listen():
                     player_uid = int(parts_id)
                     send_msg(player_uid, "❌ Владелец отказал ваше пополнение.")
                     send_msg(event.obj['peer_id'], "❌ Запрос на пополнение успешно отклонен.")
-                    send_console_log(f"Донат: Владелец отклонил пополнение для ID {player_uid}", OWNER_VK_ID, event.obj['peer_id'])
+                    send_console_log(f"Донаat: Владелец отклонил пополнение для ID {player_uid}", OWNER_VK_ID, event.obj['peer_id'])
                 except:
                     send_msg(event.obj['peer_id'], "❌ Заявка устарела или уже была обработана.")
