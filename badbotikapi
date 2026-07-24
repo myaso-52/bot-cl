@@ -1,0 +1,2 @@
+from requests import post
+print(post('https://api.badbotik.ru/api/balance/', json = {"token":"e79014a73e87a11c41a1c631bc9012b4"}).json())
