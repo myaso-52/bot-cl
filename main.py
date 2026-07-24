@@ -105,7 +105,7 @@ def parse_user_id(text):
     if '://vk.com' in text: text = text.split('://vk.com')[-1].replace(']', '').replace('[', '').strip()
     if '@' in text: text = text.split('@')[-1].strip()
     if '[id' in text and '|' in text:
-        try: return int(text.split('[id')[-1].split('|')[0])
+        try: return int(text.split('[id')[-1].split('|'))
         except: pass
     try: return int(text)
     except ValueError:
@@ -119,7 +119,7 @@ def parse_target(parts, index, message_obj):
     if message_obj:
         if message_obj.get('reply_message'): return message_obj['reply_message']['from_id']
         if message_obj.get('fwd_messages') and isinstance(message_obj['fwd_messages'], list) and len(message_obj['fwd_messages']) > 0:
-            return message_obj['fwd_messages'][0]['from_id']
+            return message_obj['fwd_messages']['from_id']
     if len(parts) > index: return parse_user_id(parts[index])
     return None
 USER_NAMES_CACHE = {}
@@ -132,7 +132,7 @@ def get_user_mention(user_id):
         return f"[id{user_id}|{u_data['nickname']}]"
     try:
         vk_user = vk.users.get(user_ids=user_id)
-        name = vk_user[0]['first_name']
+        name = vk_user['first_name']
         USER_NAMES_CACHE[user_id] = name
         return f"[id{user_id}|{name}]"
     except: return f"[id{user_id}|Игрок]"
@@ -299,7 +299,7 @@ for event in longpoll.listen():
                 continue
             game = active_mines_games.get(uid)
             if not game: continue
-            try: cell = int(msg_lower.split()[1])
+            try: cell = int(msg_lower.split())
             except: continue
             idx = cell - 1
             if idx in game["opened"]: continue
@@ -330,13 +330,13 @@ for event in longpoll.listen():
                 continue
             else:
                 user_states.pop(uid, None)
-                send_msg(peer, f"❌ Неверно! Правильный ответ: «{state['answers'][0]}». Повезет в другой раз!", get_games_keyboard())
+                send_msg(peer, f"❌ Неверно! Правильный ответ: «{state['answers']}». Повезет в другой раз!", get_games_keyboard())
                 continue
 
         if msg_lower in ["начать", "старт", "привет"]:
             if len(parts) > 1:
                 try:
-                    ref_id = int(parts[1])
+                    ref_id = int(parts)
                     if ref_id != uid and user.get('referrer_id', 0) == 0:
                         db.update_user_field(uid, 'referrer_id', ref_id)
                 except: pass
@@ -434,6 +434,8 @@ for event in longpoll.listen():
             payload = {"token": BADBOTIK_TOKEN, "user": int(target_badbotik_id), "count": int(amount)}
             try:
                 response = requests.post(BADBOTIK_API_URL, json=payload, headers={"Content-Type": "application/json"}, timeout=10)
+                if response.status_code == 405:
+                    response = requests.post(BADBOTIK_API_URL, json=payload, timeout=10)
                 if response.status_code == 200 and response.json().get("answer") == "success":
                     db.update_user_field(uid, 'total_withdrawn', user.get('total_withdrawn', 0) + amount)
                     mention = get_user_mention(target_badbotik_id)
@@ -478,7 +480,7 @@ for event in longpoll.listen():
             continue
 
         elif msg_lower.startswith("получить снятие кд") or msg_lower.startswith("получить множитель"):
-            item = SHOP_ITEMS[0] if "кд" in msg_lower else SHOP_ITEMS[1]
+            item = SHOP_ITEMS if "кд" in msg_lower else SHOP_ITEMS
             user = db.get_user(uid)
             if user['balance'] < item["cost_coins"]:
                 send_msg(peer, "❌ Недостаточно средств!", get_main_keyboard())
@@ -563,7 +565,7 @@ for event in longpoll.listen():
                 job_names = {1: "Модератор", 2: "Администратор", 3: "Гл. Администратор", 4: "Зам. Владельца", 5: "Владелец"}
                 txt = "📋 **СПИСОК МОДЕРАЦИИ БОТА:**\n\n"
                 for m in mods:
-                    txt += f"• {get_user_mention(m[0])} — Должность: **{job_names.get(m[1], 'Игрок')}**\n"
+                    txt += f"• {get_user_mention(m)} — Должность: **{job_names.get(m, 'Игрок')}**\n"
                 send_msg(peer, txt if mods else "📋 Модераторы отсутствуют.")
             except: pass
             continue
@@ -577,7 +579,7 @@ for event in longpoll.listen():
                 conn.close()
                 txt = "📋 **СПИСОК ЗАБЛОКИРОВАННЫХ ИГРОКОВ:**\n\n"
                 for b in bans:
-                    txt += f"• {get_user_mention(b[0])} | Причина: {b[1]}\n"
+                    txt += f"• {get_user_mention(b)} | Причина: {b}\n"
                 send_msg(peer, txt if bans else "📋 Заблокированные пользователи отсутствуют.")
             except: pass
             continue
@@ -585,7 +587,7 @@ for event in longpoll.listen():
         # РАНГ 3+: ГЛ. АДМИНИСТРАТОРЫ / НАКАЗАНИЯ И ИНТЕГРАЦИЯ В ГРУППУ
         elif msg_lower.startswith("//ban") and user['moder_rank'] >= 3:
             is_reply = bool(message_obj.get('reply_message') or (message_obj.get('fwd_messages')))
-            try: days = int(parts[1])
+            try: days = int(parts)
             except: continue
             target_id = parse_target(parts, 1 if is_reply else 2, message_obj)
             if target_id:
@@ -613,7 +615,7 @@ for event in longpoll.listen():
         # ИЕРАРХИЧЕСКОЕ НАЗНАЧЕНИЕ МОДЕРАТОРОВ //moder
         elif msg_lower.startswith("//moder") and user['moder_rank'] >= 3:
             is_reply = bool(message_obj.get('reply_message') or (message_obj.get('fwd_messages')))
-            try: rank = int(parts[1])
+            try: rank = int(parts)
             except: continue
             target_id = parse_target(parts, 1 if is_reply else 2, message_obj)
             if target_id:
@@ -631,7 +633,7 @@ for event in longpoll.listen():
         elif msg_lower.startswith("//set0") and user['moder_rank'] >= 4:
             is_reply = bool(message_obj.get('reply_message') or (message_obj.get('fwd_messages')))
             if len(parts) < 2: continue
-            mode = parts[1].lower()
+            mode = parts.lower()
             target_id = parse_target(parts, 1 if is_reply else 2, message_obj)
             if target_id:
                 if mode in ["nk", "all"]: db.update_user_field(target_id, 'nickname', 'Игрок')
@@ -694,13 +696,13 @@ for event in longpoll.listen():
             name_val = user.get('nickname', 'анимешник') if user.get('nickname') and user.get('nickname') != 'Игрок' else get_user_mention(uid)
             r_date = user.get('reg_date') if user.get('reg_date') else "24.07.2026"
             txt = (
-                f"🌎 **Профиль пользователя**{award}\n"
-                f"🍭 **Имя пользователя:** {name_val}\n"
-                f"👹 **Ранг:** {ranks[user['moder_rank']]}\n"
-                f"🍻 **Баланс:** {num_to_str(user['balance'])}\n"
-                f"🏀 **Кликов в боте:** {user.get('clicks_count', 0)}\n"
-                f"🧠 **Всего выведено:** {num_to_str(user.get('total_withdrawn', 0))}\n"
-                f"💀 **Дата регистрации в боте:** {r_date}"
+                f"🌎 Профиль пользователя:{award}\n"
+                f"🍭 Имя пользователя: {name_val}\n"
+                f"👹 Ранг: {ranks[user['moder_rank']]}\n"
+                f"🍻 Баланс: {num_to_str(user['balance'])}\n"
+                f"🏀 Кликов в боте: {user.get('clicks_count', 0)}\n"
+                f"🧠 Всего выведено: {num_to_str(user.get('total_withdrawn', 0))}\n"
+                f"💀 Дата регистрации в боте: {r_date}"
             )
             send_msg(peer, txt, get_main_keyboard())
             continue
@@ -731,7 +733,7 @@ for event in longpoll.listen():
             else:
                 try:
                     parts_id = don_id.split("_")
-                    player_uid = int(parts_id[1])
+                    player_uid = int(parts_id)
                     send_msg(player_uid, "❌ Владелец отказал ваше пополнение.")
                     send_msg(event.obj['peer_id'], "❌ Запрос на пополнение успешно отклонен.")
                     send_console_log(f"Донат: Владелец отклонил пополнение для ID {player_uid}", OWNER_VK_ID, event.obj['peer_id'])
