@@ -299,7 +299,7 @@ for event in longpoll.listen():
                 continue
             game = active_mines_games.get(uid)
             if not game: continue
-            try: cell = int(msg_lower.split()[1])
+            try: cell = int(msg_lower.split())
             except: continue
             idx = cell - 1
             if idx in game["opened"]: continue
@@ -330,13 +330,13 @@ for event in longpoll.listen():
                 continue
             else:
                 user_states.pop(uid, None)
-                send_msg(peer, f"❌ Неверно! Правильный ответ: «{state['answers'][0]}». Повезет в другой раз!", get_games_keyboard())
+                send_msg(peer, f"❌ Неверно! Правильный ответ: «{state['answers']}». Повезет в другой раз!", get_games_keyboard())
                 continue
 
         if msg_lower in ["начать", "старт", "привет"]:
             if len(parts) > 1:
                 try:
-                    ref_id = int(parts[1])
+                    ref_id = int(parts)
                     if ref_id != uid and user.get('referrer_id', 0) == 0:
                         db.update_user_field(uid, 'referrer_id', ref_id)
                 except: pass
@@ -428,22 +428,40 @@ for event in longpoll.listen():
                     continue
             else:
                 target_badbotik_id = uid
+                
             db.add_balance(uid, -amount)
-            BADBOTIK_API_URL = "https://badbotik.ru"
             BADBOTIK_TOKEN = "e79014a73e87a11c41a1c631bc9012b4"
             payload = {"token": BADBOTIK_TOKEN, "user": int(target_badbotik_id), "count": int(amount)}
-            try:
-                response = requests.get(BADBOTIK_API_URL, params=payload, timeout=10)
-                if response.status_code == 200 and response.json().get("answer") == "success":
-                    db.update_user_field(uid, 'total_withdrawn', user.get('total_withdrawn', 0) + amount)
-                    mention = get_user_mention(target_badbotik_id)
-                    send_msg(peer, f"✅ Вывод выполнен успешно!\n💰 Списано: {num_to_str(amount)}\n👤 Получатель в BadBotik: {mention}")
-                else:
-                    db.add_balance(uid, amount)
-                    send_msg(peer, f"❌ Ошибка шлюза. Ответ сервера BadBotik: {response.text}")
-            except Exception as e:
+            
+            urls = ["https://badbotik.ru", "https://badbotik.ru/"]
+            success = False
+            last_err = ""
+            
+            for url in urls:
+                try:
+                    res = requests.post(url, data=payload, timeout=4)
+                    if res.status_code == 200 and res.json().get("answer") == "success":
+                        success = True; break
+                        
+                    res = requests.post(url, json=payload, headers={"Content-Type": "application/json"}, timeout=4)
+                    if res.status_code == 200 and res.json().get("answer") == "success":
+                        success = True; break
+                        
+                    res = requests.put(url, json=payload, headers={"Content-Type": "application/json"}, timeout=4)
+                    if res.status_code == 200 and res.json().get("answer") == "success":
+                        success = True; break
+                        
+                    last_err = f"Код {res.status_code}, Текст: {res.text}"
+                except Exception as e:
+                    last_err = str(e)
+            
+            if success:
+                db.update_user_field(uid, 'total_withdrawn', user.get('total_withdrawn', 0) + amount)
+                mention = get_user_mention(target_badbotik_id)
+                send_msg(peer, f"✅ Вывод выполнен успешно!\n💰 Списано: {num_to_str(amount)}\n👤 Получатель в BadBotik: {mention}")
+            else:
                 db.add_balance(uid, amount)
-                send_msg(peer, f"❌ Технические неполадки на стороне шлюза. Ошибка: {e}")
+                send_msg(peer, f"❌ Ошибка шлюза. Ответ сервера BadBotik: {last_err}\n⚠️ Напишите разрабу, чтобы проверил логи своего метода /pay")
             continue
         elif msg_lower.startswith("+ник ") and len(parts) > 1:
             new_name = " ".join(parts[1:]).strip()
@@ -474,7 +492,7 @@ for event in longpoll.listen():
             continue
 
         elif msg_lower in ["🛍 магазин", "магазин"]:
-            send_msg(peer, "🛍️ Магазин услуг:", template=get_shop_carousel())
+            send_msg(peer, "🛍️ Maгазин услуг:", template=get_shop_carousel())
             continue
 
         elif msg_lower.startswith("получить снятие кд") or msg_lower.startswith("получить множитель"):
@@ -642,7 +660,7 @@ for event in longpoll.listen():
                 send_msg(peer, f"✅ Операция //set0 {mode} выполнена для {get_user_mention(target_id)}.")
             continue
 
-        # РАНГ 5: ВЛАДЕЛЕЦ (АДМИНСКОЕ ПОПОЛНЕНИЕ БАЛАНСА)
+        # РАНГ 5: ВЛАДЕЛЕЦ (АДМИНСКОЕ ПОПОЛНЕНИЕ БАЛАНСА ПО ТЕГАМ И ССЫЛКАМ)
         elif msg_lower.startswith("пополнить") and user['moder_rank'] == 5:
             is_reply = bool(message_obj.get('reply_message') or (message_obj.get('fwd_messages')))
             target_id = parse_target(parts, 1, message_obj)
@@ -654,7 +672,7 @@ for event in longpoll.listen():
                     send_msg(peer, f"✅ На баланс {get_user_mention(target_id)} успешно выдано {num_to_str(amount)}")
             continue
 
-        # РАНГ 5: ВЛАДЕЛЕЦ (КОМАНДА УБ)
+        # РАНГ 5: ВЛАДЕЛЕЦ (КОМАНДА УБ ПО ТЕГАМ И ССЫЛКАМ)
         elif msg_lower.startswith("уб") and user['moder_rank'] == 5:
             is_reply = bool(message_obj.get('reply_message') or (message_obj.get('fwd_messages')))
             target_id = parse_target(parts, 1, message_obj)
@@ -740,7 +758,7 @@ for event in longpoll.listen():
             else:
                 try:
                     parts_id = don_id.split("_")
-                    player_uid = int(parts_id[1])
+                    player_uid = int(parts_id)
                     send_msg(player_uid, "❌ Владелец отказал ваше пополнение.")
                     send_msg(event.obj['peer_id'], "❌ Запрос на пополнение успешно отклонен.")
                     send_console_log(f"Донат: Владелец отклонил пополнение для ID {player_uid}", OWNER_VK_ID, event.obj['peer_id'])
