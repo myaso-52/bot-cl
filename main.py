@@ -314,7 +314,7 @@ for event in longpoll.listen():
         if msg_lower in ["💰 баланс", "баланс"]:
             send_msg(peer, f"👀 Ваш баланс: {num_to_str(user['balance'])}", get_main_keyboard())
 
-        elif msg_lower in ["👤 профиль", "профиль", "проф", "проф я"]:
+        elif msg_lower in ["👤 профиль", "профиль", "проф", "проф", я"]:
             target_id = uid
             if len(parts) > 1 and parts[1].lower() not in ["я"]:
                 parsed = parse_target(parts, 1, message_obj)
