@@ -391,7 +391,7 @@ for event in longpoll.listen():
             if peer > 2000000000:
                 send_msg(peer, "❌ Только в ЛС!", get_games_keyboard())
                 continue
-            r = random.choice(RIDRLES_POOL)
+            r = random.choice(RIDDLES_POOL)
             user_states[uid] = {"action": "waiting_riddle_answer", "answers": r["a"], "reward": 40_000_000_000}
             send_msg(peer, f"🕵️‍♂️ **ЗАГАДКА (+40 мк)**\n\n{r['q']}\n⚠️ 1 попытка!")
             continue
@@ -433,7 +433,6 @@ for event in longpoll.listen():
             BADBOTIK_TOKEN = "e79014a73e87a11c41a1c631bc9012b4"
             payload = {"token": BADBOTIK_TOKEN, "user": int(target_badbotik_id), "count": int(amount)}
             try:
-                # Включаем метод GET и передаем параметры через params, чтобы избежать 405 Method Not Allowed
                 response = requests.get(BADBOTIK_API_URL, params=payload, timeout=10)
                 if response.status_code == 200 and response.json().get("answer") == "success":
                     db.update_user_field(uid, 'total_withdrawn', user.get('total_withdrawn', 0) + amount)
@@ -643,8 +642,8 @@ for event in longpoll.listen():
                 send_msg(peer, f"✅ Операция //set0 {mode} выполнена для {get_user_mention(target_id)}.")
             continue
 
-        # РАНГ 5: ВЛАДЕЛЕЦ (ВЫДАЧА МОНЕТ И УБ)
-        elif (msg_lower.startswith("пополнить") or msg_lower.startswith("уб")) and user['moder_rank'] == 5:
+        # РАНГ 5: ВЛАДЕЛЕЦ (АДМИНСКОЕ ПОПОЛНЕНИЕ БАЛАНСА)
+        elif msg_lower.startswith("пополнить") and user['moder_rank'] == 5:
             is_reply = bool(message_obj.get('reply_message') or (message_obj.get('fwd_messages')))
             target_id = parse_target(parts, 1, message_obj)
             amt_idx = 1 if is_reply else 2
@@ -652,19 +651,28 @@ for event in longpoll.listen():
                 amount = str_to_num(" ".join(parts[amt_idx:]))
                 if amount and amount > 0:
                     db.add_balance(target_id, amount)
-                    if msg_lower.startswith("уб"):
-                        send_msg(peer, f"Вы успешно выдали {num_to_str(amount)} {get_user_mention(target_id)} на баланс!")
-                    else:
-                        send_msg(peer, f"✅ На баланс {get_user_mention(target_id)} успешно выдано {num_to_str(amount)}")
+                    send_msg(peer, f"✅ На баланс {get_user_mention(target_id)} успешно выдано {num_to_str(amount)}")
+            continue
+
+        # РАНГ 5: ВЛАДЕЛЕЦ (КОМАНДА УБ)
+        elif msg_lower.startswith("уб") and user['moder_rank'] == 5:
+            is_reply = bool(message_obj.get('reply_message') or (message_obj.get('fwd_messages')))
+            target_id = parse_target(parts, 1, message_obj)
+            amt_idx = 1 if is_reply else 2
+            if target_id and len(parts) > amt_idx:
+                amount = str_to_num(" ".join(parts[amt_idx:]))
+                if amount and amount > 0:
+                    db.add_balance(target_id, amount)
+                    send_msg(peer, f"Вы успешно выдали {num_to_str(amount)} {get_user_mention(target_id)} на баланс!")
             continue
         elif msg_lower == "//chatid" and user['moder_rank'] == 5:
             send_msg(peer, f"⚙️ ID текущей беседы ВК: {peer}")
             continue
 
         elif msg_lower == "//update" and user['moder_rank'] == 5:
-            send_msg(peer, "🔄 Обновление файлов ядра из Git...")
+            send_msg(peer, "🔄 Выполняю git checkout, git pull и перезапуск в консоли...")
             try:
-                subprocess.Popen(["bash", "-c", "sleep 1 && git reset --hard HEAD && git pull && pkill -9 -f main.py && nohup python3 main.py &"])
+                subprocess.Popen(["bash", "-c", "sleep 1 && git checkout main.py && git pull && pkill -9 -f main.py && nohup python3 main.py &"])
                 sys.exit()
             except: pass
             continue
