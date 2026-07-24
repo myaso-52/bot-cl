@@ -440,10 +440,10 @@ for event in longpoll.listen():
                     send_msg(peer, f"✅ Вывод выполнен успешно!\n💰 Списано: {num_to_str(amount)}\n👤 Получатель в BadBotik: {mention}")
                 else:
                     db.add_balance(uid, amount)
-                    send_msg(peer, "❌ Ошибка платежного шлюза BadBotik. Перевод отклонен, монеты возвращены на ваш баланс.")
+                    send_msg(peer, f"❌ Ошибка шлюза. Ответ сервера BadBotik: {response.text}")
             except Exception as e:
                 db.add_balance(uid, amount)
-                send_msg(peer, "❌ Технические неполадки на стороне шлюза. Попробуйте позже, монеты возвращены на баланс.")
+                send_msg(peer, f"❌ Технические неполадки на стороне шлюза. Ошибка: {e}")
             continue
         elif msg_lower.startswith("+ник ") and len(parts) > 1:
             new_name = " ".join(parts[1:]).strip()
