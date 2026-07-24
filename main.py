@@ -461,7 +461,7 @@ for event in longpoll.listen():
             if r >= 2: txt += "\n🍀 **РАНГ АДМИНИСТРАТОР [2+]:**\n- //logs — последние 10 выводов\n- //giveaward [ссылка/юз] — выдать легендарный статус\n"
             if r >= 3: txt += "\n👹 **РАНГ ГЛ. АДМИНИСТРАТОР [3+]:**\n- //ban [1-365] [ссылка/юз] [причина]\n- //ban 0 [ссылка/юз] — разбан\n- //ban -1 [ссылка/юз] [причина] — пермач\n- //moder [0-2] [ссылка/юз] — назначить админов\n- //moder -1 [ссылка/юз] — снять админа\n"
             if r >= 4: txt += "\n🏆 **РАНГ ЗАМ. ВЛАДЕЛЬЦА [4+]:**\n- //moder [0-3] [ссылка/юз] — управление гл. админами\n- //set0 [nk/cl/bl/rg/vv/all] [ссылка/юз] — обнуление\n"
-            if r == 5: txt += "\n🎱 **РАНГ ВЛАДЕЛЕЦ:**\n- пополнить [ссылка/юз] [сумма] — выдать деньги\n- //moder [0-5] [ссылка/юз] — управление со-владельцами\n- //chatid — узнать ID беседы\n- //update — жесткий перезапуск бота\n"
+            if r == 5: txt += "\n🎱 **РАНГ ВЛАДЕЛЕЦ:**\n- уб [ссылка/юз] [сумма] — выдать деньги\n- //moder [0-5] [ссылка/юз] — управление со-владельцами\n- //chatid — узнать ID беседы\n- //update — жесткий перезапуск бота\n"
             send_msg(peer, txt, get_main_keyboard())
             continue
 
@@ -535,7 +535,8 @@ for event in longpoll.listen():
                 db.update_user_field(target_id, 'total_withdrawn', 0)
             send_msg(peer, f"✅ Операция //set0 {mode} успешно выполнена для {get_user_mention(target_id)}.", get_main_keyboard())
 
-        elif msg_lower.startswith("пополнить ") and user['moder_rank'] == 5:
+        elif msg_lower.startswith("выдать
+        ") and user['moder_rank'] == 5:
             target_id = parse_target(parts, 1, message_obj)
             if target_id and len(parts) > 2:
                 amount = str_to_num(parts)
