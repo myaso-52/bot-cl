@@ -104,7 +104,7 @@ def parse_user_id(text):
     if '://vk.com' in text: text = text.split('://vk.com')[-1].replace(']', '').replace('[', '').strip()
     if '@' in text: text = text.split('@')[-1].strip()
     if '[id' in text and '|' in text:
-        try: return int(text.split('[id')[-1].split('|')[0])
+        try: return int(text.split('[id')[-1].split('|'))
         except: pass
     try: return int(text)
     except ValueError:
@@ -118,7 +118,7 @@ def parse_target(parts, index, message_obj):
     if message_obj:
         if message_obj.get('reply_message'): return message_obj['reply_message']['from_id']
         if message_obj.get('fwd_messages') and isinstance(message_obj['fwd_messages'], list) and len(message_obj['fwd_messages']) > 0:
-            return message_obj['fwd_messages'][0]['from_id']
+            return message_obj['fwd_messages']['from_id']
     if len(parts) > index: return parse_user_id(parts[index])
     return None
 USER_NAMES_CACHE = {}
@@ -131,7 +131,7 @@ def get_user_mention(user_id):
         return f"[id{user_id}|{u_data['nickname']}]"
     try:
         vk_user = vk.users.get(user_ids=user_id)
-        name = vk_user[0]['first_name']
+        name = vk_user['first_name']
         USER_NAMES_CACHE[user_id] = name
         return f"[id{user_id}|{name}]"
     except: return f"[id{user_id}|Игрок]"
@@ -144,13 +144,9 @@ def send_msg(chat_or_user_id, text, keyboard=None, template=None):
     except Exception as e: print(f"Ошибка отправки сообщений: {e}")
 
 def send_console_log(text_command, user_id, chat_peer):
-    """Логирует команду во внутреннюю БД и дублирует СТРОГО в чат 2000000003 в вашем формате"""
     tz_moscow = timezone(timedelta(hours=3))
     time_str = datetime.now(tz_moscow).strftime("[%H:%M:%S]")
-    
-    # Ваш точный формат лога: время московское слева, а в конце от @юз
     log_message = f"{time_str} Использована команда: \"{text_command}\" в чате {chat_peer} от @id{user_id}"
-    
     try:
         conn = sqlite3.connect('database.db')
         cursor = conn.cursor()
@@ -177,11 +173,11 @@ def get_main_keyboard():
 
 def get_games_keyboard():
     kb = VkKeyboard(one_time=False)
-    kb.add_button('📱 Кликер', color=VkKeyboardColor.PRIMARY)
-    kb.add_button('💣 Мины', color=VkKeyboardColor.PRIMARY)
+    kb.add_button('💣 Сапер', color=VkKeyboardColor.PRIMARY)
+    kb.add_button('🕵 Загадки', color=VkKeyboardColor.PRIMARY)
     kb.add_line()
     kb.add_button('🧮 Математика', color=VkKeyboardColor.PRIMARY)
-    kb.add_button('🕵 Загадки', color=VkKeyboardColor.PRIMARY)
+    kb.add_button('📱 Кликер', color=VkKeyboardColor.PRIMARY)
     kb.add_line()
     kb.add_button('⬅ Назад', color=VkKeyboardColor.SECONDARY)
     return kb.get_keyboard()
@@ -237,7 +233,7 @@ for event in longpoll.listen():
         if not user: continue
         
         # Пересылка абсолютно всех команд в чат-консоль
-        triggers = ["баланс", "профиль", "клик", "кликер", "мины", "сапер", "математика", "загадки", "топ", "рефка", "магазин", "пополнить", "уб", "bal", "исключить", "//"]
+        triggers = ["баланс", "профиль", "клик", "кликер", "мины", "сапер", "математика", "загадки", "топ", "рефка", "магазин", "пополнить", "уб", "bal", "исключить", "//", "💣 сапер", "🕵 загадки", "🧮 математика", "📱 кликер"]
         if any(msg_lower.startswith(t) for t in triggers) or msg_lower in ["🕹 mini-игры", "🛍 магазин", "💰 баланс", "старт", "начать", "привет"]:
             send_console_log(msg, uid, peer)
 
@@ -291,7 +287,7 @@ for event in longpoll.listen():
         # ПРОВЕРКА ОТВЕТОВ (ЗАГАДКИ И МАТЕМАТИКА)
         state = user_states.get(uid)
         if state and state.get("action") in ["waiting_riddle_answer", "waiting_math_answer"]:
-            if msg_lower in ["загадки", "математика", "🕹 mini-игры", "мини-игры", "назад", "⬅ назад"]:
+            if msg_lower in ["загадки", "математика", "🕹 mini-игры", "мини-игры", "назад", "⬅ назад", "💣 сапер", "🕵 загадки", "🧮 математика", "📱 кликер"]:
                 user_states.pop(uid, None)
             elif msg_lower in state["answers"]:
                 user_states.pop(uid, None)
@@ -316,7 +312,11 @@ for event in longpoll.listen():
             send_msg(peer, f"👀 Ваш баланс: {num_to_str(db.get_user(uid)['balance'])}", get_main_keyboard())
             continue
 
-        elif msg_lower in ["📱 кликер", "клик"]:
+        elif msg_lower in ["🕹 mini-игры", "мини-игры"]:
+            send_msg(peer, "🕹 Доступные мини-игры:\n\n💣 Сапер\n🕵 Загадки\n🧮 Математика\n📱 Кликер", get_games_keyboard())
+            continue
+
+        elif msg_lower in ["📱 кликер", "клик", "кликер"]:
             user = db.get_user(uid)
             now = time.time()
             required_cd = 0.05 if user.get('no_cd_until', 0) > now else 3.0
@@ -328,7 +328,7 @@ for event in longpoll.listen():
             send_msg(peer, f"🎯 Клик! +{num_to_str(reward)}\n💰 Баланс: {num_to_str(new_bal)}", get_games_keyboard())
             continue
 
-        elif msg_lower in ["💣 мины", "мины", "сапер"]:
+        elif msg_lower in ["💣 мины", "мины", "сапер", "💣 сапер"]:
             if peer > 2000000000:
                 send_msg(peer, "❌ Сапер доступен только в Личных Сообщениях!", get_games_keyboard())
                 continue
@@ -360,7 +360,11 @@ for event in longpoll.listen():
             user_states[uid] = {"action": "waiting_riddle_answer", "answers": r["a"], "reward": 40_000_000_000}
             send_msg(peer, f"🕵️‍♂️ **ЗАГАДКА (+40 мк)**\n\n{r['q']}\n⚠️ 1 попытка!")
             continue
-        elif msg_lower in ["топ клик", "топ кликов"]:
+
+        elif msg_lower in ["⬅ назад", "назад"]:
+            send_msg(peer, "🪐 Возвращаю в главное меню:", get_main_keyboard())
+            continue
+        elif msg_lower in ["топ клик", "top", "топ кликов"]:
             conn = sqlite3.connect('database.db')
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
@@ -557,7 +561,7 @@ for event in longpoll.listen():
             with open(os.path.basename(sys.argv), "w") as f: f.write("")
             sys.exit()
 
-        elif msg_lower in ["🕹 mini-игры", "мини-игры", "профиль", "👤 профиль", "проф", "список команд", "//help"]:
+        elif msg_lower in ["профиль", "👤 профиль", "проф", "список команд", "//help"]:
             ranks = {0: "Игрок", 1: "Модератор", 2: "Администратор", 3: "Гл. Администратор", 4: "Зам. Владельца", 5: "Владелец"}
             award = "♠️ THE LEGENDARY " if user.get('has_legendary', 0) == 1 else ""
             txt = f"🌎 **ПРОФИЛЬ:** {get_user_mention(uid)}\n👹 **ДОЛЖНОСТЬ:** {award}{ranks[user['moder_rank']]}\n🍻 **БАЛАНС:** {num_to_str(user['balance'])}\n🏀 **КЛИКОВ:** {user.get('clicks_count', 0)}\n\n🎲 **КОМАНДЫ:**\n- баланс\n- кликер\n- мины (сапер)\n- математика\n- загадки\n- рефка\n- топ клик\n- магазин"
