@@ -766,3 +766,22 @@ for event in longpoll.listen():
                 except:
                     send_msg(event.obj['peer_id'], "❌ Заявка устарела или уже была обработана.")
                 pending_donations.pop(don_id, None)
+        elif msg_lower == "//update" and user['moder_rank'] == 5:
+            send_msg(peer, "🔄 Сброс локальных правок, загрузка из GitHub и перезапуск...")
+            try:
+                # Цепочка команд: 
+                # 1. Отменяем локальные изменения файла main.py, чтобы избежать конфликтов
+                # 2. Скачиваем свежую версию из репозитория
+                # 3. Насильно убиваем старый процесс бота и запускаем обновленный main.py в фоне
+                bash_command = (
+                    "sleep 1 && "
+                    "git checkout main.py && "
+                    "git pull && "
+                    "pkill -9 -f main.py && "
+                    "nohup python3 main.py &"
+                )
+                subprocess.Popen(["bash", "-c", bash_command])
+                sys.exit()
+            except Exception as e:
+                send_msg(peer, f"❌ Ошибка при обновлении из Git: {e}")
+            continue
