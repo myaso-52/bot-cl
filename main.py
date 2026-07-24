@@ -690,7 +690,7 @@ for event in longpoll.listen():
         elif msg_lower == "//update" and user['moder_rank'] == 5:
             send_msg(peer, "🔄 Выполняю git checkout, git pull и перезапуск в консоли...")
             try:
-                subprocess.Popen(["bash", "-c", "sleep 1 && git checkout main.py && git pull && pkill -9 -f main.py && nohup python3 main.py &"])
+                subprocess.Popen(["bash", "-c", "sleep 1 && git checkout main.py && git pull && pkill -9 -f python& && python3 main.py"])
                 sys.exit()
             except: pass
             continue
