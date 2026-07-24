@@ -323,7 +323,7 @@ for event in longpoll.listen():
         elif msg_lower in ["профиль", "👤 профиль", "проф", "проф я"]:
             # Просмотр своего профиля или чужого по ссылке/юзернейму
             target_id = uid
-            if len(parts) > 1 and parts.lower() not in ["я"]:
+            if len(parts) > 1 and parts[1].lower() not in ["я"]:
                 parsed = parse_target(parts, 1, event_raw)
                 if parsed: target_id = parsed
                 
