@@ -288,7 +288,7 @@ for event in longpoll.listen():
         if msg_lower in ["начать", "старт", "привет"]:
             welcome_text = (
                 f"👋 Добро пожаловать, {get_user_mention(uid)}!\n\n"
-                f"🤖 Я — игровой бот-кликер, интегрированный с «Бот нищий» (@badbotik).\n"
+                f"🤖 Я — игровой бот-кликер, сотрудничающий с @badbotik("Бот нищий").\n"
                 f"💰 Здесь ты можешь кликать, угадывать загадки и выводить реальные монеты!\n\n"
                 f"👇 Используй удобное кнопочное меню ниже для управления:"
             )
@@ -339,7 +339,7 @@ for event in longpoll.listen():
             send_msg(peer, profile_card, get_main_keyboard())
             continue
 
-        elif msg_lower.startswith("вывод") or msg_lower in ["💸 Вывод", "вывод"]:
+        elif msg_lower.startswith("💸 Вывод") or msg_lower in ["💸 Вывод", "вывод"]:
             if len(parts) < 2 and msg_lower in ["вывод", "💸 вывод"]:
                 send_msg(peer, "💡 Подсказка: вывод [сумма]", get_main_keyboard())
                 continue
