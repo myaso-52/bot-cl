@@ -9,9 +9,9 @@ from vk_api import VkApi
 from vk_api.bot_longpoll import VkBotLongPoll, VkBotEventType
 from vk_api.utils import get_random_id
 TOKEN = "vk1.a.4NLW0LW3cobhYjBFzUQ1uvIF8Zn93a7G9W--YJ-URTkk9tf9Qt7TCXYFGv1pQ-o17M_1oRUhJMEV53edLMcBKwIB9F3JIRJl-Vi0YXAAT26pOvv3_XY5Yc6wj6PQmt8p2BVheWDb4GKoIsjBkTT9pyVWWTK3qv0LZwZJv7FOFqczW5BAc7X9Hub2eaYgeWt9txSLeBYlbB-MiTG47JBKkQ"
-GROUP_ID = 123456789          # Цифровой ID вашей группы ВК
+GROUP_ID = 240438650          # Цифровой ID вашей группы ВК
 CONSOLE_PEER_ID = 2000000003  # ID чата для вывода логов консоли
-OWNER_ID = 1234567890         # Ваш личный цифровой ID ВКонтакте
+OWNER_ID = 827888215         # Ваш личный цифровой ID ВКонтакте
 
 vk_session = VkApi(token=TOKEN)
 vk = vk_session.get_api()
