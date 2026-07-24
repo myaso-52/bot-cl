@@ -339,7 +339,7 @@ for event in longpoll.listen():
             send_msg(peer, profile_card, get_main_keyboard())
             continue
 
-        elif msg_lower.startswith("вывод") or msg_lower in ["💸 вывод", "вывод"]:
+        elif msg_lower.startswith("вывод") or msg_lower in ["💸 Вывод", "вывод"]:
             if len(parts) < 2 and msg_lower in ["вывод", "💸 вывод"]:
                 send_msg(peer, "💡 Подсказка: вывод [сумма]", get_main_keyboard())
                 continue
@@ -375,7 +375,7 @@ for event in longpoll.listen():
             send_msg(peer, "✅ Списание успешно! Множитель х2 кликов на 12 часов успешно активирован!", get_main_keyboard())
 
         # ИСПРАВЛЕНО: Ловит нажатие на кнопку со смайликом «🕹 Мини-игры»
-        elif msg_lower in ["🕹 mini-игры", "мини-игры", "🕹 мини-игры"]:
+        elif msg_lower in ["🕹 mini-игры", "мини-игры", "🕹 мини-игры", "🕹 Мини-игры"]:
             games_text = (
                 f"🎲 **СПИСОК МИНИ-ИГР:**\n\n"
                 f"• Клик - доход 15мк за клик (доступно раз в 3 секунды) [Работает Везде]\n\n"
@@ -454,7 +454,7 @@ for event in longpoll.listen():
                     send_msg(peer, f"❌ Ошибка исключения! Код: {e}", get_main_keyboard())
             continue
 
-        elif msg_lower in ["//help", "📋список команд", "список команд", "📋 список команд"]:
+        elif msg_lower in ["//help", "📋список команд", "список команд", "📋 список команд", "модер помощь"]:
             r = user['moder_rank']
             txt = "📋 **СПИСОК ДОСТУПНЫХ ВАМ КОМАНД:**\n\n- баланс\n- профиль [ссылка/юз]\n- вывод [сумма]\n- бонус\n"
             if r >= 1: txt += "\n⚠️ **РАНГ МОДЕРАТОР [1+]:**\n- bal [ссылка/юз] — чужой баланс\n- выгнать [ссылка/юз] — кик из чата\n"
