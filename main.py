@@ -173,7 +173,7 @@ def get_games_keyboard():
 
 def get_support_keyboard():
     kb = VkKeyboard(inline=True)
-    kb.add_open_link_button(label="👤 Связаться с Тех. Админом", link="https://vk.me")
+    kb.add_open_link_button(label="👤 Связаться с Тех. Админом", link="https://vk.me/francescopapa")
     return kb.get_keyboard()
 
 def get_manual_deposit_keyboard():
