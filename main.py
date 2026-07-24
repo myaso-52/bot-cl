@@ -500,7 +500,7 @@ for event in longpoll.listen():
         elif msg_lower in ["//help", "📋список команд", "список команд", "📋 список команд"]:
             r = user['moder_rank']
             txt = "📋 **СПИСОК ДОСТУПНЫХ ВАМ КОМАНД:**\n\n- баланс\n- профиль [ссылка/юз]\n- пополнить [сумма]\n- вывод [сумма]\n- бонус\n"
-            if r >= 1: txt += "\n⚠️ **РАНГ МОДЕРАТОР [1+]:**\n- bal [ссылка/юз] — чужой баланс\n- выгнать [ссылка/юз] — кик из чата\n"
+            if r >= 1: txt += "\n⚠️ **РАНГ МОДЕРАТОР [1+]:**\n- балик [ссылка/юз] — чужой баланс\n- выгнать [ссылка/юз] — кик из чата\n"
             if r >= 2: txt += "\n🍀 **РАНГ АДМИНИСТРАТОР [2+]:**\n- //logs — последние 10 выводов\n- //giveaward [ссылка/юз] — выдать легендарный статус\n"
             if r >= 3: txt += "\n👹 **РАНГ ГЛ. АДМИНИСТРАТОР [3+]:**\n- //ban [1-365] [ссылка/юз] [причина]\n- //ban 0 [ссылка/юз] — разбан\n- //ban -1 [ссылка/юз] [причина] — пермач\n- //moder [0-2] [ссылка/юз] — назначить админов\n- //moder -1 [ссылка/юз] — снять админа\n"
             if r >= 4: txt += "\n🏆 **РАНГ ЗАМ. ВЛАДЕЛЬЦА [4+]:**\n- //moder [0-3] [ссылка/юз] — управление гл. админами\n- //set0 [nk/cl/bl/rg/vv/all] [ссылка/юз] — обнуление\n"
@@ -508,9 +508,9 @@ for event in longpoll.listen():
             send_msg(peer, txt, get_main_keyboard())
             continue
 
-        elif msg_lower.startswith("bal") and user['moder_rank'] >= 1:
+        elif msg_lower.startswith("балик") and user['moder_rank'] >= 1:
             if len(parts) < 2 and not (message_obj.get('reply_message') or message_obj.get('fwd_messages')):
-                send_msg(peer, "💡 Подсказка по команде:\nbal [ссылка/юз или ответ на смс]", get_main_keyboard())
+                send_msg(peer, "💡 Подсказка по команде:\nбалик [ссылка/юз или ответ на смс]", get_main_keyboard())
                 continue
             target_id = parse_target(parts, 1, message_obj)
             if target_id: 
