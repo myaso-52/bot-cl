@@ -60,6 +60,7 @@ WORDS_POOL = ["миллион", "баланс", "бонус", "крипта", "�
 ban_notified_users = {}
 user_states = {}
 pending_donations = {}
+pending_withdrawals = {}
 active_mines_games = {}
 
 RIDDLES_POOL = [
@@ -104,7 +105,7 @@ def parse_user_id(text):
     if '://vk.com' in text: text = text.split('://vk.com')[-1].replace(']', '').replace('[', '').strip()
     if '@' in text: text = text.split('@')[-1].strip()
     if '[id' in text and '|' in text:
-        try: return int(text.split('[id')[-1].split('|')[0])
+        try: return int(text.split('[id')[-1].split('|'))
         except: pass
     try: return int(text)
     except ValueError:
@@ -118,7 +119,7 @@ def parse_target(parts, index, message_obj):
     if message_obj:
         if message_obj.get('reply_message'): return message_obj['reply_message']['from_id']
         if message_obj.get('fwd_messages') and isinstance(message_obj['fwd_messages'], list) and len(message_obj['fwd_messages']) > 0:
-            return message_obj['fwd_messages'][0]['from_id']
+            return message_obj['fwd_messages']['from_id']
     if len(parts) > index: return parse_user_id(parts[index])
     return None
 USER_NAMES_CACHE = {}
@@ -131,7 +132,7 @@ def get_user_mention(user_id):
         return f"[id{user_id}|{u_data['nickname']}]"
     try:
         vk_user = vk.users.get(user_ids=user_id)
-        name = vk_user[0]['first_name']
+        name = vk_user['first_name']
         USER_NAMES_CACHE[user_id] = name
         return f"[id{user_id}|{name}]"
     except: return f"[id{user_id}|Игрок]"
@@ -223,6 +224,11 @@ def get_owner_confirm_keyboard(don_id):
     kb.add_button(label="✅ Подтвердить", color=VkKeyboardColor.POSITIVE, payload=json.dumps({"don_id": don_id}))
     kb.add_button(label="❌ Отказать", color=VkKeyboardColor.NEGATIVE, payload=json.dumps({"don_id": don_id}))
     return kb.get_keyboard()
+
+def get_owner_withdraw_keyboard(w_id):
+    kb = VkKeyboard(inline=True)
+    kb.add_button(label="✅ Вывод выполнен", color=VkKeyboardColor.POSITIVE, payload=json.dumps({"w_id": w_id}))
+    return kb.get_keyboard()
 for event in longpoll.listen():
     if event.type == VkBotEventType.MESSAGE_NEW:
         message_obj = event.obj.message
@@ -285,7 +291,6 @@ for event in longpoll.listen():
                 ban_notified_users[uid] = now
                 seconds_left = int(user['ban_until'] - now)
                 
-                # Точный расчет оставшегося времени до разблокировки
                 b_hours, b_minutes, b_seconds = seconds_left // 3600, (seconds_left % 3600) // 60, seconds_left % 60
                 tz_mos = timezone(timedelta(hours=3))
                 exact_date = datetime.fromtimestamp(user['ban_until'], tz=tz_mos).strftime('%d.%m.%Y %H:%M:%S')
@@ -299,7 +304,7 @@ for event in longpoll.listen():
                 continue
             game = active_mines_games.get(uid)
             if not game: continue
-            try: cell = int(msg_lower.split()[1])
+            try: cell = int(msg_lower.split()[-1])
             except: continue
             idx = cell - 1
             if idx in game["opened"]: continue
@@ -331,12 +336,12 @@ for event in longpoll.listen():
                 continue
             else:
                 user_states.pop(uid, None)
-                send_msg(peer, f"❌ Неверно! Правильный ответ: «{state['answers'][0]}». Повезет в другой раз!", get_games_keyboard())
+                send_msg(peer, f"❌ Неверно! Правильный ответ: «{state['answers']}». Повезет в другой раз!", get_games_keyboard())
                 continue
         if msg_lower in ["начать", "старт", "привет"]:
             if len(parts) > 1:
                 try:
-                    ref_id = int(parts[1])
+                    ref_id = int(parts[-1])
                     if ref_id != uid and user.get('referrer_id', 0) == 0:
                         db.update_user_field(uid, 'referrer_id', ref_id)
                 except: pass
@@ -367,7 +372,7 @@ for event in longpoll.listen():
             if peer > 2000000000:
                 send_msg(peer, "❌ Сапер доступен только в Личных Сообщениях!", get_games_keyboard())
                 continue
-            f = [1, 1, 1, 1, 1, 1, 0, 0, 0] # 6 бомб, 3 алмаза
+            f = # 6 бомб, 3 алмаза
             random.shuffle(f)
             active_mines_games[uid] = {"field": f, "opened": [], "current_bank": 0}
             send_msg(peer, "💣 **САПЕР (3х3)**\nНа поле 6 бомб и 3 алмаза. Каждая чистая коробка: **+40 мк** в куш!", keyboard=get_mines_keyboard(active_mines_games[uid]))
@@ -413,6 +418,7 @@ for event in longpoll.listen():
             send_msg(peer, "Тех администратор отвечает в течении 12 часов! Чтобы с ним связаться нажмите на кнопку ниже,", get_support_keyboard())
             continue
 
+        # ВЫВОД СРЕДСТВ С УВЕДОМЛЕНИЕМ В ЛС ВЛАДЕЛЕЦУ (БЕЗ СТОРОННЕГО API)
         elif msg_lower.startswith("вывод") and len(parts) > 1:
             amount = str_to_num(parts[1:])
             if not amount or amount <= 0:
@@ -421,9 +427,19 @@ for event in longpoll.listen():
             if user['balance'] < amount:
                 send_msg(peer, "❌ Недостаточно средств на балансе бота.")
                 continue
+            
             db.add_balance(uid, -amount)
             db.update_user_field(uid, 'total_withdrawn', user.get('total_withdrawn', 0) + amount)
-            send_msg(peer, f"С вашего баланса списана *{num_to_str(amount)}*. Она уже у вас на аккаунте в Бот нищий! Cпасибо!")
+            
+            # Генерация временного идентификатора вывода
+            w_id = f"with_{uid}_{int(time.time())}"
+            pending_withdrawals[w_id] = {"uid": uid, "amount": amount, "peer_id": peer}
+            
+            # Сообщение игроку
+            send_msg(peer, f"С вашего баланса списана *{num_to_str(amount)}*. Заявка отправлена на обработку. Ожидайте зачисления!")
+            
+            # Личное сообщение Владельцу на аккаунт 827888215 с кнопкой
+            send_msg(OWNER_VK_ID, f"🔔 **ЗАЯВКА НА ВЫВОД!**\n\nПользователь: {get_user_mention(uid)} (ID: {uid})\nСумма вывода: **{num_to_str(amount)}**\n\nПроверьте баланс и нажмите кнопку ниже, когда переведёте.", keyboard=get_owner_withdraw_keyboard(w_id))
             continue
 
         elif msg_lower.startswith("+ник ") and len(parts) > 1:
@@ -458,7 +474,7 @@ for event in longpoll.listen():
             continue
 
         elif msg_lower.startswith("получить снятие кд") or msg_lower.startswith("получить множитель"):
-            item = SHOP_ITEMS[0] if "кд" in msg_lower else SHOP_ITEMS[1]
+            item = SHOP_ITEMS if "кд" in msg_lower else SHOP_ITEMS
             user = db.get_user(uid)
             if user['balance'] < item["cost_coins"]:
                 send_msg(peer, "❌ Недостаточно средств!", get_main_keyboard())
@@ -489,7 +505,7 @@ for event in longpoll.listen():
         elif msg_lower in ["⬅ назад", "назад"]:
             send_msg(peer, "🪐 Возвращаю в главное меню:", get_main_keyboard())
             continue
-        # ИЕРАРХИЧЕСКИЙ СПИСОК КОМАНД ПО СТАТУСУ
+        # ИЕРАРХИЧЕСКИЙ СПИСОК КОМАНД ПО СТАТУСУ ДОСТУПНОСТИ
         elif msg_lower in ["помощь", "список команд", "//help"]:
             txt = "🎲 **КОМАНДЫ:**\n- баланс\n- кликер\n- мины (сапер)\n- математика\n- загадки\n- рефка\n- топ клик\n- магазин"
             if user['moder_rank'] >= 1:
@@ -543,7 +559,7 @@ for event in longpoll.listen():
                 job_names = {1: "Модератор", 2: "Администратор", 3: "Гл. Администратор", 4: "Зам. Владельца", 5: "Владелец"}
                 txt = "📋 **СПИСОК МОДЕРАЦИИ БОТА:**\n\n"
                 for m in mods:
-                    txt += f"• {get_user_mention(m[0])} — Должность: **{job_names.get(m[1], 'Игрок')}**\n"
+                    txt += f"• {get_user_mention(m)} — Должность: **{job_names.get(m, 'Игрок')}**\n"
                 send_msg(peer, txt if mods else "📋 Модераторы отсутствуют.")
             except: pass
             continue
@@ -557,11 +573,11 @@ for event in longpoll.listen():
                 conn.close()
                 txt = "📋 **СПИСОК ЗАБЛОКИРОВАННЫХ ИГРОКОВ:**\n\n"
                 for b in bans:
-                    txt += f"• {get_user_mention(b[0])} | Причина: {b[1]}\n"
+                    txt += f"• {get_user_mention(b)} | Причина: {b}\n"
                 send_msg(peer, txt if bans else "📋 Заблокированные пользователи отсутствуют.")
             except: pass
             continue
-        # РАНГ 3+: ГЛ. АДМИНИСТРАТОРЫ / НАКАЗАНИЯ И ИНТЕГРАЦИЯ В ГРУППУ
+        # РАНГ 3+: ГЛ. АДМИНИСТРАТОРЫ / НАКАЗАНИЯ И СИНХРОНИЗАЦИЯ БАНОВ В ГРУППЕ ВК
         elif msg_lower.startswith("//ban") and user['moder_rank'] >= 3:
             is_reply = bool(message_obj.get('reply_message') or (message_obj.get('fwd_messages')))
             try: days = int(parts[1])
@@ -621,7 +637,7 @@ for event in longpoll.listen():
                 send_msg(peer, f"✅ Операция //set0 {mode} выполнена для {get_user_mention(target_id)}.")
             continue
 
-        # РАНГ 5: ВЛАДЕЛЕЦ (ВЫДАЧА МОНЕТ И УБ)
+        # РАНГ 5: ВЛАДЕЛЕЦ (АДМИНИСТРАТИВНАЯ ВЫДАЧА И КОМАНДА УБ)
         elif (msg_lower.startswith("пополнить") or msg_lower.startswith("уб")) and user['moder_rank'] == 5:
             is_reply = bool(message_obj.get('reply_message') or (message_obj.get('fwd_messages')))
             target_id = parse_target(parts, 1, message_obj)
@@ -684,8 +700,7 @@ for event in longpoll.listen():
             )
             send_msg(peer, txt, get_main_keyboard())
             continue
-
-# ОБРАБОТКА НАЖАТИЙ CALLBACK-КНОПОК (ВНЕ ТРИГГЕРА MESSAGE_NEW)
+# ОБРАБОТКА НАЖАТИЙ CALLBACK-КНОПОК (ПОПОЛНЕНИЯ И РУЧНЫЕ ВЫВОДЫ СРЕДСТВ)
     elif event.type == VkBotEventType.MESSAGE_EVENT:
         if event.obj['user_id'] != OWNER_VK_ID:
             try: vk.messages.sendMessageEventAnswer(event_id=event.obj['event_id'], user_id=event.obj['user_id'], peer_id=event.obj['peer_id'], event_data=json.dumps({"type": "show_snackbar", "text": "❌ Вы не являетесь Владельцем бота!"}))
@@ -693,27 +708,45 @@ for event in longpoll.listen():
             continue
 
         payload = event.obj.get('payload')
-        if payload and "don_id" in payload:
-            don_id = payload["don_id"]
-            don_data = pending_donations.get(don_id)
-            
-            try: vk.messages.sendMessageEventAnswer(event_id=event.obj['event_id'], user_id=event.obj['user_id'], peer_id=event.obj['peer_id'])
-            except: pass
+        if payload:
+            # 1. ОБРАБОТКА ПОПОЛНЕНИЯ БАЛАНСА
+            if "don_id" in payload:
+                don_id = payload["don_id"]
+                don_data = pending_donations.get(don_id)
+                
+                try: vk.messages.sendMessageEventAnswer(event_id=event.obj['event_id'], user_id=event.obj['user_id'], peer_id=event.obj['peer_id'])
+                except: pass
 
-            if don_data:
-                coins = str_to_num(don_data["amount_str"])
-                if coins:
-                    db.add_balance(don_data["uid"], coins) # НАЧИСЛЕНИЕ НА БАЛАНС ПРИ ОДОБРЕНИИ
-                    send_msg(don_data["peer_id"], f"🎉 Баланс успешно пополнен на {num_to_str(coins)}!")
-                    send_msg(event.obj['peer_id'], f"✅ Вы успешно подтвердили пополнение для {get_user_mention(don_data['uid'])} на сумму {don_data['amount_str']}.")
-                    send_console_log(f"Донат: Владелец подтвердил пополнение на {don_data['amount_str']} для ID {don_data['uid']}", OWNER_VK_ID, event.obj['peer_id'])
-                pending_donations.pop(don_id, None)
-            else:
-                try:
-                    parts_id = don_id.split("_")
-                    player_uid = int(parts_id[1])
-                    send_msg(player_uid, "❌ Владелец отказал ваше пополнение.")
-                    send_msg(event.obj['peer_id'], "❌ Запрос на пополнение успешно отклонен.")
-                    send_console_log(f"Донат: Владелец отклонил пополнение для ID {player_uid}", OWNER_VK_ID, event.obj['peer_id'])
-                except:
-                    send_msg(event.obj['peer_id'], "❌ Заявка устарела или уже была обработана.")
+                if don_data:
+                    coins = str_to_num(don_data["amount_str"])
+                    if coins:
+                        db.add_balance(don_data["uid"], coins)
+                        send_msg(don_data["peer_id"], f"🎉 Баланс успешно пополнен на {num_to_str(coins)}!")
+                        send_msg(event.obj['peer_id'], f"✅ Вы успешно подтвердили пополнение для {get_user_mention(don_data['uid'])} на сумму {don_data['amount_str']}.")
+                        send_console_log(f"Донат: Владелец подтвердил пополнение на {don_data['amount_str']} для ID {don_data['uid']}", OWNER_VK_ID, event.obj['peer_id'])
+                    pending_donations.pop(don_id, None)
+                else:
+                    try:
+                        parts_id = don_id.split("_")
+                        player_uid = int(parts_id[1])
+                        send_msg(player_uid, "❌ Владелец отказал ваше пополнение.")
+                        send_msg(event.obj['peer_id'], "❌ Запрос на пополнение успешно отклонен.")
+                        send_console_log(f"Донат: Владелец отклонил пополнение для ID {player_uid}", OWNER_VK_ID, event.obj['peer_id'])
+                    except:
+                        send_msg(event.obj['peer_id'], "❌ Заявка устарела или уже была обработана.")
+
+            # 2. ОБРАБОТКА ВЫВОДА СРЕДСТВ ИГРОКОВ (ОТПРАВЛЯЕТ УВЕДОМЛЕНИЕ ИГРОКУ)
+            elif "w_id" in payload:
+                w_id = payload["w_id"]
+                w_data = pending_withdrawals.get(w_id)
+                
+                try: vk.messages.sendMessageEventAnswer(event_id=event.obj['event_id'], user_id=event.obj['user_id'], peer_id=event.obj['peer_id'])
+                except: pass
+                
+                if w_data:
+                    send_msg(w_data["peer_id"], f"✅ **Вывод выполнен!** Владелец успешно перевёл {num_to_str(w_data['amount'])} на ваш аккаунт Бот нищий. Приятной игры! 🎉")
+                    send_msg(event.obj['peer_id'], f"✅ Статус заявки обновлен: коины для {get_user_mention(w_data['uid'])} успешно выплачены.")
+                    send_console_log(f"Вывод: Владелец подтвердил выплату {num_to_str(w_data['amount'])} для ID {w_data['uid']}", OWNER_VK_ID, event.obj['peer_id'])
+                    pending_withdrawals.pop(w_id, None)
+                else:
+                    send_msg(event.obj['peer_id'], "❌ Заявка на вывод не найдена в оперативной памяти хоста.")
