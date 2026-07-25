@@ -2,6 +2,7 @@ import vk_api
 from vk_api.bot_longpoll import VkBotLongPoll, VkBotEventType
 from vk_api.keyboard import VkKeyboard, VkKeyboardColor
 import src.db as db
+import src.badbotik as badbot
 import sqlite3
 import random
 import time
@@ -11,7 +12,6 @@ import subprocess
 import json
 import re
 import threading
-import src.badbotik as badbot
 from datetime import datetime, timedelta, timezone
 
 VK_TOKEN = "vk1.a.4NLW0LW3cobhYjBFzUQ1uvIF8Zn93a7G9W--YJ-URTkk9tf9Qt7TCXYFGv1pQ-o17M_1oRUhJMEV53edLMcBKwIB9F3JIRJl-Vi0YXAAT26pOvv3_XY5Yc6wj6PQmt8p2BVheWDb4GKoIsjBkTT9pyVWWTK3qv0LZwZJv7FOFqczW5BAc7X9Hub2eaYgeWt9txSLeBYlbB-MiTG47JBKkQ"
@@ -813,12 +813,12 @@ for event in longpoll.listen():
             if success:
                 send_msg(peer, f"✅ Вывод {num_to_str(amount)} выполнен!")
                 send_msg(DONATE_CHAT_ID, f"✅ Вывод: {num_to_str(amount)} -> {get_user_mention(uid)}")
-        else:
-           db.add_balance(uid, amount)
-           db.update_user_field(uid, 'total_withdrawn', user.get('total_withdrawn', 0) - amount)
-           db.update_user_field(uid, 'last_withdraw', last_withdraw)
-           send_msg(peer, "❌ Ошибка вывода. Средства возвращены на баланс.")
-continue
+            else:
+                db.add_balance(uid, amount)
+                db.update_user_field(uid, 'total_withdrawn', user.get('total_withdrawn', 0) - amount)
+                db.update_user_field(uid, 'last_withdraw', last_withdraw)
+                send_msg(peer, "❌ Ошибка вывода. Средства возвращены на баланс.")
+            continue
         elif msg_lower.startswith("+ник ") and len(parts) > 1:
             new_name = " ".join(parts[1:]).strip()
             if len(new_name) > 15:
@@ -997,7 +997,7 @@ continue
         elif msg_lower in ["⬅ назад", "назад"]:
             send_msg(peer, "🪐 Возвращаю в главное меню:", get_main_keyboard())
             continue
-        elif msg_lower in ["помощь", "список команд", "//help"]:
+                    elif msg_lower in ["помощь", "список команд", "//help"]:
             txt = "🎲 Команды:\n- баланс\n- кликер\n- мины (сапер)\n- математика\n- загадки\n- угадай число\n- крестики-нолики\n- кнб\n- вордли\n- рефка\n- топ клик\n- магазин\n- услуги\n- элит — привилегии\n- купэлит (дни) — купить\n- мой элит — остаток\n- администрация\n- репорт"
             if user['moder_rank'] >= 1:
                 txt += "\n\n⚠️ Модератор [1+]:\n- bal (ответ/ссылка)\n- исключить (ответ/ссылка)"
@@ -1409,7 +1409,6 @@ continue
             send_msg(peer, txt, get_main_keyboard())
             continue
 
-        # Проверка на ожидание дней ELITE
         state = user_states.get(uid)
         if state and state.get("action") == "waiting_elite_days":
             try:
