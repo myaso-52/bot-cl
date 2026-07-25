@@ -1,3 +1,4 @@
+cat > src/db.py << 'DBEOF'
 import sqlite3
 import time
 
@@ -108,3 +109,4 @@ def get_last_logs(limit=10):
         cursor.execute("SELECT * FROM withdraw_logs ORDER BY id DESC LIMIT ?", (limit,))
         rows = cursor.fetchall()
         return [dict(r) for r in rows]
+DBEOF
