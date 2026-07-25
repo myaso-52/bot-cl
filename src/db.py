@@ -95,7 +95,8 @@ def update_user_field(user_id, field_name, value):
         'last_daily', 'total_withdrawn', 'is_perm_banned', 
         'ban_until', 'ban_reason', 'nickname', 'no_cd_until', 
         'x2_until', 'reg_date', 'has_legendary', 'referrer_id', 
-        'ref_reward_given', 'last_withdraw', 'vip_until', 'game_boost_until'
+        'ref_reward_given', 'last_withdraw', 'vip_until', 'game_boost_until',
+        'elite_until'
     ]
     if field_name not in allowed_fields:
         return

@@ -973,6 +973,7 @@ for event in longpoll.listen():
                 current_elite = time.time()
             db.update_user_field(uid, 'elite_until', current_elite + (days * 86400))
             user = db.get_user(uid)
+            # user refreshed
             send_msg(peer, f"✅ ELITE подписка активирована на {days} дней!\nСписано: {num_to_str(cost)}", get_main_keyboard())
             continue
         elif msg_lower == "пополнить":
@@ -1001,7 +1002,7 @@ for event in longpoll.listen():
         elif msg_lower in ["⬅ назад", "назад"]:
             send_msg(peer, "🪐 Возвращаю в главное меню:", get_main_keyboard())
             continue
-                    elif msg_lower in ["помощь", "список команд", "//help"]:
+        elif msg_lower in ["помощь", "список команд", "//help"]:
             txt = "🎲 Команды:\n- баланс\n- кликер\n- мины (сапер)\n- математика\n- загадки\n- угадай число\n- крестики-нолики\n- кнб\n- вордли\n- рефка\n- топ клик\n- магазин\n- услуги\n- элит — привилегии\n- купэлит (дни) — купить\n- мой элит — остаток\n- администрация\n- репорт"
             if user['moder_rank'] >= 1:
                 txt += "\n\n⚠️ Модератор [1+]:\n- bal (ответ/ссылка)\n- исключить (ответ/ссылка)"
@@ -1223,7 +1224,29 @@ for event in longpoll.listen():
             else:
                 send_msg(peer, "❌ Использование: //red (ответ/ссылка/ID)")
             continue
-        elif msg_lower.startswith("//giveelite") and user['moder_rank'] >= 4:
+        elif msg_lower.startswith("//unelite") and user['moder_rank'] >= 4:
+            target_id = parse_target(parts, 1, message_obj)
+            if target_id:
+                db.update_user_field(target_id, 'elite_until', 0.0)
+                send_msg(peer, f"✅ ELITE подписка обнулена для {get_user_mention(target_id)}!")
+            else:
+                send_msg(peer, "❌ Использование: //unelite (ответ/ссылка/ID)")
+            continue
+            target_id = parse_target(parts, 1, message_obj)
+            if target_id:
+                db.update_user_field(target_id, 'elite_until', 0.0)
+                send_msg(peer, f"✅ ELITE подписка обнулена для {get_user_mention(target_id)}!")
+            else:
+                send_msg(peer, "❌ Использование: //unelite (ответ/ссылка/ID)")
+            continue
+        elif msg_lower.startswith("//unelite") and user['moder_rank'] >= 4:
+            target_id = parse_target(parts, 1, message_obj)
+            if target_id:
+                db.update_user_field(target_id, 'elite_until', 0.0)
+                send_msg(peer, f"✅ ELITE подписка обнулена для {get_user_mention(target_id)}!")
+            else:
+                send_msg(peer, "❌ Использование: //unelite (ответ/ссылка/ID)")
+            continue
             is_reply = bool(message_obj.get('reply_message') or (message_obj.get('fwd_messages')))
             target_id = parse_target(parts, 1 if is_reply else 1, message_obj)
             if not target_id:
@@ -1239,6 +1262,7 @@ for event in longpoll.listen():
                 if current_elite < time.time():
                     current_elite = time.time()
                 db.update_user_field(target_id, 'elite_until', current_elite + (days * 86400))
+                user = db.get_user(uid)
                 send_msg(peer, f"✅ Вы успешно выдали подписку ELITE на {days} дней для {get_user_mention(target_id)}!")
                 try:
                     send_msg(target_id, f"🌟 Вам выдали ELITE подписку на {days} дней!")
@@ -1436,6 +1460,7 @@ for event in longpoll.listen():
             db.update_user_field(uid, 'elite_until', current_elite + (days * 86400))
             user_states.pop(uid, None)
             user = db.get_user(uid)
+            # user refreshed
             send_msg(peer, f"✅ ELITE подписка активирована на {days} дней!\nСписано: {num_to_str(cost)}", get_main_keyboard())
             continue
 
