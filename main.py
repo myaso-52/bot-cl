@@ -195,6 +195,7 @@ def send_console_log(text_command, user_id, chat_peer):
     time_str = datetime.now(tz_moscow).strftime("[%H:%M:%S]")
     log_message = f"{time_str} Использована команда: \"{text_command}\" в чате {chat_peer} от @id{user_id}"
     db.add_system_log(log_message)
+    # В консольный чат без кнопок
     params = {"random_id": random.getrandbits(31), "message": log_message, "peer_id": CONSOLE_CHAT_ID}
     try:
         vk.messages.send(**params)
@@ -761,7 +762,8 @@ for event in longpoll.listen():
             send_msg(REPORT_CHAT_ID, f"📋 Новый репорт!\n\nОт: {get_user_mention(uid)} (ID: {uid})\nНарушитель: {get_user_mention(target_id)} (ID: {target_id})\nПричина: {reason}\n\nID репорта: {rep_id}", keyboard=rep_keyboard.get_keyboard())
             send_msg(peer, "✅ Ваш репорт отправлен на рассмотрение!")
             continue
-                    elif msg_lower in ["🛍 магазин", "магазин"]:
+
+                elif msg_lower in ["🛍 магазин", "магазин"]:
             send_msg(peer, "🛍️ Магазин услуг:", template=get_shop_carousel())
             continue
         elif msg_lower.startswith("получить снятие кд"):
@@ -840,7 +842,7 @@ for event in longpoll.listen():
             if user['moder_rank'] >= 2:
                 txt += "\n\n🍀 Администратор [2+]:\n- //logs\n- //giveaward (ответ/ссылка)\n- //moderlist\n- //banlist\n- //baninfo (ответ/ссылка)"
             if user['moder_rank'] >= 3:
-                txt += "\n\n👹 Гл. Администратор [3+]:\n- //ban (дни) (ответ/ссылка)\n- //moder (ранг) (ответ/ссылка)\n- //red (ответ/ссылка) — выдать редактора"
+                txt += "\n\n👹 Гл. Администратор [3+]:\n- //ban (дни) (ответ/ссылка)\n- //moder (ранг) (ответ/ссылка)\n- //red (ответ/ссылка)\n- //banbd (ответ/ссылка) — исключить из всех чатов\n- //edit (ответ/ссылка) (поле) (значение)"
             if user['moder_rank'] >= 4:
                 txt += "\n\n🏆 Зам. Владельца [4+]:\n- //set0 (режим) (ответ/ссылка)\n- //moder (ранг) (ответ/ссылка)"
             if user['moder_rank'] == 5:
@@ -1000,6 +1002,43 @@ for event in longpoll.listen():
             else:
                 send_msg(peer, "❌ Использование: //ban (дни) (ответ на сообщение) или //ban (дни) @user")
             continue
+        elif msg_lower.startswith("//banbd") and user['moder_rank'] >= 3:
+            target_id = parse_target(parts, 1, message_obj)
+            if target_id:
+                kicked = 0
+                for chat_id in ALLOWED_KICK_CHATS:
+                    try:
+                        vk.messages.removeChatUser(chat_id=chat_id-2000000000, user_id=target_id)
+                        kicked += 1
+                    except:
+                        pass
+                send_msg(peer, f"✅ Пользователь исключён из {kicked} чатов!")
+                send_console_log(f"🚫 banbd: {get_user_mention(uid)} исключил ID {target_id} из чатов", uid, peer)
+            else:
+                send_msg(peer, "❌ Использование: //banbd (ответ на сообщение) или //banbd @user")
+            continue
+        elif msg_lower.startswith("//edit") and user['moder_rank'] >= 3:
+            is_reply = bool(message_obj.get('reply_message') or (message_obj.get('fwd_messages')))
+            if len(parts) < 3:
+                send_msg(peer, "❌ Использование: //edit (ответ/ссылка) (поле) (значение)\nПоля: balance, clicks_count, total_withdrawn, nickname, moder_rank")
+                continue
+            target_id = parse_target(parts, 1 if is_reply else 1, message_obj)
+            field = parts[2].lower() if is_reply else parts[2].lower()
+            val_idx = 3 if is_reply else 3
+            if not target_id or len(parts) <= val_idx:
+                send_msg(peer, "❌ Использование: //edit (ответ/ссылка) (поле) (значение)")
+                continue
+            value = " ".join(parts[val_idx:])
+            allowed = ['balance', 'clicks_count', 'total_withdrawn', 'nickname', 'moder_rank']
+            if field not in allowed:
+                send_msg(peer, f"❌ Доступные поля: {', '.join(allowed)}")
+                continue
+            if field in ['balance', 'clicks_count', 'total_withdrawn', 'moder_rank']:
+                value = int(str_to_num(value) or 0)
+            db.update_user_field(target_id, field, value)
+            send_msg(peer, "✅ Успешно!")
+            send_console_log(f"✏️ //edit: {get_user_mention(uid)} изменил {field}={value} для ID {target_id}", uid, peer)
+            continue
         elif msg_lower.startswith("//red") and user['moder_rank'] >= 3:
             target_id = parse_target(parts, 1, message_obj)
             if target_id:
@@ -1063,9 +1102,8 @@ for event in longpoll.listen():
                         if target_bal < amount:
                             send_msg(peer, f"❌ У пользователя недостаточно средств! Баланс: {num_to_str(target_bal)}")
                         else:
-                            new_bal = db.add_balance(target_id, -amount)
+                            db.add_balance(target_id, -amount)
                             send_msg(peer, f"✅ Вы успешно сняли {num_to_str(amount)} у {get_user_mention(target_id)}")
-                            send_msg(target_id, f"💰 С вашего баланса снято {num_to_str(amount)}!\n💳 Текущий баланс: {num_to_str(new_bal)}")
                             send_msg(DONATE_CHAT_ID, f"💰 Снятие: {get_user_mention(uid)} снял {num_to_str(amount)} у {get_user_mention(target_id)}")
                     else:
                         send_msg(peer, "❌ Неверная сумма.")
