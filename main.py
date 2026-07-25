@@ -199,7 +199,7 @@ def get_user_mention(user_id):
         return f"[id{user_id}|Игрок]"
 
 def send_msg(chat_or_user_id, text, keyboard=None, template=None):
-    if chat_or_user_id > 2000000000 and keyboard:
+    if chat_or_user_id > 2000000000:
         keyboard = None
     params = {"random_id": random.getrandbits(31), "message": text, "peer_id": chat_or_user_id}
     if keyboard:
