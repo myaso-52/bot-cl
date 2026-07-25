@@ -44,6 +44,29 @@ def init_db():
             text TEXT
         )
     ''')
+    
+    # Добавление недостающих колонок
+    try:
+        cursor.execute("ALTER TABLE users ADD COLUMN last_withdraw REAL DEFAULT 0.0")
+    except:
+        pass
+    try:
+        cursor.execute("ALTER TABLE users ADD COLUMN vip_until REAL DEFAULT 0.0")
+    except:
+        pass
+    try:
+        cursor.execute("ALTER TABLE users ADD COLUMN game_boost_until REAL DEFAULT 0.0")
+    except:
+        pass
+    try:
+        cursor.execute("ALTER TABLE users ADD COLUMN referrer_id INTEGER DEFAULT 0")
+    except:
+        pass
+    try:
+        cursor.execute("ALTER TABLE users ADD COLUMN ref_reward_given INTEGER DEFAULT 0")
+    except:
+        pass
+    
     conn.commit()
     conn.close()
 
