@@ -1066,6 +1066,7 @@ for event in longpoll.listen():
             continue
 
     elif event.type == VkBotEventType.MESSAGE_EVENT:
+        print(f"DEBUG MESSAGE_EVENT: user_id={event.obj['user_id']}, payload={event.obj.get('payload')}")
         if event.obj['user_id'] != OWNER_VK_ID:
             try:
                 vk.messages.sendMessageEventAnswer(
@@ -1080,9 +1081,16 @@ for event in longpoll.listen():
 
         payload = event.obj.get('payload')
         if payload:
+            if isinstance(payload, str):
+                try:
+                    payload = json.loads(payload)
+                except:
+                    pass
+            
             if "confirm_don_id" in payload:
                 don_id = payload["confirm_don_id"]
                 don_data = pending_donations.get(don_id)
+                print(f"DEBUG CONFIRM: don_id={don_id}, data={don_data}")
                 try:
                     vk.messages.sendMessageEventAnswer(event_id=event.obj['event_id'], user_id=event.obj['user_id'], peer_id=event.obj['peer_id'])
                 except:
@@ -1095,10 +1103,13 @@ for event in longpoll.listen():
                         send_msg(event.obj['peer_id'], f"✅ Вы подтвердили пополнение для {get_user_mention(don_data['uid'])} на {don_data['amount_str']}.")
                         send_console_log(f"💰 Пополнение: Владелец подтвердил {don_data['amount_str']} для ID {don_data['uid']}", OWNER_VK_ID, event.obj['peer_id'])
                     pending_donations.pop(don_id, None)
+                else:
+                    send_msg(event.obj['peer_id'], "❌ Заявка не найдена или устарела.")
 
             elif "reject_don_id" in payload:
                 don_id = payload["reject_don_id"]
                 don_data = pending_donations.get(don_id)
+                print(f"DEBUG REJECT: don_id={don_id}, data={don_data}")
                 try:
                     vk.messages.sendMessageEventAnswer(event_id=event.obj['event_id'], user_id=event.obj['user_id'], peer_id=event.obj['peer_id'])
                 except:
@@ -1108,6 +1119,8 @@ for event in longpoll.listen():
                     send_msg(event.obj['peer_id'], f"❌ Вы отклонили пополнение для {get_user_mention(don_data['uid'])}.")
                     send_console_log(f"❌ Пополнение отклонено для ID {don_data['uid']}", OWNER_VK_ID, event.obj['peer_id'])
                     pending_donations.pop(don_id, None)
+                else:
+                    send_msg(event.obj['peer_id'], "❌ Заявка не найдена или устарела.")
 
             elif "w_id" in payload:
                 w_id = payload["w_id"]
