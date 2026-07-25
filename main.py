@@ -723,7 +723,7 @@ for event in longpoll.listen():
             if user['moder_rank'] >= 4:
                 txt += "\n\n🏆 Зам. Владельца [4+]:\n- //set0 (режим) (ответ/ссылка)\n- //moder (ранг) (ответ/ссылка)"
             if user['moder_rank'] == 5:
-                txt += "\n\n🎱 Владелец:\n- пополнить (ответ/ссылка) (сумма)\n- уб (ответ/ссылка) (сумма)\n- //chatid\n- //update\n- //fix\n- //clearfile"
+                txt += "\n\n🎱 Владелец:\n- пополнить (ответ/ссылка) (сумма)\n- уб (ответ/ссылка) (сумма)\n- //stop — остановить бота\n- //chatid\n- //update\n- //fix\n- //clearfile"
             send_msg(peer, txt, get_main_keyboard())
             continue
         elif msg_lower.startswith("bal") and user['moder_rank'] >= 1:
@@ -838,12 +838,8 @@ for event in longpoll.listen():
         elif msg_lower.startswith("//red") and user['moder_rank'] >= 3:
             target_id = parse_target(parts, 1, message_obj)
             if target_id:
-                try:
-                    vk.groups.editManager(group_id=GROUP_ID, user_id=target_id, role="editor")
-                    send_msg(peer, "✅ Успешно!")
-                    send_console_log(f"📝 Выдан редактор: {get_user_mention(uid)} -> {get_user_mention(target_id)}", uid, peer)
-                except Exception as e:
-                    send_msg(peer, f"❌ Ошибка: {e}")
+                send_msg(peer, f"✅ Чтобы выдать редактора, перейди по ссылке:\n\nhttps://vk.com/board?act=edit&mid={target_id}&gid={GROUP_ID}\n\nИ нажми «Назначить редактором»")
+                send_console_log(f"📝 Запрошен редактор: {get_user_mention(uid)} -> {get_user_mention(target_id)}", uid, peer)
             else:
                 send_msg(peer, "❌ Использование: //red (ответ на сообщение) или //red @user")
             continue
@@ -901,6 +897,12 @@ for event in longpoll.listen():
                     send_msg(target_id, f"💰 Ваш баланс успешно пополнен на {num_to_str(amount)}!\n💳 Текущий баланс: {num_to_str(new_bal)}")
             else:
                 send_msg(peer, "❌ Использование: пополнить/уб (ответ на сообщение) (сумма) или пополнить @user (сумма)")
+            continue
+        elif msg_lower == "//stop" and user['moder_rank'] == 5:
+            send_msg(peer, "🛑 Бот остановлен!")
+            send_console_log("🛑 Бот остановлен командой //stop", uid, peer)
+            os.system("pkill -9 -f main.py")
+            sys.exit()
             continue
         elif msg_lower == "//chatid" and user['moder_rank'] == 5:
             send_msg(peer, f"⚙️ ID текущей беседы ВК: {peer}")
