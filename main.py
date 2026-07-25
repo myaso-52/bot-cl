@@ -23,6 +23,7 @@ MODER_CHAT_ID = 2000000004
 CONSOLE_CHAT_ID = 2000000003
 OWNER_VK_ID = 827888215
 DONATE_CHAT_ID = 2000000006
+REPORT_CHAT_ID = 2000000007
 
 ALLOWED_KICK_CHATS = [TARGET_CHAT_ID, TEST_CHAT_ID, CONSOLE_CHAT_ID, MODER_CHAT_ID]
 
@@ -43,6 +44,7 @@ user_states = {}
 pending_donations = {}
 pending_withdrawals = {}
 active_games = {}
+active_reports = {}
 last_poll_check = {}
 
 contest_secret = random.randint(1, 50)
@@ -383,7 +385,7 @@ for event in longpoll.listen():
             except Exception as e:
                 print(f"Ошибка проверки истории: {e}")
 
-        triggers = ["баланс", "профиль", "клик", "кликер", "мины", "сапер", "математика", "загадки", "топ", "рефка", "магазин", "пополнить", "уб", "bal", "исключить", "вывод", "бонус", "+ник", "помощь", "📦 ", "//", "угадай", "крестики-нолики", "услуги", "xo_", "администрация"]
+        triggers = ["баланс", "профиль", "клик", "кликер", "мины", "сапер", "математика", "загадки", "топ", "рефка", "магазин", "пополнить", "уб", "bal", "исключить", "вывод", "бонус", "+ник", "помощь", "📦 ", "//", "угадай", "крестики-нолики", "услуги", "xo_", "администрация", "репорт"]
         if any(msg_lower.startswith(t) for t in triggers) or msg_lower in ["🕹 mini-игры", "🛍 магазин", "💰 баланс", "🎁 бонус", "🛠 тех. поддержка", "старт", "начать", "привет"]:
             send_console_log(msg, uid, peer)
 
@@ -573,6 +575,10 @@ for event in longpoll.listen():
         elif msg_lower in ["📱 кликер", "клик", "кликер"]:
             user = db.get_user(uid)
             now = time.time()
+            if now - user.get('last_click', 0) < 3.0:
+                left = int(3.0 - (now - user.get('last_click', 0)))
+                send_msg(peer, f"❌ Команда кликер доступна раз в 3 секунды! Осталось: {left} сек.")
+                continue
             if user.get('vip_until', 0) > now:
                 required_cd = 0.05
                 reward = 45000000000
@@ -738,6 +744,26 @@ for event in longpoll.listen():
                 txt += "❌ Нет активных услуг."
             send_msg(peer, txt, get_main_keyboard())
             continue
+        elif msg_lower.startswith("репорт") and len(parts) > 1:
+            if not is_dm:
+                send_msg(peer, "❌ Команда репорт доступна только в ЛС бота!")
+                continue
+            target_id = parse_target(parts, 1, message_obj)
+            if not target_id:
+                send_msg(peer, "❌ Использование: репорт (ссылка/ответ/ID) (причина)\nОбязательно перешлите сообщения нарушителя!")
+                continue
+            reason = " ".join(parts[2:]) if len(parts) > 2 else "Не указана"
+            if not message_obj.get('fwd_messages'):
+                send_msg(peer, "❌ Обязательно перешлите сообщения нарушителя!")
+                continue
+            rep_id = f"rep_{uid}_{int(time.time())}"
+            active_reports[rep_id] = {"uid": uid, "target_id": target_id, "reason": reason, "taken_by": None}
+            rep_keyboard = VkKeyboard(inline=True)
+            rep_keyboard.add_button(label="✉️ В ЛС к юзеру", color=VkKeyboardColor.PRIMARY, payload=json.dumps({"rep_to_user": rep_id}))
+            rep_keyboard.add_button(label="📋 Взять на рассмотрение", color=VkKeyboardColor.POSITIVE, payload=json.dumps({"rep_take": rep_id}))
+            send_msg(REPORT_CHAT_ID, f"📋 Новый репорт!\n\nОт: {get_user_mention(uid)} (ID: {uid})\nНарушитель: {get_user_mention(target_id)} (ID: {target_id})\nПричина: {reason}\n\nID репорта: {rep_id}", keyboard=rep_keyboard.get_keyboard())
+            send_msg(peer, "✅ Ваш репорт отправлен на рассмотрение!")
+            continue
         elif msg_lower in ["🛍 магазин", "магазин"]:
             send_msg(peer, "🛍️ Магазин услуг:", template=get_shop_carousel())
             continue
@@ -811,11 +837,11 @@ for event in longpoll.listen():
             send_msg(peer, "🪐 Возвращаю в главное меню:", get_main_keyboard())
             continue
         elif msg_lower in ["помощь", "список команд", "//help"]:
-            txt = "🎲 Команды:\n- баланс\n- кликер\n- мины (сапер)\n- математика\n- загадки\n- угадай число\n- крестики-нолики\n- рефка\n- топ клик\n- магазин\n- услуги\n- администрация"
+            txt = "🎲 Команды:\n- баланс\n- кликер\n- мины (сапер)\n- математика\n- загадки\n- угадай число\n- крестики-нолики\n- рефка\n- топ клик\n- магазин\n- услуги\n- администрация\n- репорт (в ЛС)"
             if user['moder_rank'] >= 1:
                 txt += "\n\n⚠️ Модератор [1+]:\n- bal (ответ/ссылка)\n- исключить (ответ/ссылка)"
             if user['moder_rank'] >= 2:
-                txt += "\n\n🍀 Администратор [2+]:\n- //logs\n- //giveaward (ответ/ссылка)\n- //moderlist\n- //banlist"
+                txt += "\n\n🍀 Администратор [2+]:\n- //logs\n- //giveaward (ответ/ссылка)\n- //moderlist\n- //banlist\n- //baninfo (ответ/ссылка)"
             if user['moder_rank'] >= 3:
                 txt += "\n\n👹 Гл. Администратор [3+]:\n- //ban (дни) (ответ/ссылка)\n- //moder (ранг) (ответ/ссылка)\n- //red (ответ/ссылка) — выдать редактора"
             if user['moder_rank'] >= 4:
@@ -920,6 +946,28 @@ for event in longpoll.listen():
             except:
                 pass
             continue
+        elif msg_lower.startswith("//baninfo") and user['moder_rank'] >= 2:
+            target_id = parse_target(parts, 1, message_obj)
+            if target_id:
+                target_user = db.get_user(target_id)
+                if target_user:
+                    is_banned = target_user.get('is_perm_banned', 0)
+                    ban_until = target_user.get('ban_until', 0)
+                    if is_banned:
+                        status = "🔒 Забанен навсегда"
+                    elif ban_until > time.time():
+                        tz_mos = timezone(timedelta(hours=3))
+                        unban_date = datetime.fromtimestamp(ban_until, tz=tz_mos).strftime('%d.%m.%Y %H:%M:%S')
+                        status = f"🔒 Забанен до {unban_date} МСК"
+                    else:
+                        status = "✅ Не забанен"
+                    txt = f"📋 Информация о блокировке:\n\n👤 Пользователь: {get_user_mention(target_id)}\n📅 Статус: {status}\n📝 Причина: {target_user.get('ban_reason', 'Не указана')}"
+                    send_msg(peer, txt)
+                else:
+                    send_msg(peer, "❌ Пользователь не найден.")
+            else:
+                send_msg(peer, "❌ Использование: //baninfo (ответ/ссылка/ID)")
+            continue
         elif msg_lower.startswith("//ban") and user['moder_rank'] >= 3:
             is_reply = bool(message_obj.get('reply_message') or (message_obj.get('fwd_messages')))
             try:
@@ -1016,8 +1064,26 @@ for event in longpoll.listen():
                     send_msg(peer, "✅ Успешно!")
                     send_msg(target_id, f"💰 Ваш баланс успешно пополнен на {num_to_str(amount)}!\n💳 Текущий баланс: {num_to_str(new_bal)}")
                     send_msg(DONATE_CHAT_ID, f"💰 Выдача: {get_user_mention(uid)} выдал {num_to_str(amount)} -> {get_user_mention(target_id)}")
+            elif target_id and len(parts) > amt_idx:
+                # Проверка на отрицательную сумму (снятие)
+                amt_text = " ".join(parts[amt_idx:])
+                if amt_text.startswith("-"):
+                    amount = str_to_num(amt_text[1:])
+                    if amount and amount > 0:
+                        target_bal = db.get_user(target_id)['balance']
+                        if target_bal < amount:
+                            send_msg(peer, f"❌ У пользователя недостаточно средств! Баланс: {num_to_str(target_bal)}")
+                        else:
+                            new_bal = db.add_balance(target_id, -amount)
+                            send_msg(peer, "✅ Успешно!")
+                            send_msg(target_id, f"💰 С вашего баланса снято {num_to_str(amount)}!\n💳 Текущий баланс: {num_to_str(new_bal)}")
+                            send_msg(DONATE_CHAT_ID, f"💰 Снятие: {get_user_mention(uid)} снял {num_to_str(amount)} у {get_user_mention(target_id)}")
+                    else:
+                        send_msg(peer, "❌ Неверная сумма.")
+                else:
+                    send_msg(peer, "❌ Использование: пополнить/уб (ответ на сообщение) (сумма) или пополнить @user (сумма)\nДля снятия: уб @user -сумма")
             else:
-                send_msg(peer, "❌ Использование: пополнить/уб (ответ на сообщение) (сумма) или пополнить @user (сумма)")
+                send_msg(peer, "❌ Использование: пополнить/уб (ответ на сообщение) (сумма) или пополнить @user (сумма)\nДля снятия: уб @user -сумма")
             continue
         elif msg_lower.startswith("//рассылка") and user['moder_rank'] == 5:
             text = " ".join(parts[1:])
@@ -1048,9 +1114,9 @@ for event in longpoll.listen():
             send_msg(peer, f"⚙️ ID текущей беседы ВК: {peer}")
             continue
         elif msg_lower == "//update" and user['moder_rank'] == 5:
-            send_msg(peer, "🔄 Обновление из Git...")
+            send_msg(peer, "🔄 Перезагружаю данные и бота...")
             try:
-                subprocess.Popen(["bash", "-c", "cd /root/bot-cl && git reset --hard HEAD && git pull https://github.com/myaso-52/bot-cl.git main && pkill -9 -f main.py && sleep 2 && nohup python3 main.py > bot.log 2>&1 &"])
+                subprocess.Popen(["bash", "-c", "cd /root/bot-cl && git reset --hard HEAD && git pull https://github.com/myaso-52/bot-cl.git main && pkill -9 -f main.py && sleep 2 && cd /root/bot-cl && source venv/bin/activate && nohup python3 main.py > bot.log 2>&1 &"])
                 time.sleep(1)
                 sys.exit()
             except:
@@ -1122,6 +1188,49 @@ for event in longpoll.listen():
                     payload = json.loads(payload)
                 except:
                     pass
+
+            if "rep_to_user" in payload:
+                rep_id = payload["rep_to_user"]
+                rep_data = active_reports.get(rep_id)
+                try:
+                    vk.messages.sendMessageEventAnswer(event_id=event.obj['event_id'], user_id=event.obj['user_id'], peer_id=event.obj['peer_id'])
+                except:
+                    pass
+                if rep_data:
+                    send_msg(event.obj['peer_id'], f"✉️ Ссылка на заявителя: {get_user_mention(rep_data['uid'])}\nНарушитель: {get_user_mention(rep_data['target_id'])}")
+
+            elif "rep_take" in payload:
+                rep_id = payload["rep_take"]
+                rep_data = active_reports.get(rep_id)
+                try:
+                    vk.messages.sendMessageEventAnswer(event_id=event.obj['event_id'], user_id=event.obj['user_id'], peer_id=event.obj['peer_id'])
+                except:
+                    pass
+                if rep_data and rep_data["taken_by"] is None:
+                    user_data = db.get_user(event.obj['user_id'])
+                    rank_names = {1: "Модератор", 2: "Администратор", 3: "Гл. Администратор", 4: "Зам. Владельца", 5: "Владелец"}
+                    rank = rank_names.get(user_data.get('moder_rank', 0), "Сотрудник")
+                    rep_data["taken_by"] = event.obj['user_id']
+                    send_msg(rep_data["uid"], f"✌️ {get_user_mention(rep_data['uid'])}, ваш репорт успешно взял {rank}, ожидайте.")
+                    taken_keyboard = VkKeyboard(inline=True)
+                    taken_keyboard.add_button(label="✅ Репорт решён", color=VkKeyboardColor.POSITIVE, payload=json.dumps({"rep_solve": rep_id}))
+                    taken_keyboard.add_button(label="✉️ В ЛС к юзеру", color=VkKeyboardColor.PRIMARY, payload=json.dumps({"rep_to_user": rep_id}))
+                    send_msg(REPORT_CHAT_ID, f"📋 Репорт {rep_id}\nВзял: {get_user_mention(event.obj['user_id'])} ({rank})\nНарушитель: {get_user_mention(rep_data['target_id'])}", keyboard=taken_keyboard.get_keyboard())
+
+            elif "rep_solve" in payload:
+                rep_id = payload["rep_solve"]
+                rep_data = active_reports.get(rep_id)
+                try:
+                    vk.messages.sendMessageEventAnswer(event_id=event.obj['event_id'], user_id=event.obj['user_id'], peer_id=event.obj['peer_id'])
+                except:
+                    pass
+                if rep_data:
+                    if rep_data["taken_by"] == event.obj['user_id'] or event.obj['user_id'] == OWNER_VK_ID:
+                        send_msg(rep_data["uid"], "🔒 Ваш репорт успешно закрыт.")
+                        send_msg(REPORT_CHAT_ID, f"✅ Репорт {rep_id} закрыт!\nЗакрыл: {get_user_mention(event.obj['user_id'])}")
+                        active_reports.pop(rep_id, None)
+                    else:
+                        send_msg(event.obj['peer_id'], "❌ Закрыть репорт может только тот, кто его взял, или владелец.")
             
             if "confirm_don_id" in payload:
                 don_id = payload["confirm_don_id"]
