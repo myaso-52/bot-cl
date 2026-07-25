@@ -24,7 +24,8 @@ def init_db():
             reg_date TEXT DEFAULT '',
             has_legendary INTEGER DEFAULT 0,
             referrer_id INTEGER DEFAULT 0,
-            ref_reward_given INTEGER DEFAULT 0
+            ref_reward_given INTEGER DEFAULT 0,
+            last_withdraw REAL DEFAULT 0.0
         )
     ''')
     cursor.execute('''
@@ -57,8 +58,8 @@ def get_user(user_id):
                     user_id, balance, moder_rank, clicks_count, last_click, 
                     last_daily, total_withdrawn, is_perm_banned, ban_until, 
                     ban_reason, nickname, no_cd_until, x2_until, reg_date, 
-                    has_legendary, referrer_id, ref_reward_given
-                ) VALUES (?, 0, 0, 0, 0.0, 0.0, 0, 0, 0.0, '', 'Игрок', 0.0, 0, ?, 0, 0, 0)
+                    has_legendary, referrer_id, ref_reward_given, last_withdraw
+                ) VALUES (?, 0, 0, 0, 0.0, 0.0, 0, 0, 0.0, '', 'Игрок', 0.0, 0, ?, 0, 0, 0, 0.0)
             ''', (user_id, current_date))
             conn.commit()
             cursor.execute("SELECT * FROM users WHERE user_id = ?", (user_id,))
@@ -70,7 +71,8 @@ def update_user_field(user_id, field_name, value):
         'balance', 'moder_rank', 'clicks_count', 'last_click', 
         'last_daily', 'total_withdrawn', 'is_perm_banned', 
         'ban_until', 'ban_reason', 'nickname', 'no_cd_until', 
-        'x2_until', 'reg_date', 'has_legendary', 'referrer_id', 'ref_reward_given'
+        'x2_until', 'reg_date', 'has_legendary', 'referrer_id', 
+        'ref_reward_given', 'last_withdraw'
     ]
     if field_name not in allowed_fields:
         return
@@ -106,5 +108,13 @@ def get_last_logs(limit=10):
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM withdraw_logs ORDER BY id DESC LIMIT ?", (limit,))
+        rows = cursor.fetchall()
+        return [dict(r) for r in rows]
+
+def get_all_users():
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute("SELECT user_id FROM users")
         rows = cursor.fetchall()
         return [dict(r) for r in rows]
