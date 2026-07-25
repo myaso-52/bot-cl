@@ -1,4 +1,3 @@
-cat > main.py << 'MAINEOF'
 import vk_api
 from vk_api.bot_longpoll import VkBotLongPoll, VkBotEventType
 from vk_api.keyboard import VkKeyboard, VkKeyboardColor
@@ -767,4 +766,3 @@ for event in longpoll.listen():
                     send_msg(event.obj['peer_id'], f"✅ Статус заявки обновлен: коины для {get_user_mention(w_data['uid'])} успешно выплачены.")
                     send_console_log(f"Вывод: Владелец подтвердил выплату {num_to_str(w_data['amount'])} для ID {w_data['uid']}", OWNER_VK_ID, event.obj['peer_id'])
                     pending_withdrawals.pop(w_id, None)
-MAINEOF
