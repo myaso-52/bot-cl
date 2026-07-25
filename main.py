@@ -811,8 +811,8 @@ for event in longpoll.listen():
             db.add_withdraw_log(uid, amount)
             success = badbot.pay_user(uid, amount)
             if success:
-           send_msg(peer, f"✅ Вывод {num_to_str(amount)} выполнен!")
-           send_msg(DONATE_CHAT_ID, f"✅ Вывод: {num_to_str(amount)} -> {get_user_mention(uid)}")
+                send_msg(peer, f"✅ Вывод {num_to_str(amount)} выполнен!")
+                send_msg(DONATE_CHAT_ID, f"✅ Вывод: {num_to_str(amount)} -> {get_user_mention(uid)}")
         else:
            db.add_balance(uid, amount)
            db.update_user_field(uid, 'total_withdrawn', user.get('total_withdrawn', 0) - amount)
