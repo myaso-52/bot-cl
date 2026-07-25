@@ -879,10 +879,10 @@ for event in longpoll.listen():
             send_msg(peer, "🌟 ELITE привилегии:\n\n✅ Кликер без КД\n✅ +50% к награде кликера\n✅ Ежедневный бонус x2\n✅ 5 алмазов в сапёре\n✅ Защита от списания в крестиках-ноликах\n✅ Вывод раз в 30 минут\n✅ Значок 🌟 ELITE в профиле\n\nСтоимость: 5 мм/день\nКупить: купэлит (дни)", get_main_keyboard())
             continue
         elif msg_lower in ["мой elite", "мой элит", "мой elit"]:
-            fresh_user = db.get_user(uid)
-            now = time.time()
-            if fresh_user.get('elite_until', 0) > now:
-                left = int(fresh_user['elite_until'] - now)
+                user = db.get_user(uid)
+                now = time.time()
+    if user.get('elite_until', 0) > now:
+                left = int(user['elite_until'] - now)
                 send_msg(peer, f"🌟 Ваша ELITE подписка закончится через {left//3600}ч {(left%3600)//60}м", get_main_keyboard())
             else:
                 send_msg(peer, "❌ У вас нет активной ELITE подписки.", get_main_keyboard())
