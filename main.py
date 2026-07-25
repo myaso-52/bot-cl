@@ -884,7 +884,7 @@ for event in longpoll.listen():
     if user.get('elite_until', 0) > now:
                 left = int(user['elite_until'] - now)
                 send_msg(peer, f"🌟 Ваша ELITE подписка закончится через {left//3600}ч {(left%3600)//60}м", get_main_keyboard())
-        else:
+           else:
                 send_msg(peer, "❌ У вас нет активной ELITE подписки.", get_main_keyboard())
             continue
         elif msg_lower.startswith("репорт") and len(parts) > 1:
