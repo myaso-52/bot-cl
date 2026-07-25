@@ -25,7 +25,9 @@ def init_db():
             has_legendary INTEGER DEFAULT 0,
             referrer_id INTEGER DEFAULT 0,
             ref_reward_given INTEGER DEFAULT 0,
-            last_withdraw REAL DEFAULT 0.0
+            last_withdraw REAL DEFAULT 0.0,
+            vip_until REAL DEFAULT 0.0,
+            game_boost_until REAL DEFAULT 0.0
         )
     ''')
     cursor.execute('''
@@ -58,8 +60,9 @@ def get_user(user_id):
                     user_id, balance, moder_rank, clicks_count, last_click, 
                     last_daily, total_withdrawn, is_perm_banned, ban_until, 
                     ban_reason, nickname, no_cd_until, x2_until, reg_date, 
-                    has_legendary, referrer_id, ref_reward_given, last_withdraw
-                ) VALUES (?, 0, 0, 0, 0.0, 0.0, 0, 0, 0.0, '', 'Игрок', 0.0, 0, ?, 0, 0, 0, 0.0)
+                    has_legendary, referrer_id, ref_reward_given, last_withdraw,
+                    vip_until, game_boost_until
+                ) VALUES (?, 0, 0, 0, 0.0, 0.0, 0, 0, 0.0, '', 'Игрок', 0.0, 0, ?, 0, 0, 0, 0.0, 0.0, 0.0)
             ''', (user_id, current_date))
             conn.commit()
             cursor.execute("SELECT * FROM users WHERE user_id = ?", (user_id,))
@@ -72,7 +75,7 @@ def update_user_field(user_id, field_name, value):
         'last_daily', 'total_withdrawn', 'is_perm_banned', 
         'ban_until', 'ban_reason', 'nickname', 'no_cd_until', 
         'x2_until', 'reg_date', 'has_legendary', 'referrer_id', 
-        'ref_reward_given', 'last_withdraw'
+        'ref_reward_given', 'last_withdraw', 'vip_until', 'game_boost_until'
     ]
     if field_name not in allowed_fields:
         return
