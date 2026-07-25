@@ -810,7 +810,7 @@ for event in longpoll.listen():
             db.update_user_field(uid, 'last_withdraw', now)
             db.add_withdraw_log(uid, amount)
             success = badbot.pay_user(uid, amount)
-          if success:
+            if success:
            send_msg(peer, f"✅ Вывод {num_to_str(amount)} выполнен!")
            send_msg(DONATE_CHAT_ID, f"✅ Вывод: {num_to_str(amount)} -> {get_user_mention(uid)}")
         else:
