@@ -44,8 +44,6 @@ def init_db():
             text TEXT
         )
     ''')
-    
-    # Добавление недостающих колонок
     try:
         cursor.execute("ALTER TABLE users ADD COLUMN last_withdraw REAL DEFAULT 0.0")
     except:
@@ -66,7 +64,6 @@ def init_db():
         cursor.execute("ALTER TABLE users ADD COLUMN ref_reward_given INTEGER DEFAULT 0")
     except:
         pass
-    
     conn.commit()
     conn.close()
 
