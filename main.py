@@ -713,7 +713,7 @@ for event in longpoll.listen():
             continue
         elif msg_lower in ["💣 мины", "мины", "сапер", "💣 сапер"]:
             if not is_dm:
-                send_msg(peer, "❌ Сапер доступен только в Личных Сообщениях!", get_main_keyboard())
+                send_msg(peer, "❌ Сапер доступен только в Личных Сообщениях!", get_games_keyboard())
                 continue
             is_elite = user.get('elite_until', 0) > time.time()
             if is_elite:
@@ -879,12 +879,12 @@ for event in longpoll.listen():
             send_msg(peer, "🌟 ELITE привилегии:\n\n✅ Кликер без КД\n✅ +50% к награде кликера\n✅ Ежедневный бонус x2\n✅ 5 алмазов в сапёре\n✅ Защита от списания в крестиках-ноликах\n✅ Вывод раз в 30 минут\n✅ Значок 🌟 ELITE в профиле\n\nСтоимость: 5 мм/день\nКупить: купэлит (дни)", get_main_keyboard())
             continue
         elif msg_lower in ["мой elite", "мой элит", "мой elit"]:
-                user = db.get_user(uid)
-                now = time.time()
-    if user.get('elite_until', 0) > now:
+            user = db.get_user(uid)
+            now = time.time()
+            if user.get('elite_until', 0) > now:
                 left = int(user['elite_until'] - now)
                 send_msg(peer, f"🌟 Ваша ELITE подписка закончится через {left//3600}ч {(left%3600)//60}м", get_main_keyboard())
-           else:
+            else:
                 send_msg(peer, "❌ У вас нет активной ELITE подписки.", get_main_keyboard())
             continue
         elif msg_lower.startswith("репорт") and len(parts) > 1:
@@ -1001,7 +1001,7 @@ for event in longpoll.listen():
         elif msg_lower in ["⬅ назад", "назад"]:
             send_msg(peer, "🪐 Возвращаю в главное меню:", get_main_keyboard())
             continue
-        elif msg_lower in ["помощь", "список команд", "//help"]:
+                    elif msg_lower in ["помощь", "список команд", "//help"]:
             txt = "🎲 Команды:\n- баланс\n- кликер\n- мины (сапер)\n- математика\n- загадки\n- угадай число\n- крестики-нолики\n- кнб\n- вордли\n- рефка\n- топ клик\n- магазин\n- услуги\n- элит — привилегии\n- купэлит (дни) — купить\n- мой элит — остаток\n- администрация\n- репорт"
             if user['moder_rank'] >= 1:
                 txt += "\n\n⚠️ Модератор [1+]:\n- bal (ответ/ссылка)\n- исключить (ответ/ссылка)"
