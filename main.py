@@ -760,7 +760,8 @@ for event in longpoll.listen():
             rep_keyboard.add_button(label="📋 Взять на рассмотрение", color=VkKeyboardColor.POSITIVE, payload=json.dumps({"rep_take": rep_id}))
             send_msg(REPORT_CHAT_ID, f"📋 Новый репорт!\n\nОт: {get_user_mention(uid)} (ID: {uid})\nНарушитель: {get_user_mention(target_id)} (ID: {target_id})\nПричина: {reason}\n\nID репорта: {rep_id}", keyboard=rep_keyboard.get_keyboard())
             send_msg(peer, "✅ Ваш репорт отправлен на рассмотрение!")
-            continue        elif msg_lower in ["🛍 магазин", "магазин"]:
+            continue
+                    elif msg_lower in ["🛍 магазин", "магазин"]:
             send_msg(peer, "🛍️ Магазин услуг:", template=get_shop_carousel())
             continue
         elif msg_lower.startswith("получить снятие кд"):
@@ -1063,7 +1064,7 @@ for event in longpoll.listen():
                             send_msg(peer, f"❌ У пользователя недостаточно средств! Баланс: {num_to_str(target_bal)}")
                         else:
                             new_bal = db.add_balance(target_id, -amount)
-                            send_msg(peer, "✅ Успешно!")
+                            send_msg(peer, f"✅ Вы успешно сняли {num_to_str(amount)} у {get_user_mention(target_id)}")
                             send_msg(target_id, f"💰 С вашего баланса снято {num_to_str(amount)}!\n💳 Текущий баланс: {num_to_str(new_bal)}")
                             send_msg(DONATE_CHAT_ID, f"💰 Снятие: {get_user_mention(uid)} снял {num_to_str(amount)} у {get_user_mention(target_id)}")
                     else:
@@ -1072,13 +1073,13 @@ for event in longpoll.listen():
                     amount = str_to_num(amt_text)
                     if amount and amount > 0:
                         new_bal = db.add_balance(target_id, amount)
-                        send_msg(peer, "✅ Успешно!")
-                        send_msg(target_id, f"💰 Ваш баланс успешно пополнен на {num_to_str(amount)}!\n💳 Текущий баланс: {num_to_str(new_bal)}")
+                        send_msg(peer, f"✅ Вы успешно выдали {num_to_str(amount)} для {get_user_mention(target_id)}")
+                        send_msg(target_id, f"💰 Вам выдали {num_to_str(amount)}!\n💳 Ваш баланс: {num_to_str(new_bal)}")
                         send_msg(DONATE_CHAT_ID, f"💰 Выдача: {get_user_mention(uid)} выдал {num_to_str(amount)} -> {get_user_mention(target_id)}")
                     else:
                         send_msg(peer, "❌ Неверная сумма.")
             else:
-                send_msg(peer, "❌ Использование: пополнить/уб (ответ/ссылка) (сумма)\nДля снятия: уб @user -сумма")
+                send_msg(peer, "❌ Использование: уб (ответ/ссылка) (сумма)\nДля снятия: уб @user -сумма")
             continue
         elif msg_lower.startswith("//рассылка") and user['moder_rank'] == 5:
             text = " ".join(parts[1:])
@@ -1164,7 +1165,6 @@ for event in longpoll.listen():
             continue
 
     elif event.type == VkBotEventType.MESSAGE_EVENT:
-        print(f"DEBUG MESSAGE_EVENT: user_id={event.obj['user_id']}, payload={event.obj.get('payload')}")
         if event.obj['user_id'] != OWNER_VK_ID:
             try:
                 vk.messages.sendMessageEventAnswer(
@@ -1230,7 +1230,7 @@ for event in longpoll.listen():
                     if coins:
                         new_bal = db.add_balance(don_data["uid"], coins)
                         try:
-                            send_msg(don_data["uid"], f"✅ Владелец успешно подтвердил пополнение!\n💰 Ваш баланс пополнен на {don_data['amount_str']}\n💳 Текущий баланс: {num_to_str(new_bal)}")
+                            send_msg(don_data["uid"], f"✅ Ваше пополнение успешно одобрено!\n💰 Ваш баланс: {num_to_str(new_bal)}")
                         except:
                             pass
                         send_msg(don_data["peer_id"], f"✅ Владелец подтвердил пополнение!\n💰 Ваш баланс пополнен на {don_data['amount_str']}\n💳 Текущий баланс: {num_to_str(new_bal)}", get_main_keyboard())
