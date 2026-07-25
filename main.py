@@ -263,7 +263,7 @@ def get_xo_keyboard(board):
             kb.add_button("❌", color=VkKeyboardColor.NEGATIVE)
         else:
             kb.add_button("⭕", color=VkKeyboardColor.POSITIVE)
-        if i % 3 == 2:
+        if i % 3 == 2 and i < 8:
             kb.add_line()
     return kb.get_keyboard()
 
@@ -415,7 +415,6 @@ for event in longpoll.listen():
             except:
                 pass
 
-        # САПЁР
         if msg_lower.startswith("📦 ") and len(msg_lower.split()) > 1:
             if not is_dm:
                 send_msg(peer, "❌ Сапер доступен только в ЛС!", get_main_keyboard())
@@ -452,7 +451,6 @@ for event in longpoll.listen():
                     send_msg(peer, f"💎 Коробка {cell} безопасна!\n💰 Куш: {num_to_str(game['current_bank'])}", keyboard=get_mines_keyboard(game))
             continue
 
-        # КРЕСТИКИ-НОЛИКИ
         if msg_lower.startswith("xo_") and active_games.get(uid, {}).get("game") == "xo":
             game = active_games[uid]
             board = game["board"]
@@ -500,15 +498,6 @@ for event in longpoll.listen():
                 db.add_balance(uid, -20000000000)
                 field = f"{board[0]}|{board[1]}|{board[2]}\n{board[3]}|{board[4]}|{board[5]}\n{board[6]}|{board[7]}|{board[8]}"
                 send_msg(peer, f"😢 Бот победил! -20 мк\n\n{field}", get_games_keyboard())
-                active_games.pop(uid, None)
-                continue
-            if " " not in board:
-                tie_reward = 5000000000
-                if user.get('game_boost_until', 0) > time.time():
-                    tie_reward *= 2
-                db.add_balance(uid, tie_reward)
-                field = f"{board[0]}|{board[1]}|{board[2]}\n{board[3]}|{board[4]}|{board[5]}\n{board[6]}|{board[7]}|{board[8]}"
-                send_msg(peer, f"🤝 Ничья! +{num_to_str(tie_reward)}\n\n{field}", get_games_keyboard())
                 active_games.pop(uid, None)
                 continue
             field = f"{board[0]}|{board[1]}|{board[2]}\n{board[3]}|{board[4]}|{board[5]}\n{board[6]}|{board[7]}|{board[8]}"
