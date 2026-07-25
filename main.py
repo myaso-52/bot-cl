@@ -345,7 +345,6 @@ for event in longpoll.listen():
         if not user:
             continue
 
-        # Автопроверка пополнений через BadBotik API
         if uid not in last_poll_check or time.time() - last_poll_check.get(uid, 0) > 30:
             last_poll_check[uid] = time.time()
             try:
@@ -387,7 +386,6 @@ for event in longpoll.listen():
                 send_msg(peer, f"⚠️ Вы заблокированы в боте!\n📅 Разблокировка: {exact_date} МСК\n⏳ Осталось: {b_hours:02d}ч {b_minutes:02d}м {b_seconds:02d}с\nПричина: {user.get('ban_reason', 'Нарушение правил')}")
             continue
 
-        # Конкурс в чате (без ограничения попыток)
         if contest_active and not contest_winner_found and peer == TARGET_CHAT_ID:
             try:
                 guess = int(msg)
@@ -401,7 +399,6 @@ for event in longpoll.listen():
             except:
                 pass
 
-        # САПЁР — ход
         if msg_lower.startswith("📦 ") and len(msg_lower.split()) > 1:
             if not is_dm:
                 send_msg(peer, "❌ Сапер доступен только в ЛС!", get_main_keyboard())
@@ -435,7 +432,6 @@ for event in longpoll.listen():
                     send_msg(peer, f"💎 Коробка {cell} безопасна!\n💰 Куш: {num_to_str(game['current_bank'])}", keyboard=get_mines_keyboard(game))
             continue
 
-        # КРЕСТИКИ-НОЛИКИ — ход
         if msg_lower.startswith("xo_") and active_mines_games.get(uid, {}).get("game") == "xo":
             game = active_mines_games[uid]
             board = game["board"]
@@ -479,7 +475,6 @@ for event in longpoll.listen():
             send_msg(peer, f"Твой ход! ❌\n\n{board[0]}|{board[1]}|{board[2]}\n{board[3]}|{board[4]}|{board[5]}\n{board[6]}|{board[7]}|{board[8]}", keyboard=get_xo_keyboard(board))
             continue
 
-        # Проверка ответов викторин и угадай число
         state = user_states.get(uid)
         if state and state.get("action") == "waiting_guess":
             if msg_lower in ["назад", "⬅ назад", "мини-игры", "🕹 mini-игры"]:
@@ -525,7 +520,6 @@ for event in longpoll.listen():
                 send_msg(peer, f"❌ Неверно! Правильный ответ: «{correct_answer}». Повезет в другой раз!", get_games_keyboard())
                 continue
 
-        # ОСНОВНЫЕ КОМАНДЫ
         if msg_lower in ["начать", "старт", "привет"]:
             if len(parts) > 1:
                 try:
@@ -902,8 +896,9 @@ for event in longpoll.listen():
             if target_id and len(parts) > amt_idx:
                 amount = str_to_num(" ".join(parts[amt_idx:]))
                 if amount and amount > 0:
-                    db.add_balance(target_id, amount)
+                    new_bal = db.add_balance(target_id, amount)
                     send_msg(peer, "✅ Успешно!")
+                    send_msg(target_id, f"💰 Ваш баланс успешно пополнен на {num_to_str(amount)}!\n💳 Текущий баланс: {num_to_str(new_bal)}")
             else:
                 send_msg(peer, "❌ Использование: пополнить/уб (ответ на сообщение) (сумма) или пополнить @user (сумма)")
             continue
