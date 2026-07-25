@@ -40,7 +40,22 @@ RIDDLES_POOL = [
     {"q": "Его не шьют, не кроят, а оно само на человеке растет. Что это?", "a": ["волосы", "волос"]},
     {"q": "В каком море нет воды?", "a": ["в сухом", "сухом", "на карте", "карта"]},
     {"q": "Один глаз, один рог, но не носорог. Кто это?", "a": ["корова из-за угла", "корова"]},
-    {"q": "Что всегда увеличивается и никогда не уменьшается?", "a": ["возраст", "года", "год"]}
+    {"q": "Что всегда увеличивается и никогда не уменьшается?", "a": ["возраст", "года", "год"]},
+    {"q": "Висит груша — нельзя скушать. Что это?", "a": ["лампочка", "лампа"]},
+    {"q": "Без окон, без дверей — полна горница людей. Что это?", "a": ["огурец", "огурец"]},
+    {"q": "Сидит дед, во сто шуб одет. Кто его раздевает, тот слёзы проливает. Что это?", "a": ["лук", "луковица"]},
+    {"q": "Зимой и летом одним цветом. Что это?", "a": ["ёлка", "елка", "ель", "сосна"]},
+    {"q": "Не лает, не кусает, а в дом не пускает. Что это?", "a": ["замок", "замок"]},
+    {"q": "Течёт, течёт — не вытечет, бежит, бежит — не выбежит. Что это?", "a": ["река", "речка"]},
+    {"q": "Стоит Антошка на одной ножке. Что это?", "a": ["гриб", "гриб"]},
+    {"q": "Кто ходит сидя?", "a": ["шахматист", "шахматист"]},
+    {"q": "Какой конь не ест овса?", "a": ["шахматный", "шахматный конь"]},
+    {"q": "Что можно приготовить, но нельзя съесть?", "a": ["уроки", "домашку", "домашнее задание"]},
+    {"q": "Что становится мокрым, пока сушит?", "a": ["полотенце", "полотенце"]},
+    {"q": "Что можно увидеть с закрытыми глазами?", "a": ["сон", "сновидение"]},
+    {"q": "Чем больше из неё берёшь, тем больше она становится. Что это?", "a": ["яма", "яма"]},
+    {"q": "Кто говорит на всех языках?", "a": ["эхо", "эхо"]},
+    {"q": "Что идёт вверх и вниз, но остаётся на месте?", "a": ["лестница", "ступеньки"]},
 ]
 
 SHOP_ITEMS = [
@@ -179,6 +194,7 @@ def get_games_keyboard():
     kb.add_button('🧮 Математика', color=VkKeyboardColor.PRIMARY, payload={"cmd": "математика"})
     kb.add_button('📱 Кликер', color=VkKeyboardColor.PRIMARY, payload={"cmd": "кликер"})
     kb.add_line()
+    kb.add_button('🎲 Угадай число', color=VkKeyboardColor.PRIMARY, payload={"cmd": "угадай"})
     kb.add_button('⬅ Назад', color=VkKeyboardColor.SECONDARY, payload={"cmd": "назад"})
     return kb.get_keyboard()
 
@@ -254,7 +270,7 @@ for event in longpoll.listen():
                         "баланс": "баланс", "бонус": "бонус", "пополнить": "пополнить",
                         "сапер": "сапер", "загадки": "загадки", "математика": "математика",
                         "кликер": "кликер", "тех_поддержка": "тех. поддержка", "назад": "назад",
-                        "куш": "💰 забрать куш", "transfer_done": "🔄 я перевел!"
+                        "куш": "💰 забрать куш", "transfer_done": "🔄 я перевел!", "угадай": "угадай число"
                     }
                     if cmd_val in cmd_map:
                         msg = cmd_map[cmd_val]
@@ -275,7 +291,7 @@ for event in longpoll.listen():
         if not user:
             continue
 
-        triggers = ["баланс", "профиль", "клик", "кликер", "мины", "сапер", "математика", "загадки", "топ", "рефка", "магазин", "пополнить", "уб", "bal", "исключить", "вывод", "бонус", "+ник", "помощь", "📦 ", "//"]
+        triggers = ["баланс", "профиль", "клик", "кликер", "мины", "сапер", "математика", "загадки", "топ", "рефка", "магазин", "пополнить", "уб", "bal", "исключить", "вывод", "бонус", "+ник", "помощь", "📦 ", "//", "угадай"]
         if any(msg_lower.startswith(t) for t in triggers) or msg_lower in ["🕹 mini-игры", "🛍 магазин", "💰 баланс", "🎁 бонус", "🛠 тех. поддержка", "старт", "начать", "привет"]:
             send_console_log(msg, uid, peer)
 
@@ -294,42 +310,40 @@ for event in longpoll.listen():
                 send_msg(peer, f"⚠️ Вы заблокированы в боте!\n📅 Разблокировка: {exact_date} МСК\n⏳ Осталось: {b_hours:02d}ч {b_minutes:02d}м {b_seconds:02d}с\nПричина: {user.get('ban_reason', 'Нарушение правил')}")
             continue
 
-        if msg_lower.startswith("📦 ") and len(msg_lower.split()) > 1:
-            if not is_dm:
-                send_msg(peer, "❌ Сапер доступен только в ЛС!", get_main_keyboard())
-                continue
-            game = active_mines_games.get(uid)
-            if not game:
+        # Проверка угадай число
+        state = user_states.get(uid)
+        if state and state.get("action") == "waiting_guess":
+            if msg_lower in ["назад", "⬅ назад", "мини-игры", "🕹 mini-игры"]:
+                user_states.pop(uid, None)
+                send_msg(peer, "🕹 Возврат в игры:", get_games_keyboard())
                 continue
             try:
-                cell = int(msg_lower.split()[-1])
-            except:
-                continue
-            idx = cell - 1
-            if idx in game["opened"]:
-                continue
-            if game["field"][idx] == 1:
-                bomb_map = ""
-                for i, v in enumerate(game["field"], 1):
-                    bomb_map += "💥 " if v == 1 else "💎 "
-                    if i % 3 == 0:
-                        bomb_map += "\n"
-                send_msg(peer, f"💥 **БУМ! В коробке {cell} была мина!** 💀\n\nКуш {num_to_str(game['current_bank'])} сгорел!\n🔍 Карта:\n{bomb_map}", get_games_keyboard())
-                active_mines_games.pop(uid, None)
-            else:
-                game["opened"].append(idx)
-                game["current_bank"] += 40000000000
-                if len(game["opened"]) == 3:
-                    db.add_balance(uid, game["current_bank"])
-                    send_msg(peer, f"🏆 **ПОБЕДА!** Ты открыл все 3 алмаза! +{num_to_str(game['current_bank'])} на баланс!", get_games_keyboard())
-                    active_mines_games.pop(uid, None)
+                guess = int(msg)
+                secret = state["secret"]
+                attempts = state["attempts"] + 1
+                if guess == secret:
+                    reward = state["reward"]
+                    db.add_balance(uid, reward)
+                    user_states.pop(uid, None)
+                    send_msg(peer, f"🎉 Верно! Загаданное число: {secret}\nТы угадал за {attempts} попыток!\n+{num_to_str(reward)} на баланс!", get_games_keyboard())
+                    continue
+                elif guess < secret:
+                    hint = "🔺 Больше!"
                 else:
-                    send_msg(peer, f"💎 Коробка {cell} безопасна!\n💰 Куш: {num_to_str(game['current_bank'])}", keyboard=get_mines_keyboard(game))
-            continue
+                    hint = "🔻 Меньше!"
+                if attempts >= 7:
+                    user_states.pop(uid, None)
+                    send_msg(peer, f"❌ Попытки кончились! Число было: {secret}", get_games_keyboard())
+                    continue
+                user_states[uid]["attempts"] = attempts
+                send_msg(peer, f"{hint}\n🎲 Попытка {attempts}/7. Твоё число: {guess}")
+                continue
+            except:
+                send_msg(peer, "❌ Введи число от 1 до 100!")
+                continue
 
-        state = user_states.get(uid)
         if state and state.get("action") in ["waiting_riddle_answer", "waiting_math_answer"]:
-            if msg_lower in ["загадки", "математика", "🕹 mini-игры", "мини-игры", "назад", "⬅ назад", "сапер", "💣 сапер", "кликер", "тех. поддержка"]:
+            if msg_lower in ["загадки", "математика", "🕹 mini-игры", "мини-игры", "назад", "⬅ назад", "сапер", "💣 сапер", "кликер", "тех. поддержка", "угадай число", "🎲 угадай число"]:
                 user_states.pop(uid, None)
             elif msg_lower in state["answers"]:
                 user_states.pop(uid, None)
@@ -356,7 +370,7 @@ for event in longpoll.listen():
             send_msg(peer, f"👀 Ваш баланс: {num_to_str(db.get_user(uid)['balance'])}", get_main_keyboard())
             continue
         elif msg_lower in ["🕹 mini-игры", "мини-игры"]:
-            send_msg(peer, "🕹 Доступные mini-игры:\n\n💣 Сапер\n🕵 Загадки\n🧮 Математика\n📱 Кликер", get_games_keyboard())
+            send_msg(peer, "🕹 Доступные mini-игры:\n\n💣 Сапер\n🕵 Загадки\n🧮 Математика\n📱 Кликер\n🎲 Угадай число", get_games_keyboard())
             continue
         elif msg_lower in ["📱 кликер", "клик", "кликер"]:
             user = db.get_user(uid)
@@ -377,20 +391,20 @@ for event in longpoll.listen():
             f = [1, 1, 1, 1, 1, 1, 0, 0, 0]
             random.shuffle(f)
             active_mines_games[uid] = {"field": f, "opened": [], "current_bank": 0}
-            send_msg(peer, "💣 **САПЕР (3х3)**\nНа поле 6 бомб и 3 алмаза. Каждая чистая коробка: **+40 мк** в куш!", keyboard=get_mines_keyboard(active_mines_games[uid]))
+            send_msg(peer, "💣 Сапер (3х3)\nНа поле 6 бомб и 3 алмаза. Каждая чистая коробка: +40 мк в куш!", keyboard=get_mines_keyboard(active_mines_games[uid]))
             continue
         elif msg_lower == "💰 забрать куш":
             game = active_mines_games.get(uid)
             if game and len(game["opened"]) > 0:
                 db.add_balance(uid, game["current_bank"])
-                send_msg(peer, f"💰 Ты забрал куш: **{num_to_str(game['current_bank'])}**!", get_games_keyboard())
+                send_msg(peer, f"💰 Ты забрал куш: {num_to_str(game['current_bank'])}!", get_games_keyboard())
                 active_mines_games.pop(uid, None)
             continue
         elif msg_lower in ["🧮 математика", "математика"]:
             a = random.randint(10, 99)
             b = random.randint(10, 99)
             user_states[uid] = {"action": "waiting_math_answer", "answers": [str(a + b)], "reward": 25000000000}
-            send_msg(peer, f"🧮 **МАТЕМАТИКА (+25 мк)**\n\nРеши пример: {a} + {b} = ?\n⚠️ У тебя 1 попытка!")
+            send_msg(peer, f"🧮 Математика (+25 мк)\n\nРеши пример: {a} + {b} = ?\n⚠️ У тебя 1 попытка!")
             continue
         elif msg_lower in ["🕵 загадки", "загадки"]:
             if not is_dm:
@@ -398,7 +412,12 @@ for event in longpoll.listen():
                 continue
             r = random.choice(RIDDLES_POOL)
             user_states[uid] = {"action": "waiting_riddle_answer", "answers": r["a"], "reward": 40000000000}
-            send_msg(peer, f"🕵️‍♂️ **ЗАГАДКА (+40 мк)**\n\n{r['q']}\n⚠️ 1 попытка!")
+            send_msg(peer, f"🕵️‍♂️ Загадка (+40 мк)\n\n{r['q']}\n⚠️ 1 попытка!")
+            continue
+        elif msg_lower in ["🎲 угадай число", "угадай число"]:
+            secret = random.randint(1, 100)
+            user_states[uid] = {"action": "waiting_guess", "secret": secret, "attempts": 0, "reward": 50000000000}
+            send_msg(peer, "🎲 Угадай число (+50 мк)!\n\nЯ загадал число от 1 до 100.\nУ тебя 7 попыток. Пиши число в чат!")
             continue
         elif msg_lower in ["🎁 бонус", "бонус"]:
             user = db.get_user(uid)
@@ -428,8 +447,8 @@ for event in longpoll.listen():
             db.add_withdraw_log(uid, amount)
             w_id = f"with_{uid}_{int(time.time())}"
             pending_withdrawals[w_id] = {"uid": uid, "amount": amount, "peer_id": peer}
-            send_msg(peer, f"С вашего баланса списана *{num_to_str(amount)}*. Заявка отправлена на обработку. Ожидайте зачисления!")
-            send_msg(OWNER_VK_ID, f"🔔 **ЗАЯВКА НА ВЫВОД!**\n\nПользователь: {get_user_mention(uid)} (ID: {uid})\nСумма вывода: **{num_to_str(amount)}**\n\nПроверьте баланс и нажмите кнопку ниже, когда переведёте.", keyboard=get_owner_withdraw_keyboard(w_id))
+            send_msg(peer, f"С вашего баланса списана {num_to_str(amount)}. Заявка отправлена на обработку. Ожидайте зачисления!")
+            send_msg(OWNER_VK_ID, f"🔔 Заявка на вывод!\n\nПользователь: {get_user_mention(uid)} (ID: {uid})\nСумма вывода: {num_to_str(amount)}\n\nПроверьте баланс и нажмите кнопку ниже, когда переведёте.", keyboard=get_owner_withdraw_keyboard(w_id))
             continue
         elif msg_lower.startswith("+ник ") and len(parts) > 1:
             new_name = " ".join(parts[1:]).strip()
@@ -438,7 +457,10 @@ for event in longpoll.listen():
                 continue
             db.update_user_field(uid, 'nickname', new_name)
             USER_NAMES_CACHE[uid] = new_name
-            send_msg(peer, f"✅ Вы успешно изменили имя профиля на: **{new_name}**!")
+            send_msg(peer, f"✅ Вы успешно изменили имя профиля на: {new_name}!")
+            continue
+        elif msg_lower.startswith("+ник"):
+            send_msg(peer, "❌ Использование: +ник (новое имя)\nПример: +ник КрутойИгрок")
             continue
         elif msg_lower in ["топ клик", "топ кликов"]:
             conn = sqlite3.connect('database.db')
@@ -447,14 +469,14 @@ for event in longpoll.listen():
             cursor.execute("SELECT user_id, clicks_count, nickname FROM users ORDER BY clicks_count DESC LIMIT 10")
             rows = cursor.fetchall()
             conn.close()
-            txt = "🏆 **ТОП-10 ПО КЛИКАМ:**\n\n"
+            txt = "🏆 Топ-10 по кликам:\n\n"
             for i, r in enumerate(rows, 1):
                 name = r['nickname'] if r['nickname'] and r['nickname'] != 'Игрок' else f"Игрок {r['user_id']}"
                 txt += f"{i}. [id{r['user_id']}|{name}] — {r['clicks_count']} кл.\n"
             send_msg(peer, txt, get_main_keyboard())
             continue
         elif msg_lower == "рефка":
-            send_msg(peer, f"🔗 **РЕФЕРАЛЬНАЯ ССЫЛКА:**\n\nhttps://vk.me/{GROUP_ID}?ref={uid}\n\n🎁 За друга: **1 мм**!", get_main_keyboard())
+            send_msg(peer, f"🔗 Реферальная ссылка:\n\nhttps://vk.me/{GROUP_ID}?ref={uid}\n\n🎁 За друга: 1 мм!", get_main_keyboard())
             continue
         elif msg_lower in ["🛍 магазин", "магазин"]:
             send_msg(peer, "🛍️ Магазин услуг:", template=get_shop_carousel())
@@ -482,7 +504,7 @@ for event in longpoll.listen():
         elif msg_lower == "пополнить" or (msg_lower.startswith("пополнить ") and len(parts) > 1):
             amount_str = " ".join(parts[1:]) if len(parts) > 1 else "желаемую сумму"
             user_states[uid] = {"action": "waiting_deposit_click", "amount_str": amount_str, "peer_id": peer}
-            send_msg(peer, f"Чтобы пополнить баланс в боте на *{amount_str}*, переведите эту сумму в Боте нищем юзеру @dimo4kaenergy и нажмите кнопку ниже.", keyboard=get_manual_deposit_keyboard())
+            send_msg(peer, f"Чтобы пополнить баланс в боте на {amount_str}, переведите эту сумму в Боте нищем юзеру @dimo4kaenergy и нажмите кнопку ниже.", keyboard=get_manual_deposit_keyboard())
             continue
         elif msg_lower == "🔄 я перевел!":
             state = user_states.get(uid)
@@ -497,38 +519,44 @@ for event in longpoll.listen():
             send_msg(peer, "🪐 Возвращаю в главное меню:", get_main_keyboard())
             continue
         elif msg_lower in ["помощь", "список команд", "//help"]:
-            txt = "🎲 **КОМАНДЫ:**\n- баланс\n- кликер\n- мины (сапер)\n- математика\n- загадки\n- рефка\n- топ клик\n- магазин"
+            txt = "🎲 Команды:\n- баланс\n- кликер\n- мины (сапер)\n- математика\n- загадки\n- угадай число\n- рефка\n- топ клик\n- магазин"
             if user['moder_rank'] >= 1:
-                txt += "\n\n⚠️ **МОДЕРАТОР [1+]:**\n- bal [юз]\n- исключить [реплай]"
+                txt += "\n\n⚠️ Модератор [1+]:\n- bal (ответ/ссылка)\n- исключить (ответ/ссылка)"
             if user['moder_rank'] >= 2:
-                txt += "\n\n🍀 **АДМИНИСТРАТОР [2+]:**\n- //logs\n- //giveaward [юз]\n- //moderlist\n- //banlist"
+                txt += "\n\n🍀 Администратор [2+]:\n- //logs\n- //giveaward (ответ/ссылка)\n- //moderlist\n- //banlist"
             if user['moder_rank'] >= 3:
-                txt += "\n\n👹 **ГЛ. АДМИНИСТРАТОР [3+]:**\n- //ban [дни] [юз]\n- //moder [ранг] [юз]"
+                txt += "\n\n👹 Гл. Администратор [3+]:\n- //ban (дни) (ответ/ссылка)\n- //moder (ранг) (ответ/ссылка)\n- //red (ответ/ссылка) — выдать редактора"
             if user['moder_rank'] >= 4:
-                txt += "\n\n🏆 **ЗАМ. ВЛАДЕЛЬЦА [4+]:**\n- //set0 [режим] [юз]\n- //moder [ранг] [юз]"
+                txt += "\n\n🏆 Зам. Владельца [4+]:\n- //set0 (режим) (ответ/ссылка)\n- //moder (ранг) (ответ/ссылка)"
             if user['moder_rank'] == 5:
-                txt += "\n\n🎱 **ВЛАДЕЛЕЦ:**\n- пополнить [юз] [сумма]\n- уб [юз] [сумма]\n- //chatid\n- //update\n- //fix\n- //clearfile"
+                txt += "\n\n🎱 Владелец:\n- пополнить (ответ/ссылка) (сумма)\n- уб (ответ/ссылка) (сумма)\n- //chatid\n- //update\n- //fix\n- //clearfile"
             send_msg(peer, txt, get_main_keyboard())
             continue
         elif msg_lower.startswith("bal") and user['moder_rank'] >= 1:
             target_id = parse_target(parts, 1, message_obj)
             if target_id:
                 send_msg(peer, f"🍻 Баланс {get_user_mention(target_id)}: {num_to_str(db.get_user(target_id)['balance'])}")
+            else:
+                send_msg(peer, "❌ Использование: bal (ответ на сообщение) или bal @user или bal ID")
             continue
         elif msg_lower.startswith("исключить") and user['moder_rank'] >= 1:
             if peer <= 2000000000 or peer not in ALLOWED_KICK_CHATS:
+                send_msg(peer, "❌ Эту команду можно использовать только в разрешённых беседах!")
                 continue
             target_id = parse_target(parts, 1, message_obj)
             if target_id:
                 try:
                     vk.messages.removeChatUser(chat_id=peer-2000000000, user_id=target_id)
+                    send_msg(peer, "✅ Успешно!")
                 except:
-                    pass
+                    send_msg(peer, "❌ Не удалось исключить пользователя.")
+            else:
+                send_msg(peer, "❌ Использование: исключить (ответ на сообщение) или исключить @user")
             continue
         elif msg_lower == "//logs" and user['moder_rank'] >= 2:
             logs = db.get_last_logs(10)
             if logs:
-                txt = "📋 **ПОСЛЕДНИЕ 10 ВЫВОДОВ:**\n\n"
+                txt = "📋 Последние 10 выводов:\n\n"
                 for l in logs:
                     txt += f"• ID {l['user_id']} | {num_to_str(l['amount'])}\n"
             else:
@@ -539,7 +567,9 @@ for event in longpoll.listen():
             target_id = parse_target(parts, 1, message_obj)
             if target_id:
                 db.update_user_field(target_id, 'has_legendary', 1)
-                send_msg(peer, f"✅ Игроку {get_user_mention(target_id)} выдана плашка ♠️ THE LEGENDARY!")
+                send_msg(peer, "✅ Успешно!")
+            else:
+                send_msg(peer, "❌ Использование: //giveaward (ответ на сообщение) или //giveaward @user")
             continue
         elif msg_lower == "//moderlist" and user['moder_rank'] >= 2:
             try:
@@ -550,9 +580,9 @@ for event in longpoll.listen():
                 conn.close()
                 job_names = {1: "Модератор", 2: "Администратор", 3: "Гл. Администратор", 4: "Зам. Владельца", 5: "Владелец"}
                 if mods:
-                    txt = "📋 **СПИСОК МОДЕРАЦИИ БОТА:**\n\n"
+                    txt = "📋 Список модерации бота:\n\n"
                     for m in mods:
-                        txt += f"• {get_user_mention(m[0])} — Должность: **{job_names.get(m[1], 'Игрок')}**\n"
+                        txt += f"• {get_user_mention(m[0])} — {job_names.get(m[1], 'Игрок')}\n"
                 else:
                     txt = "📋 Модераторы отсутствуют."
                 send_msg(peer, txt)
@@ -567,7 +597,7 @@ for event in longpoll.listen():
                 bans = c.fetchall()
                 conn.close()
                 if bans:
-                    txt = "📋 **СПИСОК ЗАБЛОКИРОВАННЫХ ИГРОКОВ:**\n\n"
+                    txt = "📋 Список заблокированных игроков:\n\n"
                     for b in bans:
                         txt += f"• {get_user_mention(b[0])} | Причина: {b[1]}\n"
                 else:
@@ -581,6 +611,7 @@ for event in longpoll.listen():
             try:
                 days = int(parts[1])
             except:
+                send_msg(peer, "❌ Использование: //ban (дни) (ответ на сообщение) или //ban (дни) @user\n-1 = навсегда, 0 = разбан")
                 continue
             target_id = parse_target(parts, 1 if is_reply else 2, message_obj)
             if target_id:
@@ -593,7 +624,7 @@ for event in longpoll.listen():
                         vk.groups.unban(group_id=GROUP_ID, owner_id=target_id)
                     except:
                         pass
-                    send_msg(peer, f"✅ Юзер {get_user_mention(target_id)} разблокирован в боте и в сообществе.")
+                    send_msg(peer, "✅ Успешно!")
                 elif days == -1:
                     db.update_user_field(target_id, 'is_perm_banned', 1)
                     db.update_user_field(target_id, 'ban_reason', reason)
@@ -601,18 +632,33 @@ for event in longpoll.listen():
                         vk.groups.ban(group_id=GROUP_ID, owner_id=target_id, comment=reason, comment_visible=1)
                     except:
                         pass
-                    send_msg(peer, f"💀 {get_user_mention(target_id)} ЗАБАНЕН НАВСЕГДА в боте и заблокирован в сообществе! Причина: {reason}")
+                    send_msg(peer, "✅ Успешно!")
                 else:
                     db.update_user_field(target_id, 'ban_until', time.time() + (days * 86400))
                     db.update_user_field(target_id, 'ban_reason', reason)
-                    send_msg(peer, f"⚠️ Юзер {get_user_mention(target_id)} забанен на {days} дней. Причина: {reason}")
-                send_console_log(f"🔨 Бан-логи: {get_user_mention(uid)} применил бан ({days} дн.) к ID {target_id}", uid, peer)
+                    send_msg(peer, "✅ Успешно!")
+                send_console_log(f"🔨 Бан: {get_user_mention(uid)} -> бан ({days} дн.) для ID {target_id}", uid, peer)
+            else:
+                send_msg(peer, "❌ Использование: //ban (дни) (ответ на сообщение) или //ban (дни) @user")
+            continue
+        elif msg_lower.startswith("//red") and user['moder_rank'] >= 3:
+            target_id = parse_target(parts, 1, message_obj)
+            if target_id:
+                try:
+                    vk.groups.editManager(group_id=GROUP_ID, user_id=target_id, role="editor")
+                    send_msg(peer, "✅ Успешно!")
+                    send_console_log(f"📝 Выдан редактор: {get_user_mention(uid)} -> {get_user_mention(target_id)}", uid, peer)
+                except Exception as e:
+                    send_msg(peer, f"❌ Ошибка: {e}")
+            else:
+                send_msg(peer, "❌ Использование: //red (ответ на сообщение) или //red @user")
             continue
         elif msg_lower.startswith("//moder") and user['moder_rank'] >= 3:
             is_reply = bool(message_obj.get('reply_message') or (message_obj.get('fwd_messages')))
             try:
                 rank = int(parts[1])
             except:
+                send_msg(peer, "❌ Использование: //moder (ранг) (ответ на сообщение) или //moder (ранг) @user\nРанги: 1-модер, 2-админ, 3-гл.админ, 4-зам, 5-владелец, -1=снять")
                 continue
             target_id = parse_target(parts, 1 if is_reply else 2, message_obj)
             if target_id:
@@ -622,12 +668,15 @@ for event in longpoll.listen():
                     continue
                 final_rank = 0 if rank == -1 else max(0, rank)
                 db.update_user_field(target_id, 'moder_rank', final_rank)
-                send_msg(peer, f"✅ Уровень должности {get_user_mention(target_id)} изменен на {final_rank}")
-                send_console_log(f"💼 Изменение ранга: {get_user_mention(uid)} выдал ранг {final_rank} для ID {target_id}", uid, peer)
+                send_msg(peer, "✅ Успешно!")
+                send_console_log(f"💼 Ранг: {get_user_mention(uid)} -> ранг {final_rank} для ID {target_id}", uid, peer)
+            else:
+                send_msg(peer, "❌ Использование: //moder (ранг) (ответ на сообщение) или //moder (ранг) @user")
             continue
         elif msg_lower.startswith("//set0") and user['moder_rank'] >= 4:
             is_reply = bool(message_obj.get('reply_message') or (message_obj.get('fwd_messages')))
             if len(parts) < 2:
+                send_msg(peer, "❌ Использование: //set0 (режим) (ответ на сообщение)\nРежимы: nk(ник), cl(клики), bl(баланс), rg(дата), vv(вывод), all(всё)")
                 continue
             mode = parts[1].lower()
             target_id = parse_target(parts, 1 if is_reply else 2, message_obj)
@@ -642,7 +691,9 @@ for event in longpoll.listen():
                     db.update_user_field(target_id, 'reg_date', time.strftime("%d.%m.%Y"))
                 if mode in ["vv", "all"]:
                     db.update_user_field(target_id, 'total_withdrawn', 0)
-                send_msg(peer, f"✅ Операция //set0 {mode} выполнена для {get_user_mention(target_id)}.")
+                send_msg(peer, "✅ Успешно!")
+            else:
+                send_msg(peer, "❌ Использование: //set0 (режим) (ответ на сообщение) или //set0 (режим) @user")
             continue
         elif (msg_lower.startswith("пополнить") or msg_lower.startswith("уб")) and user['moder_rank'] == 5:
             is_reply = bool(message_obj.get('reply_message') or (message_obj.get('fwd_messages')))
@@ -652,16 +703,15 @@ for event in longpoll.listen():
                 amount = str_to_num(" ".join(parts[amt_idx:]))
                 if amount and amount > 0:
                     db.add_balance(target_id, amount)
-                    if msg_lower.startswith("уб"):
-                        send_msg(peer, f"Вы успешно выдали {num_to_str(amount)} {get_user_mention(target_id)} на баланс!")
-                    else:
-                        send_msg(peer, f"✅ На баланс {get_user_mention(target_id)} успешно выдано {num_to_str(amount)}")
+                    send_msg(peer, "✅ Успешно!")
+            else:
+                send_msg(peer, "❌ Использование: пополнить/уб (ответ на сообщение) (сумма) или пополнить @user (сумма)")
             continue
         elif msg_lower == "//chatid" and user['moder_rank'] == 5:
             send_msg(peer, f"⚙️ ID текущей беседы ВК: {peer}")
             continue
         elif msg_lower == "//update" and user['moder_rank'] == 5:
-            send_msg(peer, "🔄 Обновление файлов ядра из Git...")
+            send_msg(peer, "🔄 Обновление из Git...")
             try:
                 subprocess.Popen(["bash", "-c", "sleep 1 && git reset --hard HEAD && git pull https://github.com/myaso-52/bot-cl.git main && pkill -9 -f main.py && nohup python3 main.py > bot.log 2>&1 &"])
                 sys.exit()
@@ -669,7 +719,7 @@ for event in longpoll.listen():
                 pass
             continue
         elif msg_lower == "//fix" and user['moder_rank'] == 5:
-            send_msg(peer, "🛠 Глобальная самодиагностика main.py...")
+            send_msg(peer, "🛠 Самодиагностика...")
             try:
                 with open("main.py", "r", encoding="utf-8") as f:
                     code = f.read()
@@ -680,14 +730,14 @@ for event in longpoll.listen():
                 if fixes > 0:
                     with open("main.py", "w", encoding="utf-8") as f:
                         f.write(code)
-                    send_msg(peer, f"⚙️ Успешно исправлено багов: {fixes}. Перезапуск...")
+                    send_msg(peer, f"⚙️ Исправлено багов: {fixes}. Перезапуск...")
                     subprocess.Popen(["bash", "-c", "sleep 1 && pkill -9 -f main.py && nohup python3 main.py > bot.log 2>&1 &"])
                     sys.exit()
                 else:
                     compile(code, "main.py", "exec")
-                    send_msg(peer, "✅ Ошибок синтаксиса, ловушек отступов и сбоев разметки не обнаружено!")
+                    send_msg(peer, "✅ Ошибок не обнаружено!")
             except Exception as e:
-                send_msg(peer, f"❌ Сканер поврежден: {e}")
+                send_msg(peer, f"❌ Ошибка: {e}")
             continue
         elif msg_lower == "//clearfile" and user['moder_rank'] == 5:
             with open(os.path.basename(sys.argv[0]), "w") as f:
@@ -701,13 +751,13 @@ for event in longpoll.listen():
                 name_val = get_user_mention(uid)
             r_date = user.get('reg_date') if user.get('reg_date') else "24.07.2026"
             txt = (
-                f"🌎 **Профиль пользователя**{award}\n"
-                f"🍭 **Имя пользователя:** {name_val}\n"
-                f"👹 **Ранг:** {ranks[user['moder_rank']]}\n"
-                f"🍻 **Баланс:** {num_to_str(user['balance'])}\n"
-                f"🏀 **Кликов в боте:** {user.get('clicks_count', 0)}\n"
-                f"🧠 **Всего выведено:** {num_to_str(user.get('total_withdrawn', 0))}\n"
-                f"💀 **Дата регистрации в боте:** {r_date}"
+                f"🌎 Профиль пользователя{award}\n"
+                f"🍭 Имя пользователя: {name_val}\n"
+                f"👹 Ранг: {ranks[user['moder_rank']]}\n"
+                f"🍻 Баланс: {num_to_str(user['balance'])}\n"
+                f"🏀 Кликов в боте: {user.get('clicks_count', 0)}\n"
+                f"🧠 Всего выведено: {num_to_str(user.get('total_withdrawn', 0))}\n"
+                f"💀 Дата регистрации в боте: {r_date}"
             )
             send_msg(peer, txt, get_main_keyboard())
             continue
@@ -740,7 +790,6 @@ for event in longpoll.listen():
                         db.add_balance(don_data["uid"], coins)
                         send_msg(don_data["peer_id"], f"🎉 Баланс успешно пополнен на {num_to_str(coins)}!")
                         send_msg(event.obj['peer_id'], f"✅ Вы успешно подтвердили пополнение для {get_user_mention(don_data['uid'])} на сумму {don_data['amount_str']}.")
-                        send_console_log(f"Донат: Владелец подтвердил пополнение на {don_data['amount_str']} для ID {don_data['uid']}", OWNER_VK_ID, event.obj['peer_id'])
                     pending_donations.pop(don_id, None)
             elif "reject_don_id" in payload:
                 don_id = payload["reject_don_id"]
@@ -752,7 +801,6 @@ for event in longpoll.listen():
                 if don_data:
                     send_msg(don_data["peer_id"], "❌ Владелец отклонил ваше пополнение.")
                     send_msg(event.obj['peer_id'], "❌ Запрос на пополнение успешно отклонен.")
-                    send_console_log(f"Донат: Владелец отклонил пополнение для ID {don_data['uid']}", OWNER_VK_ID, event.obj['peer_id'])
                     pending_donations.pop(don_id, None)
             elif "w_id" in payload:
                 w_id = payload["w_id"]
@@ -762,7 +810,6 @@ for event in longpoll.listen():
                 except:
                     pass
                 if w_data:
-                    send_msg(w_data["peer_id"], f"✅ **Вывод выполнен!** Владелец успешно перевёл {num_to_str(w_data['amount'])} на ваш аккаунт Бот нищий. Приятной игры! 🎉")
+                    send_msg(w_data["peer_id"], f"✅ Вывод выполнен! Владелец успешно перевёл {num_to_str(w_data['amount'])} на ваш аккаунт Бот нищий. Приятной игры! 🎉")
                     send_msg(event.obj['peer_id'], f"✅ Статус заявки обновлен: коины для {get_user_mention(w_data['uid'])} успешно выплачены.")
-                    send_console_log(f"Вывод: Владелец подтвердил выплату {num_to_str(w_data['amount'])} для ID {w_data['uid']}", OWNER_VK_ID, event.obj['peer_id'])
                     pending_withdrawals.pop(w_id, None)
