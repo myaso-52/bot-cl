@@ -209,7 +209,7 @@ def get_main_keyboard():
     kb.add_button('🎁 Бонус', color=VkKeyboardColor.NEGATIVE, payload={"cmd": "бонус"})
     kb.add_button('🛠 Тех. поддержка', color=VkKeyboardColor.NEGATIVE, payload={"cmd": "тех_поддержка"})
     kb.add_line()
-    kb.add_button('Пополнить', color=VkKeyboardColor.NEGATIVE, payload={"cmd": "пополнить"})
+    kb.add_button('💳 Пополнить', color=VkKeyboardColor.NEGATIVE, payload={"cmd": "пополнить"})
     return kb.get_keyboard()
 
 def get_support_keyboard():
@@ -376,7 +376,7 @@ for event in longpoll.listen():
             except Exception as e:
                 print(f"Ошибка проверки истории: {e}")
 
-        triggers = ["баланс", "профиль", "клик", "кликер", "мины", "сапер", "математика", "загадки", "топ", "рефка", "магазин", "пополнить", "уб", "bal", "исключить", "вывод", "бонус", "+ник", "помощь", "📦 ", "//", "угадай", "крестики-нолики"]
+        triggers = ["баланс", "профиль", "клик", "кликер", "мины", "сапер", "математика", "загадки", "топ", "рефка", "магазин", "пополнить", "уб", "bal", "исключить", "вывод", "бонус", "+ник", "помощь", "📦 ", "//", "угадай", "крестики-нолики", "услуги"]
         if any(msg_lower.startswith(t) for t in triggers) or msg_lower in ["🕹 mini-игры", "🛍 магазин", "💰 баланс", "🎁 бонус", "🛠 тех. поддержка", "старт", "начать", "привет"]:
             send_console_log(msg, uid, peer)
 
@@ -701,6 +701,31 @@ for event in longpoll.listen():
         elif msg_lower == "рефка":
             send_msg(peer, f"🔗 Реферальная ссылка:\n\nhttps://vk.me/{GROUP_ID}?ref={uid}\n\n🎁 За друга: 1 мм!", get_main_keyboard())
             continue
+        elif msg_lower in ["услуги", "мои услуги"]:
+            user = db.get_user(uid)
+            now = time.time()
+            txt = "🛍 Ваши активные услуги:\n\n"
+            has_any = False
+            if user.get('no_cd_until', 0) > now:
+                left = int(user['no_cd_until'] - now)
+                txt += f"• Снятие КД кликера: ещё {left//3600}ч {(left%3600)//60}м\n"
+                has_any = True
+            if user.get('x2_until', 0) > now:
+                left = int(user['x2_until'] - now)
+                txt += f"• Множитель х2 клика: ещё {left//3600}ч {(left%3600)//60}м\n"
+                has_any = True
+            if user.get('vip_until', 0) > now:
+                left = int(user['vip_until'] - now)
+                txt += f"• 👑 VIP-статус: ещё {left//3600}ч {(left%3600)//60}м\n"
+                has_any = True
+            if user.get('game_boost_until', 0) > now:
+                left = int(user['game_boost_until'] - now)
+                txt += f"• Множитель игр х2: ещё {left//3600}ч {(left%3600)//60}м\n"
+                has_any = True
+            if not has_any:
+                txt += "❌ Нет активных услуг."
+            send_msg(peer, txt, get_main_keyboard())
+            continue
         elif msg_lower in ["🛍 магазин", "магазин"]:
             send_msg(peer, "🛍️ Магазин услуг:", template=get_shop_carousel())
             continue
@@ -747,7 +772,16 @@ for event in longpoll.listen():
             send_msg(peer, f"✅ Множитель игр х2 активирован на 12 часов!", get_main_keyboard())
             continue
         elif msg_lower == "пополнить":
-            send_msg(peer, "💳 Чтобы пополнить баланс:\n\n1️⃣ Переведите нужную сумму в Боте Нищем юзеру @dimo4kaenergy\n2️⃣ Нажмите кнопку «Я перевел!» ниже\n3️⃣ Владелец проверит и зачислит коины", keyboard=get_manual_deposit_keyboard())
+            send_msg(peer, "❌ Использование: пополнить (сумма)\nПример: пополнить 2 мм\n\nМинимальная сумма пополнения: 1 мм", get_main_keyboard())
+            continue
+        elif msg_lower.startswith("пополнить ") and len(parts) > 1:
+            amount = str_to_num(parts[1:])
+            if not amount or amount < 1000000000000:
+                send_msg(peer, "❌ Минимальная сумма пополнения: 1 мм\nПример: пополнить 2 мм")
+                continue
+            amount_str = " ".join(parts[1:])
+            user_states[uid] = {"action": "waiting_deposit_click", "amount_str": amount_str, "peer_id": peer}
+            send_msg(peer, f"💳 Чтобы пополнить баланс на {amount_str}, переведите эту сумму в Боте Нищем юзеру @dimo4kaenergy и нажмите кнопку «Я перевел!» ниже.", keyboard=get_manual_deposit_keyboard())
             continue
         elif msg_lower == "🔄 я перевел!":
             state = user_states.get(uid)
@@ -755,14 +789,16 @@ for event in longpoll.listen():
                 don_id = f"don_{uid}_{int(time.time())}"
                 pending_donations[don_id] = {"uid": uid, "amount_str": state["amount_str"], "peer_id": state["peer_id"]}
                 user_states.pop(uid, None)
-                send_msg(OWNER_VK_ID, f"Ник {get_user_mention(uid)} утверждает, что перевел вам {state['amount_str']}, проверьте.", keyboard=get_owner_confirm_keyboard(don_id))
-                send_msg(peer, "💸 Запрос отправлен Владельцу на верификацию.", get_main_keyboard())
+                send_msg(OWNER_VK_ID, f"🔔 Заявка на пополнение!\n\nПользователь: {get_user_mention(uid)} (ID: {uid})\nУтверждает, что перевёл: {state['amount_str']}\n\nПроверьте перевод в Боте Нищем.", keyboard=get_owner_confirm_keyboard(don_id))
+                send_msg(peer, "💸 Запрос отправлен Владельцу на проверку.", get_main_keyboard())
+            else:
+                send_msg(peer, "❌ Сначала введите команду: пополнить (сумма)")
             continue
         elif msg_lower in ["⬅ назад", "назад"]:
             send_msg(peer, "🪐 Возвращаю в главное меню:", get_main_keyboard())
             continue
         elif msg_lower in ["помощь", "список команд", "//help"]:
-            txt = "🎲 Команды:\n- баланс\n- кликер\n- мины (сапер)\n- математика\n- загадки\n- угадай число\n- крестики-нолики\n- рефка\n- топ клик\n- магазин"
+            txt = "🎲 Команды:\n- баланс\n- кликер\n- мины (сапер)\n- математика\n- загадки\n- угадай число\n- крестики-нолики\n- рефка\n- топ клик\n- магазин\n- услуги"
             if user['moder_rank'] >= 1:
                 txt += "\n\n⚠️ Модератор [1+]:\n- bal (ответ/ссылка)\n- исключить (ответ/ссылка)"
             if user['moder_rank'] >= 2:
@@ -1054,10 +1090,12 @@ for event in longpoll.listen():
                 if don_data:
                     coins = str_to_num(don_data["amount_str"])
                     if coins:
-                        db.add_balance(don_data["uid"], coins)
-                        send_msg(don_data["peer_id"], f"🎉 Баланс успешно пополнен на {num_to_str(coins)}!")
-                        send_msg(event.obj['peer_id'], f"✅ Вы успешно подтвердили пополнение для {get_user_mention(don_data['uid'])} на сумму {don_data['amount_str']}.")
+                        new_bal = db.add_balance(don_data["uid"], coins)
+                        send_msg(don_data["uid"], f"✅ Владелец успешно подтвердил пополнение!\n💰 Ваш баланс пополнен на {don_data['amount_str']}\n💳 Текущий баланс: {num_to_str(new_bal)}")
+                        send_msg(event.obj['peer_id'], f"✅ Вы подтвердили пополнение для {get_user_mention(don_data['uid'])} на {don_data['amount_str']}.")
+                        send_console_log(f"💰 Пополнение: Владелец подтвердил {don_data['amount_str']} для ID {don_data['uid']}", OWNER_VK_ID, event.obj['peer_id'])
                     pending_donations.pop(don_id, None)
+
             elif "reject_don_id" in payload:
                 don_id = payload["reject_don_id"]
                 don_data = pending_donations.get(don_id)
@@ -1066,9 +1104,11 @@ for event in longpoll.listen():
                 except:
                     pass
                 if don_data:
-                    send_msg(don_data["peer_id"], "❌ Владелец отклонил ваше пополнение.")
-                    send_msg(event.obj['peer_id'], "❌ Запрос на пополнение успешно отклонен.")
+                    send_msg(don_data["uid"], "❌ Владелец не подтвердил перевод денег в Боте Нищем.\nПожалуйста, перепроверьте @badbotikzarabotok")
+                    send_msg(event.obj['peer_id'], f"❌ Вы отклонили пополнение для {get_user_mention(don_data['uid'])}.")
+                    send_console_log(f"❌ Пополнение отклонено для ID {don_data['uid']}", OWNER_VK_ID, event.obj['peer_id'])
                     pending_donations.pop(don_id, None)
+
             elif "w_id" in payload:
                 w_id = payload["w_id"]
                 w_data = pending_withdrawals.get(w_id)
@@ -1079,4 +1119,5 @@ for event in longpoll.listen():
                 if w_data:
                     send_msg(w_data["peer_id"], f"✅ Вывод выполнен! Владелец успешно перевёл {num_to_str(w_data['amount'])} на ваш аккаунт Бот нищий. Приятной игры! 🎉")
                     send_msg(event.obj['peer_id'], f"✅ Статус заявки обновлен: коины для {get_user_mention(w_data['uid'])} успешно выплачены.")
+                    send_console_log(f"Вывод: Владелец подтвердил выплату {num_to_str(w_data['amount'])} для ID {w_data['uid']}", OWNER_VK_ID, event.obj['peer_id'])
                     pending_withdrawals.pop(w_id, None)
