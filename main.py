@@ -112,7 +112,7 @@ RIDDLES_POOL = [
 ]
 
 SHOP_ITEMS = [
-    {"id": 0, "title": "Снятие КД на кликер (12ч)", "cost_coins": 50000000000000, "cost_str": "50 мм", "desc": "Убирает задержку кликера."},
+    {"id": 0, "title": "Снятие КД на кликер (12ч)", "cost_coins": 50000000000000, "cost_str": "50 мм", "desc": "Снижает КД кликера до 1 сек."},
     {"id": 1, "title": "Множитель х2 клика (12ч)", "cost_coins": 100000000000000, "cost_str": "100 мм", "desc": "Удваивает награду за клик."},
     {"id": 2, "title": "Множитель игр х2 (12ч)", "cost_coins": 85000000000000, "cost_str": "85 мм", "desc": "Все награды в мини-играх удваиваются!"},
     {"id": 3, "title": "🌟 ELITE подписка", "cost_coins": 5000000000000, "cost_str": "5 мм/день", "desc": "Премиум подписка. Команда: купэлит (дни)"},
@@ -199,6 +199,8 @@ def get_user_mention(user_id):
         return f"[id{user_id}|Игрок]"
 
 def send_msg(chat_or_user_id, text, keyboard=None, template=None):
+    if chat_or_user_id > 2000000000 and keyboard:
+        keyboard = None
     params = {"random_id": random.getrandbits(31), "message": text, "peer_id": chat_or_user_id}
     if keyboard:
         params["keyboard"] = keyboard
@@ -336,7 +338,7 @@ def get_manual_deposit_keyboard():
 
 def get_donate_chat_keyboard(uid, amount_str):
     kb = VkKeyboard(inline=True)
-    kb.add_button(label=f"💰 Выдать {amount_str}", color=VkKeyboardColor.POSITIVE, payload=json.dumps({"donate_approve": f"{uid}_{amount_str}"}))
+    kb.add_button(label=f"💰 уб @id{uid} {amount_str}", color=VkKeyboardColor.POSITIVE, payload=json.dumps({"donate_approve": f"{uid}_{amount_str}"}))
     kb.add_button(label="❌ Отклонить", color=VkKeyboardColor.NEGATIVE, payload=json.dumps({"donate_reject": str(uid)}))
     return kb.get_keyboard()
 
@@ -691,15 +693,16 @@ for event in longpoll.listen():
         elif msg_lower in ["📱 кликер", "клик", "кликер"]:
             user = db.get_user(uid)
             now = time.time()
-            if now - user.get('last_click', 0) < 3.0:
-                left = int(3.0 - (now - user.get('last_click', 0)))
-                send_msg(peer, f"❌ Команда кликер доступна раз в 3 секунды! Осталось: {left} сек.")
+            if now - user.get('last_click', 0) < 4.0:
+                left = int(4.0 - (now - user.get('last_click', 0)))
+                dots = '. ' * left
+                send_msg(peer, f"⏳ Кликер перезаряжается{dots}")
                 continue
             if user.get('elite_until', 0) > now:
                 required_cd = 0.05
                 reward = 25000000000
             else:
-                required_cd = 0.05 if user.get('no_cd_until', 0) > now else 3.0
+                required_cd = 0.05 if user.get('no_cd_until', 0) > now else 4.0
                 reward = 30000000000 if user.get('x2_until', 0) > now else 15000000000
             if (now - user.get('last_click', 0)) < required_cd:
                 continue
@@ -710,7 +713,7 @@ for event in longpoll.listen():
             continue
         elif msg_lower in ["💣 мины", "мины", "сапер", "💣 сапер"]:
             if not is_dm:
-                send_msg(peer, "❌ Сапер доступен только в Личных Сообщениях!", get_games_keyboard())
+                send_msg(peer, "❌ Сапер доступен только в Личных Сообщениях!", get_main_keyboard())
                 continue
             is_elite = user.get('elite_until', 0) > time.time()
             if is_elite:
@@ -969,6 +972,7 @@ for event in longpoll.listen():
             if current_elite < time.time():
                 current_elite = time.time()
             db.update_user_field(uid, 'elite_until', current_elite + (days * 86400))
+            user = db.get_user(uid)
             send_msg(peer, f"✅ ELITE подписка активирована на {days} дней!\nСписано: {num_to_str(cost)}", get_main_keyboard())
             continue
         elif msg_lower == "пополнить":
@@ -997,7 +1001,7 @@ for event in longpoll.listen():
         elif msg_lower in ["⬅ назад", "назад"]:
             send_msg(peer, "🪐 Возвращаю в главное меню:", get_main_keyboard())
             continue
-        elif msg_lower in ["помощь", "список команд", "//help"]:
+                    elif msg_lower in ["помощь", "список команд", "//help"]:
             txt = "🎲 Команды:\n- баланс\n- кликер\n- мины (сапер)\n- математика\n- загадки\n- угадай число\n- крестики-нолики\n- кнб\n- вордли\n- рефка\n- топ клик\n- магазин\n- услуги\n- элит — привилегии\n- купэлит (дни) — купить\n- мой элит — остаток\n- администрация\n- репорт"
             if user['moder_rank'] >= 1:
                 txt += "\n\n⚠️ Модератор [1+]:\n- bal (ответ/ссылка)\n- исключить (ответ/ссылка)"
@@ -1431,6 +1435,7 @@ for event in longpoll.listen():
                 current_elite = time.time()
             db.update_user_field(uid, 'elite_until', current_elite + (days * 86400))
             user_states.pop(uid, None)
+            user = db.get_user(uid)
             send_msg(peer, f"✅ ELITE подписка активирована на {days} дней!\nСписано: {num_to_str(cost)}", get_main_keyboard())
             continue
 
