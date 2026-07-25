@@ -26,6 +26,7 @@ DONATE_CHAT_ID = 2000000006
 REPORT_CHAT_ID = 2000000007
 
 ALLOWED_KICK_CHATS = [TARGET_CHAT_ID, TEST_CHAT_ID, CONSOLE_CHAT_ID, MODER_CHAT_ID]
+ADD_CHATS = [TARGET_CHAT_ID, TEST_CHAT_ID, REPORT_CHAT_ID]
 
 vk_session = vk_api.VkApi(token=VK_TOKEN)
 vk = vk_session.get_api()
@@ -195,7 +196,6 @@ def send_console_log(text_command, user_id, chat_peer):
     time_str = datetime.now(tz_moscow).strftime("[%H:%M:%S]")
     log_message = f"{time_str} Использована команда: \"{text_command}\" в чате {chat_peer} от @id{user_id}"
     db.add_system_log(log_message)
-    # В консольный чат без кнопок
     params = {"random_id": random.getrandbits(31), "message": log_message, "peer_id": CONSOLE_CHAT_ID}
     try:
         vk.messages.send(**params)
@@ -417,6 +417,15 @@ for event in longpoll.listen():
                         send_console_log(f"🏆 Конкурс: {get_user_mention(uid)} угадал число {contest_secret}", uid, peer)
             except:
                 pass
+
+        # Ответ на репорт (если отвечают на сообщение бота с репортом)
+        if message_obj.get('reply_message') and peer == REPORT_CHAT_ID:
+            reply_text = msg
+            for rep_id, rep_data in list(active_reports.items()):
+                if rep_data.get("taken_by") == uid or uid == OWNER_VK_ID:
+                    send_msg(rep_data["uid"], f"📝 Ответ по репорту:\n\n{reply_text}")
+                    send_msg(REPORT_CHAT_ID, f"✅ Ответ отправлен заявителю {get_user_mention(rep_data['uid'])}")
+                    break
 
         if msg_lower.startswith("📦 ") and len(msg_lower.split()) > 1:
             if not is_dm:
@@ -757,13 +766,12 @@ for event in longpoll.listen():
             rep_id = f"rep_{uid}_{int(time.time())}"
             active_reports[rep_id] = {"uid": uid, "target_id": target_id, "reason": reason, "taken_by": None}
             rep_keyboard = VkKeyboard(inline=True)
-            rep_keyboard.add_openlink_button(label="✉️ В ЛС к заявителю", link=f"https://vk.com/id{uid}")
             rep_keyboard.add_button(label="📋 Взять на рассмотрение", color=VkKeyboardColor.POSITIVE, payload=json.dumps({"rep_take": rep_id}))
             send_msg(REPORT_CHAT_ID, f"📋 Новый репорт!\n\nОт: {get_user_mention(uid)} (ID: {uid})\nНарушитель: {get_user_mention(target_id)} (ID: {target_id})\nПричина: {reason}\n\nID репорта: {rep_id}", keyboard=rep_keyboard.get_keyboard())
             send_msg(peer, "✅ Ваш репорт отправлен на рассмотрение!")
             continue
 
-                elif msg_lower in ["🛍 магазин", "магазин"]:
+                     elif msg_lower in ["🛍 магазин", "магазин"]:
             send_msg(peer, "🛍️ Магазин услуг:", template=get_shop_carousel())
             continue
         elif msg_lower.startswith("получить снятие кд"):
@@ -842,11 +850,11 @@ for event in longpoll.listen():
             if user['moder_rank'] >= 2:
                 txt += "\n\n🍀 Администратор [2+]:\n- //logs\n- //giveaward (ответ/ссылка)\n- //moderlist\n- //banlist\n- //baninfo (ответ/ссылка)"
             if user['moder_rank'] >= 3:
-                txt += "\n\n👹 Гл. Администратор [3+]:\n- //ban (дни) (ответ/ссылка)\n- //moder (ранг) (ответ/ссылка)\n- //red (ответ/ссылка)\n- //banbd (ответ/ссылка) — исключить из всех чатов\n- //edit (ответ/ссылка) (поле) (значение)"
+                txt += "\n\n👹 Гл. Администратор [3+]:\n- //ban (дни) (ответ/ссылка)\n- //moder (ранг) (ответ/ссылка)\n- //red (ответ/ссылка)\n- //banbd (ответ/ссылка)\n- //edit (ответ/ссылка) (поле) (значение)\n- //addmod (ответ/ссылка)"
             if user['moder_rank'] >= 4:
                 txt += "\n\n🏆 Зам. Владельца [4+]:\n- //set0 (режим) (ответ/ссылка)\n- //moder (ранг) (ответ/ссылка)"
             if user['moder_rank'] == 5:
-                txt += "\n\n🎱 Владелец:\n- пополнить (ответ/ссылка) (сумма)\n- уб (ответ/ссылка) (сумма)\n- //рассылка (текст)\n- //stop — остановить бота\n- //chatid\n- //update\n- //fix\n- //clearfile"
+                txt += "\n\n🎱 Владелец:\n- пополнить (ответ/ссылка) (сумма)\n- уб (ответ/ссылка) (сумма)\n- //рассылка (текст)\n- //stop\n- //chatid\n- //update\n- //fix\n- //clearfile"
             send_msg(peer, txt, get_main_keyboard())
             continue
         elif msg_lower in ["администрация", "👑 администрация"]:
@@ -876,7 +884,7 @@ for event in longpoll.listen():
             if target_id:
                 send_msg(peer, f"🍻 Баланс {get_user_mention(target_id)}: {num_to_str(db.get_user(target_id)['balance'])}")
             else:
-                send_msg(peer, "❌ Использование: bal (ответ на сообщение) или bal @user или bal ID")
+                send_msg(peer, "❌ Использование: bal (ответ/ссылка/ID)")
             continue
         elif msg_lower.startswith("исключить") and user['moder_rank'] >= 1:
             if peer <= 2000000000 or peer not in ALLOWED_KICK_CHATS:
@@ -890,7 +898,7 @@ for event in longpoll.listen():
                 except:
                     send_msg(peer, "❌ Не удалось исключить пользователя.")
             else:
-                send_msg(peer, "❌ Использование: исключить (ответ на сообщение) или исключить @user")
+                send_msg(peer, "❌ Использование: исключить (ответ/ссылка/ID)")
             continue
         elif msg_lower == "//logs" and user['moder_rank'] >= 2:
             logs = db.get_last_logs(10)
@@ -908,7 +916,7 @@ for event in longpoll.listen():
                 db.update_user_field(target_id, 'has_legendary', 1)
                 send_msg(peer, "✅ Успешно!")
             else:
-                send_msg(peer, "❌ Использование: //giveaward (ответ на сообщение) или //giveaward @user")
+                send_msg(peer, "❌ Использование: //giveaward (ответ/ссылка/ID)")
             continue
         elif msg_lower == "//moderlist" and user['moder_rank'] >= 2:
             try:
@@ -972,7 +980,7 @@ for event in longpoll.listen():
             try:
                 days = int(parts[1])
             except:
-                send_msg(peer, "❌ Использование: //ban (дни) (ответ на сообщение) или //ban (дни) @user\n-1 = навсегда, 0 = разбан")
+                send_msg(peer, "❌ Использование: //ban (дни) (ответ/ссылка/ID)\n-1 = навсегда, 0 = разбан")
                 continue
             target_id = parse_target(parts, 1 if is_reply else 2, message_obj)
             if target_id:
@@ -1000,7 +1008,7 @@ for event in longpoll.listen():
                     send_msg(peer, "✅ Успешно!")
                 send_console_log(f"🔨 Бан: {get_user_mention(uid)} -> бан ({days} дн.) для ID {target_id}", uid, peer)
             else:
-                send_msg(peer, "❌ Использование: //ban (дни) (ответ на сообщение) или //ban (дни) @user")
+                send_msg(peer, "❌ Использование: //ban (дни) (ответ/ссылка/ID)")
             continue
         elif msg_lower.startswith("//banbd") and user['moder_rank'] >= 3:
             target_id = parse_target(parts, 1, message_obj)
@@ -1015,12 +1023,27 @@ for event in longpoll.listen():
                 send_msg(peer, f"✅ Пользователь исключён из {kicked} чатов!")
                 send_console_log(f"🚫 banbd: {get_user_mention(uid)} исключил ID {target_id} из чатов", uid, peer)
             else:
-                send_msg(peer, "❌ Использование: //banbd (ответ на сообщение) или //banbd @user")
+                send_msg(peer, "❌ Использование: //banbd (ответ/ссылка/ID)")
+            continue
+        elif msg_lower.startswith("//addmod") and user['moder_rank'] >= 3:
+            target_id = parse_target(parts, 1, message_obj)
+            if target_id:
+                added = 0
+                for chat_id in ADD_CHATS:
+                    try:
+                        vk.messages.addChatUser(chat_id=chat_id-2000000000, user_id=target_id)
+                        added += 1
+                    except:
+                        pass
+                send_msg(peer, f"✅ Пользователь добавлен в {added} чатов!")
+                send_console_log(f"➕ addmod: {get_user_mention(uid)} добавил ID {target_id} в чаты", uid, peer)
+            else:
+                send_msg(peer, "❌ Использование: //addmod (ответ/ссылка/ID)")
             continue
         elif msg_lower.startswith("//edit") and user['moder_rank'] >= 3:
             is_reply = bool(message_obj.get('reply_message') or (message_obj.get('fwd_messages')))
             if len(parts) < 3:
-                send_msg(peer, "❌ Использование: //edit (ответ/ссылка) (поле) (значение)\nПоля: balance, clicks_count, total_withdrawn, nickname, moder_rank")
+                send_msg(peer, "❌ Использование: //edit (ответ/ссылка) (поле) (значение)\nПоля: balance, clicks_count, total_withdrawn, nickname, moder_rank, reg_date")
                 continue
             target_id = parse_target(parts, 1 if is_reply else 1, message_obj)
             field = parts[2].lower() if is_reply else parts[2].lower()
@@ -1029,7 +1052,7 @@ for event in longpoll.listen():
                 send_msg(peer, "❌ Использование: //edit (ответ/ссылка) (поле) (значение)")
                 continue
             value = " ".join(parts[val_idx:])
-            allowed = ['balance', 'clicks_count', 'total_withdrawn', 'nickname', 'moder_rank']
+            allowed = ['balance', 'clicks_count', 'total_withdrawn', 'nickname', 'moder_rank', 'reg_date']
             if field not in allowed:
                 send_msg(peer, f"❌ Доступные поля: {', '.join(allowed)}")
                 continue
@@ -1045,14 +1068,14 @@ for event in longpoll.listen():
                 send_msg(peer, f"✅ Чтобы выдать редактора, перейди по ссылке:\n\nhttps://vk.com/board?act=edit&mid={target_id}&gid={GROUP_ID}\n\nИ нажми «Назначить редактором»")
                 send_console_log(f"📝 Запрошен редактор: {get_user_mention(uid)} -> {get_user_mention(target_id)}", uid, peer)
             else:
-                send_msg(peer, "❌ Использование: //red (ответ на сообщение) или //red @user")
+                send_msg(peer, "❌ Использование: //red (ответ/ссылка/ID)")
             continue
         elif msg_lower.startswith("//moder") and user['moder_rank'] >= 3:
             is_reply = bool(message_obj.get('reply_message') or (message_obj.get('fwd_messages')))
             try:
                 rank = int(parts[1])
             except:
-                send_msg(peer, "❌ Использование: //moder (ранг) (ответ на сообщение) или //moder (ранг) @user\nРанги: 1-модер, 2-админ, 3-гл.админ, 4-зам, 5-владелец, -1=снять")
+                send_msg(peer, "❌ Использование: //moder (ранг) (ответ/ссылка/ID)\nРанги: 1-модер, 2-админ, 3-гл.админ, 4-зам, 5-владелец, -1=снять")
                 continue
             target_id = parse_target(parts, 1 if is_reply else 2, message_obj)
             if target_id:
@@ -1065,12 +1088,12 @@ for event in longpoll.listen():
                 send_msg(peer, "✅ Успешно!")
                 send_console_log(f"💼 Ранг: {get_user_mention(uid)} -> ранг {final_rank} для ID {target_id}", uid, peer)
             else:
-                send_msg(peer, "❌ Использование: //moder (ранг) (ответ на сообщение) или //moder (ранг) @user")
+                send_msg(peer, "❌ Использование: //moder (ранг) (ответ/ссылка/ID)")
             continue
         elif msg_lower.startswith("//set0") and user['moder_rank'] >= 4:
             is_reply = bool(message_obj.get('reply_message') or (message_obj.get('fwd_messages')))
             if len(parts) < 2:
-                send_msg(peer, "❌ Использование: //set0 (режим) (ответ на сообщение)\nРежимы: nk(ник), cl(клики), bl(баланс), rg(дата), vv(вывод), all(всё)")
+                send_msg(peer, "❌ Использование: //set0 (режим) (ответ/ссылка/ID)\nРежимы: nk(ник), cl(клики), bl(баланс), rg(дата), vv(вывод), all(всё)")
                 continue
             mode = parts[1].lower()
             target_id = parse_target(parts, 1 if is_reply else 2, message_obj)
@@ -1087,7 +1110,7 @@ for event in longpoll.listen():
                     db.update_user_field(target_id, 'total_withdrawn', 0)
                 send_msg(peer, "✅ Успешно!")
             else:
-                send_msg(peer, "❌ Использование: //set0 (режим) (ответ на сообщение) или //set0 (режим) @user")
+                send_msg(peer, "❌ Использование: //set0 (режим) (ответ/ссылка/ID)")
             continue
         elif (msg_lower.startswith("пополнить") or msg_lower.startswith("уб")) and user['moder_rank'] == 5:
             is_reply = bool(message_obj.get('reply_message') or (message_obj.get('fwd_messages')))
@@ -1237,8 +1260,7 @@ for event in longpoll.listen():
                     rep_data["taken_by"] = event.obj['user_id']
                     send_msg(rep_data["uid"], f"✌️ {get_user_mention(rep_data['uid'])}, ваш репорт успешно взял {rank}, ожидайте.")
                     taken_keyboard = VkKeyboard(inline=True)
-                    taken_keyboard.add_button(label="✅ Репорт решён", color=VkKeyboardColor.POSITIVE, payload=json.dumps({"rep_solve": rep_id}))
-                    taken_keyboard.add_openlink_button(label="✉️ В ЛС к заявителю", link=f"https://vk.com/id{rep_data['uid']}")
+                    taken_keyboard.add_button(label="🔒 Закрыть репорт", color=VkKeyboardColor.NEGATIVE, payload=json.dumps({"rep_solve": rep_id}))
                     send_msg(REPORT_CHAT_ID, f"📋 Репорт {rep_id}\nВзял: {get_user_mention(event.obj['user_id'])} ({rank})\nНарушитель: {get_user_mention(rep_data['target_id'])}\nЗаявитель: {get_user_mention(rep_data['uid'])}", keyboard=taken_keyboard.get_keyboard())
 
             elif "rep_solve" in payload:
