@@ -11,6 +11,7 @@ import subprocess
 import json
 import re
 import threading
+import src.badbotik as badbot
 from datetime import datetime, timedelta, timezone
 
 VK_TOKEN = "vk1.a.4NLW0LW3cobhYjBFzUQ1uvIF8Zn93a7G9W--YJ-URTkk9tf9Qt7TCXYFGv1pQ-o17M_1oRUhJMEV53edLMcBKwIB9F3JIRJl-Vi0YXAAT26pOvv3_XY5Yc6wj6PQmt8p2BVheWDb4GKoIsjBkTT9pyVWWTK3qv0LZwZJv7FOFqczW5BAc7X9Hub2eaYgeWt9txSLeBYlbB-MiTG47JBKkQ"
@@ -114,7 +115,7 @@ SHOP_ITEMS = [
     {"id": 0, "title": "Снятие КД на кликер (12ч)", "cost_coins": 50000000000000, "cost_str": "50 мм", "desc": "Убирает задержку кликера."},
     {"id": 1, "title": "Множитель х2 клика (12ч)", "cost_coins": 100000000000000, "cost_str": "100 мм", "desc": "Удваивает награду за клик."},
     {"id": 2, "title": "Множитель игр х2 (12ч)", "cost_coins": 85000000000000, "cost_str": "85 мм", "desc": "Все награды в мини-играх удваиваются!"},
-    {"id": 3, "title": "🌟 ELITE подписка", "cost_coins": 5000000000000, "cost_str": "5 мм/день", "desc": "Премиум подписка на дни. Команда: elite (дни)"},
+    {"id": 3, "title": "🌟 ELITE подписка", "cost_coins": 5000000000000, "cost_str": "5 мм/день", "desc": "Премиум подписка. Команда: купэлит (дни)"},
 ]
 
 def str_to_num(text):
@@ -358,7 +359,6 @@ for event in longpoll.listen():
         msg_lower = msg.lower()
         parts = msg.split()
 
-        # Логирование всех команд и кнопок
         if payload:
             try:
                 p_obj = json.loads(payload) if isinstance(payload, str) else payload
@@ -366,9 +366,8 @@ for event in longpoll.listen():
                     send_console_log(f"Кнопка: {p_obj['cmd']}", uid, peer)
             except:
                 pass
-        else:
-            if msg:
-                send_console_log(msg, uid, peer)
+        elif msg:
+            send_console_log(msg, uid, peer)
 
         if payload:
             try:
@@ -406,7 +405,7 @@ for event in longpoll.listen():
                         elif item_id == 2:
                             msg = "получить множитель игр"
                         elif item_id == 3:
-                            msg = "elite"
+                            msg = "купэлит"
                         msg_lower = msg.lower()
                     parts = msg.split()
             except:
@@ -443,7 +442,6 @@ for event in longpoll.listen():
             except:
                 pass
 
-        # Ответ на репорт
         if message_obj.get('reply_message') and peer == REPORT_CHAT_ID:
             reply_text = msg
             for rep_id, rep_data in list(active_reports.items()):
@@ -452,7 +450,6 @@ for event in longpoll.listen():
                     send_msg(REPORT_CHAT_ID, f"✅ Ответ отправлен заявителю {get_user_mention(rep_data['uid'])}")
                     break
 
-        # ВОРДЛИ — ТОЛЬКО В ЛС
         if active_games.get(uid, {}).get("game") == "wordle":
             if not is_dm:
                 continue
@@ -586,7 +583,6 @@ for event in longpoll.listen():
             send_msg(peer, f"Твой ход! ❌\n\n{field}", keyboard=get_xo_keyboard(board))
             continue
 
-        # КАМЕНЬ-НОЖНИЦЫ-БУМАГА
         if msg_lower.startswith("knb_"):
             if not is_dm:
                 send_msg(peer, "❌ КНБ доступна только в ЛС!", get_main_keyboard())
@@ -653,7 +649,7 @@ for event in longpoll.listen():
                 continue
 
         if state and state.get("action") in ["waiting_riddle_answer", "waiting_math_answer"]:
-            if msg_lower in ["загадки", "математика", "🕹 mini-игры", "мини-игры", "назад", "⬅ назад", "сапер", "💣 сапер", "кликер", "тех. поддержка", "угадай число", "🎲 угадай число", "крестики-нолики", "❌⭕ крестики-нолики", "кнб", "✂️ кнб", "вордли", "🟩 вордли", "elite", "элит"]:
+            if msg_lower in ["загадки", "математика", "🕹 mini-игры", "мини-игры", "назад", "⬅ назад", "сапер", "💣 сапер", "кликер", "тех. поддержка", "угадай число", "🎲 угадай число", "крестики-нолики", "❌⭕ крестики-нолики", "кнб", "✂️ кнб", "вордли", "🟩 вордли", "купэлит", "элит", "elite"]:
                 user_states.pop(uid, None)
             elif msg_lower in state["answers"]:
                 user_states.pop(uid, None)
@@ -813,10 +809,16 @@ for event in longpoll.listen():
             db.update_user_field(uid, 'total_withdrawn', user.get('total_withdrawn', 0) + amount)
             db.update_user_field(uid, 'last_withdraw', now)
             db.add_withdraw_log(uid, amount)
-            send_msg(peer, f"✅ Вывод {num_to_str(amount)} отправлен! Ожидайте зачисления.")
-            send_msg(DONATE_CHAT_ID, f"🔔 Вывод: {num_to_str(amount)} -> {get_user_mention(uid)}")
-            send_msg(OWNER_VK_ID, f"🔔 Вывод: {num_to_str(amount)} -> {get_user_mention(uid)}")
-            continue
+            success = badbot.pay_user(uid, amount)
+          if success:
+           send_msg(peer, f"✅ Вывод {num_to_str(amount)} выполнен!")
+           send_msg(DONATE_CHAT_ID, f"✅ Вывод: {num_to_str(amount)} -> {get_user_mention(uid)}")
+        else:
+           db.add_balance(uid, amount)
+           db.update_user_field(uid, 'total_withdrawn', user.get('total_withdrawn', 0) - amount)
+           db.update_user_field(uid, 'last_withdraw', last_withdraw)
+           send_msg(peer, "❌ Ошибка вывода. Средства возвращены на баланс.")
+continue
         elif msg_lower.startswith("+ник ") and len(parts) > 1:
             new_name = " ".join(parts[1:]).strip()
             if len(new_name) > 15:
@@ -870,11 +872,14 @@ for event in longpoll.listen():
                 txt += "❌ Нет активных услуг."
             send_msg(peer, txt, get_main_keyboard())
             continue
+        elif msg_lower in ["элит", "elite", "elit", "элит привилегии"]:
+            send_msg(peer, "🌟 ELITE привилегии:\n\n✅ Кликер без КД\n✅ +50% к награде кликера\n✅ Ежедневный бонус x2\n✅ 5 алмазов в сапёре\n✅ Защита от списания в крестиках-ноликах\n✅ Вывод раз в 30 минут\n✅ Значок 🌟 ELITE в профиле\n\nСтоимость: 5 мм/день\nКупить: купэлит (дни)", get_main_keyboard())
+            continue
         elif msg_lower in ["мой elite", "мой элит", "мой elit"]:
-            user = db.get_user(uid)
+            fresh_user = db.get_user(uid)
             now = time.time()
-            if user.get('elite_until', 0) > now:
-                left = int(user['elite_until'] - now)
+            if fresh_user.get('elite_until', 0) > now:
+                left = int(fresh_user['elite_until'] - now)
                 send_msg(peer, f"🌟 Ваша ELITE подписка закончится через {left//3600}ч {(left%3600)//60}м", get_main_keyboard())
             else:
                 send_msg(peer, "❌ У вас нет активной ELITE подписки.", get_main_keyboard())
@@ -940,15 +945,12 @@ for event in longpoll.listen():
             db.update_user_field(uid, 'game_boost_until', time.time() + 43200)
             send_msg(peer, f"✅ Услуга '{item['title']}' успешно куплена на 12 часов!", get_main_keyboard())
             continue
-        elif msg_lower in ["elite", "элит", "купэлит"] or msg_lower.startswith("elite ") or msg_lower.startswith("элит ") or msg_lower.startswith("купэлит "):
-            if not is_dm:
-                send_msg(peer, "❌ Команда доступна только в ЛС!", get_main_keyboard())
-                continue
+        elif msg_lower in ["купэлит", "elite"] or msg_lower.startswith("купэлит ") or msg_lower.startswith("elite "):
             if len(parts) > 1:
                 try:
                     days = int(parts[1])
                 except:
-                    send_msg(peer, "❌ Использование: elite (кол-во дней)\nСтоимость: 5 мм/день")
+                    send_msg(peer, "❌ Использование: купэлит (кол-во дней)\nСтоимость: 5 мм/день")
                     continue
             else:
                 user_states[uid] = {"action": "waiting_elite_days", "peer_id": peer}
@@ -958,12 +960,12 @@ for event in longpoll.listen():
                 send_msg(peer, "❌ Минимальный срок — 1 день!")
                 continue
             cost = days * 5000000000000
-            user = db.get_user(uid)
-            if user['balance'] < cost:
-                send_msg(peer, f"❌ Недостаточно средств!\nНужно: {num_to_str(cost)}\nВаш баланс: {num_to_str(user['balance'])}\n\nПополните баланс командой: пополнить {num_to_str(cost)}")
+            fresh_user = db.get_user(uid)
+            if fresh_user['balance'] < cost:
+                send_msg(peer, f"❌ Недостаточно средств!\nНужно: {num_to_str(cost)}\nВаш баланс: {num_to_str(fresh_user['balance'])}\n\nПополните баланс командой: пополнить {num_to_str(cost)}")
                 continue
             db.add_balance(uid, -cost)
-            current_elite = user.get('elite_until', 0)
+            current_elite = fresh_user.get('elite_until', 0)
             if current_elite < time.time():
                 current_elite = time.time()
             db.update_user_field(uid, 'elite_until', current_elite + (days * 86400))
@@ -996,7 +998,7 @@ for event in longpoll.listen():
             send_msg(peer, "🪐 Возвращаю в главное меню:", get_main_keyboard())
             continue
         elif msg_lower in ["помощь", "список команд", "//help"]:
-            txt = "🎲 Команды:\n- баланс\n- кликер\n- мины (сапер)\n- математика\n- загадки\n- угадай число\n- крестики-нолики\n- кнб\n- вордли\n- рефка\n- топ клик\n- магазин\n- услуги\n- elite (дни)\n- мой elite\n- администрация\n- репорт"
+            txt = "🎲 Команды:\n- баланс\n- кликер\n- мины (сапер)\n- математика\n- загадки\n- угадай число\n- крестики-нолики\n- кнб\n- вордли\n- рефка\n- топ клик\n- магазин\n- услуги\n- элит — привилегии\n- купэлит (дни) — купить\n- мой элит — остаток\n- администрация\n- репорт"
             if user['moder_rank'] >= 1:
                 txt += "\n\n⚠️ Модератор [1+]:\n- bal (ответ/ссылка)\n- исключить (ответ/ссылка)"
             if user['moder_rank'] >= 2:
@@ -1419,13 +1421,13 @@ for event in longpoll.listen():
                 send_msg(peer, "❌ Минимальный срок — 1 день!")
                 continue
             cost = days * 5000000000000
-            user = db.get_user(uid)
-            if user['balance'] < cost:
-                send_msg(peer, f"❌ Недостаточно средств!\nНужно: {num_to_str(cost)}\nВаш баланс: {num_to_str(user['balance'])}\n\nПополните баланс командой: пополнить {num_to_str(cost)}")
+            fresh_user = db.get_user(uid)
+            if fresh_user['balance'] < cost:
+                send_msg(peer, f"❌ Недостаточно средств!\nНужно: {num_to_str(cost)}\nВаш баланс: {num_to_str(fresh_user['balance'])}\n\nПополните баланс командой: пополнить {num_to_str(cost)}")
                 user_states.pop(uid, None)
                 continue
             db.add_balance(uid, -cost)
-            current_elite = user.get('elite_until', 0)
+            current_elite = fresh_user.get('elite_until', 0)
             if current_elite < time.time():
                 current_elite = time.time()
             db.update_user_field(uid, 'elite_until', current_elite + (days * 86400))
