@@ -242,7 +242,7 @@ def get_main_keyboard():
 
 def get_support_keyboard():
     kb = VkKeyboard(one_time=False)
-    kb.add_openlink_button(label="Francesco Papa", link="https://vk.me/dimo4kaenergy")
+    kb.add_openlink_button(label="Агент Сенгоку", link="https://vk.me/francescopapa")
     kb.add_line()
     kb.add_button('⬅ Назад', color=VkKeyboardColor.SECONDARY, payload={"cmd": "назад"})
     return kb.get_keyboard()
@@ -788,7 +788,7 @@ for event in longpoll.listen():
                 send_msg(peer, f"🎁 Ежедневный бонус получен! +{num_to_str(bonus_reward)} на баланс.", get_main_keyboard())
             continue
         elif msg_lower in ["🛠 тех. поддержка", "тех. поддержка", "техподдержка"]:
-            send_msg(peer, "Тех администратор отвечает в течении 12 часов! Чтобы с ним связаться нажмите на кнопку ниже,", get_support_keyboard())
+            send_msg(peer, "Агент Сенгоку отвечает в течении 12 часов! Чтобы с ним связаться нажмите на кнопку ниже,", get_support_keyboard())
             continue
         elif msg_lower.startswith("вывод") and len(parts) > 1:
             amount = str_to_num(parts[1:])
@@ -1005,13 +1005,13 @@ for event in longpoll.listen():
         elif msg_lower in ["помощь", "список команд", "//help"]:
             txt = "🎲 Команды:\n- баланс\n- кликер\n- мины (сапер)\n- математика\n- загадки\n- угадай число\n- крестики-нолики\n- кнб\n- вордли\n- рефка\n- топ клик\n- магазин\n- услуги\n- элит — привилегии\n- купэлит (дни) — купить\n- мой элит — остаток\n- администрация\n- репорт"
             if user['moder_rank'] >= 1:
-                txt += "\n\n⚠️ Модератор [1+]:\n- bal (ответ/ссылка)\n- исключить (ответ/ссылка)"
+                txt += "\n\n⚠️ Модератор [1+]:\n- bal\n- //prof (ответ/ссылка) — профиль игрока (ответ/ссылка)\n- исключить (ответ/ссылка)"
             if user['moder_rank'] >= 2:
                 txt += "\n\n🍀 Администратор [2+]:\n- //logs\n- //giveaward (ответ/ссылка)\n- //moderlist\n- //banlist\n- //baninfo (ответ/ссылка)"
             if user['moder_rank'] >= 3:
                 txt += "\n\n👹 Гл. Администратор [3+]:\n- //ban (дни) (ответ/ссылка)\n- //moder (ранг) (ответ/ссылка)\n- //addmod (ответ/ссылка)"
             if user['moder_rank'] >= 4:
-                txt += "\n\n🏆 Зам. Владельца [4+]:\n- //set0 (режим) (ответ/ссылка)\n- //moder (ранг) (ответ/ссылка)\n- //giveelite (дни) (ответ/ссылка)"
+                txt += "\n\n🏆 Зам. Владельца [4+]:\n- //post (текст) — пост в группу\n- //set0 (режим) (ответ/ссылка)\n- //moder (ранг) (ответ/ссылка)\n- //giveelite (дни) (ответ/ссылка)"
             if user['moder_rank'] == 5:
                 txt += "\n\n🎱 Владелец:\n- пополнить (ответ/ссылка) (сумма)\n- уб (сумма) — себе\n- уб (ответ/ссылка) (сумма)\n- //bdban (ответ/ссылка)\n- //edit (ответ/ссылка) (поле) (значение)\n- //red (ответ/ссылка)\n- //giveelite (дни) (ответ/ссылка)\n- //рассылка (текст)\n- //stop\n- //chatid\n- //update\n- //fix\n- //clearfile"
             send_msg(peer, txt, get_main_keyboard())
@@ -1035,7 +1035,7 @@ for event in longpoll.listen():
                 conn.close()
             except:
                 pass
-            txt += "\n🛠 По вопросам: @dimo4kaenergy"
+            txt += "\n🛠 По вопросам: @francescopapa (Агент Сенгоку)"
             send_msg(peer, txt, get_main_keyboard())
             continue
         elif msg_lower.startswith("bal") and user['moder_rank'] >= 1:
@@ -1044,6 +1044,37 @@ for event in longpoll.listen():
                 send_msg(peer, f"🍻 Баланс {get_user_mention(target_id)}: {num_to_str(db.get_user(target_id)['balance'])}")
             else:
                 send_msg(peer, "❌ Использование: bal (ответ/ссылка/ID)")
+            continue
+        elif msg_lower.startswith("//prof") and user['moder_rank'] >= 1:
+            target_id = parse_target(parts, 1, message_obj)
+            if target_id:
+                target_user = db.get_user(target_id)
+                if target_user:
+                    ranks = {0: "Игрок", 1: "Модератор", 2: "Администратор", 3: "Гл. Администратор", 4: "Зам. Владельца", 5: "Владелец"}
+                    now = time.time()
+                    name_val = target_user.get('nickname', 'Игрок')
+                    if name_val == 'Игрок':
+                        name_val = f"Игрок {target_id}"
+                    r_date = target_user.get('reg_date', 'Неизвестно')
+                    txt = f"🌎 Профиль [id{target_id}|{name_val}]\n"
+                    if target_user.get('vip_until', 0) > now:
+                        txt += "👑 VIP\n"
+                    if target_user.get('elite_until', 0) > now:
+                        txt += "🌟 ELITE\n"
+                    if target_user.get('has_legendary', 0) == 1:
+                        txt += "♠️ THE LEGENDARY\n"
+                    txt += (
+                        f"👹 Ранг: {ranks[target_user['moder_rank']]}\n"
+                        f"🍻 Баланс: {num_to_str(target_user['balance'])}\n"
+                        f"🏀 Кликов: {target_user.get('clicks_count', 0)}\n"
+                        f"🧠 Выведено: {num_to_str(target_user.get('total_withdrawn', 0))}\n"
+                        f"💀 Регистрация: {r_date}"
+                    )
+                    send_msg(peer, txt)
+                else:
+                    send_msg(peer, "❌ Пользователь не найден.")
+            else:
+                send_msg(peer, "❌ Использование: //prof (ответ/ссылка/ID)")
             continue
         elif msg_lower.startswith("исключить") and user['moder_rank'] >= 1:
             if peer <= 2000000000 or peer not in ALLOWED_KICK_CHATS:
@@ -1290,6 +1321,17 @@ for event in longpoll.listen():
             else:
                 send_msg(peer, "❌ Использование: //moder (ранг) (ответ/ссылка/ID)")
             continue
+        elif msg_lower.startswith("//post") and user['moder_rank'] >= 4:
+            text = " ".join(parts[1:])
+            if not text:
+                send_msg(peer, "❌ Использование: //post (текст)")
+                continue
+            try:
+                vk.wall.post(owner_id=-GROUP_ID, message=text)
+                send_msg(peer, "✅ Пост опубликован!")
+            except Exception as e:
+                send_msg(peer, f"❌ Ошибка: {e}")
+            continue
         elif msg_lower.startswith("//set0") and user['moder_rank'] >= 4:
             is_reply = bool(message_obj.get('reply_message') or (message_obj.get('fwd_messages')))
             if len(parts) < 2:
@@ -1418,7 +1460,7 @@ for event in longpoll.listen():
                 name_val = get_user_mention(uid)
             r_date = user.get('reg_date') if user.get('reg_date') else "24.07.2026"
             
-            txt = f"🌎 Профиль пользователя\n🍭 Имя пользователя: {name_val}\n"
+            txt = f"🌎 Профиль пользователя\n🍭 Имя пользователя: [id{uid}|{name_val}]\n"
             
             if user.get('vip_until', 0) > now:
                 txt += "👑 VIP\n"
