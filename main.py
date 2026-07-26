@@ -264,10 +264,10 @@ def get_main_keyboard():
     kb.add_button('🛠 Тех. поддержка', color=VkKeyboardColor.NEGATIVE, payload={"cmd": "тех_поддержка"})
     kb.add_line()
     kb.add_button('💳 Пополнить', color=VkKeyboardColor.NEGATIVE, payload={"cmd": "пополнить"})
-    kb.add_button('🔗 Рефка', color=VkKeyboardColor.SECONDARY, payload={"cmd": "рефка"})
+    kb.add_button('🔗 Рефка', color=VkKeyboardColor.NEGATIVE, payload={"cmd": "рефка"})
     kb.add_line()
-    kb.add_button('❓ Помощь', color=VkKeyboardColor.SECONDARY, payload={"cmd": "помощь"})
-    kb.add_button('👑 Администрация', color=VkKeyboardColor.SECONDARY, payload={"cmd": "администрация"})
+    kb.add_button('❓ Помощь', color=VkKeyboardColor.POSITIVE, payload={"cmd": "помощь"})
+    kb.add_button('👑 Администрация', color=VkKeyboardColor.POSITIVE, payload={"cmd": "администрация"})
     return kb.get_keyboard()
 
 def get_support_keyboard():
@@ -1168,7 +1168,7 @@ for event in longpoll.listen():
             else:
                 send_msg(peer, "❌ Промокод не найден!")
             continue
-        elif msg_lower in ["помощь", "список команд", "//help", "команды", "Команды", "Помощь"]:
+        elif msg_lower in ["помощь", "список команд", "//help", "команды", "Команды", "Помощь", "команды", "Команды", "Помощь"]:
             txt = "🎲 Команды:\n- баланс — проверить баланс\n- кликер — кликать за монеты\n- мины (сапер) — игра сапёр\n- математика — решить пример\n- загадки — отгадать загадку\n- угадай число — угадать число\n- крестики-нолики — игра X/O\n- кнб — камень-ножницы-бумага\n- вордли — угадать слово\n- сейф — взломать код\n- рефка — реферальная ссылка\n- топ клик — топ по кликам\n- магазин — купить услуги\n- услуги — активные услуги\n- элит — привилегии ELITE\n- купэлит (дни) — купить ELITE\n- мой элит — остаток ELITE\n- промо (код) — активировать промокод\n- администрация — кто управляет\n- репорт — пожаловаться"
             if user['moder_rank'] >= 1:
                 txt += "\n\n⚠️ Модератор [1+]:\n- bal\n- //prof (ответ/ссылка) — профиль игрока (ответ/ссылка)\n- исключить (ответ/ссылка)"
