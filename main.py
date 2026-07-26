@@ -2065,6 +2065,20 @@ for event in longpoll.listen():
             except Exception as e:
                 send_msg(peer, f"❌ Ошибка: {e}")
             continue
+        elif msg_lower.startswith("//upcmd") and user['moder_rank'] == 5:
+            text = " ".join(parts[1:])
+            if not text:
+                send_msg(peer, "❌ Использование: //upcmd (текст)\nПример: //upcmd Новый текст справки")
+                continue
+            try:
+                conn = sqlite3.connect('database.db')
+                conn.execute("INSERT OR REPLACE INTO help_text (id, text) VALUES (1, ?)", (text,))
+                conn.commit()
+                conn.close()
+                send_msg(peer, "✅ Текст справки успешно обновлён!")
+            except Exception as e:
+                send_msg(peer, f"❌ Ошибка: {e}")
+            continue
         elif msg_lower == "//clearfile" and user['moder_rank'] == 5:
             with open(os.path.basename(sys.argv[0]), "w") as f:
                 f.write("")
