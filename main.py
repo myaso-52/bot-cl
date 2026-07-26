@@ -1321,6 +1321,16 @@ for event in longpoll.listen():
             else:
                 send_msg(peer, "❌ Использование: //moder (ранг) (ответ/ссылка/ID)")
             continue
+        elif msg_lower.startswith("//pin") and user['moder_rank'] >= 2:
+            if message_obj.get('reply_message'):
+                try:
+                    vk.messages.pin(peer_id=peer, conversation_message_id=message_obj['reply_message']['conversation_message_id'])
+                    send_msg(peer, "✅ Сообщение закреплено!")
+                except Exception as e:
+                    send_msg(peer, f"❌ Ошибка: {e}")
+            else:
+                send_msg(peer, "❌ Использование: ответь на сообщение командой //pin")
+            continue
         elif msg_lower.startswith("//post") and user['moder_rank'] >= 4:
             text = " ".join(parts[1:])
             if not text:
