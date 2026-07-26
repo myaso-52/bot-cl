@@ -2071,10 +2071,14 @@ for event in longpoll.listen():
                 send_msg(peer, "❌ Использование: //upcmd (текст)\nПример: //upcmd Новый текст справки")
                 continue
             try:
-                conn = sqlite3.connect('database.db')
+                conn = sqlite3.connect("game_bot.db")
                 conn.execute("INSERT OR REPLACE INTO help_text (id, text) VALUES (1, ?)", (text,))
                 conn.commit()
                 conn.close()
+                send_msg(peer, "✅ Текст справки успешно обновлён!")
+            except Exception as e:
+                send_msg(peer, f"❌ Ошибка: {e}")
+            continue
                 send_msg(peer, "✅ Текст справки успешно обновлён!")
             except Exception as e:
                 send_msg(peer, f"❌ Ошибка: {e}")
