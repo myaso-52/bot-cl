@@ -1685,10 +1685,10 @@ for event in longpoll.listen():
             conn.execute("CREATE TABLE IF NOT EXISTS custom_perms (user_id INTEGER, command TEXT, PRIMARY KEY (user_id, command))")
             if action == "1":
                 conn.execute("INSERT OR IGNORE INTO custom_perms (user_id, command) VALUES (?, ?)", (target_id, command))
-                msg_out = f"✅ {get_user_mention(target_id)} получил доступ к команде: {command}"
+                msg_out = "успешно!"
             else:
                 conn.execute("DELETE FROM custom_perms WHERE user_id = ? AND command = ?", (target_id, command))
-                msg_out = f"✅ У {get_user_mention(target_id)} забран доступ к команде: {command}"
+                msg_out = "успешно!"
             conn.commit()
             conn.close()
             send_msg(peer, msg_out)
