@@ -1469,7 +1469,47 @@ for event in longpoll.listen():
             send_msg(peer, "📢 Репорт\n\nИспользование: репорт (ответ на смс) (причина)\nПример: репорт оскорбление\n\nОтветьте на сообщение нарушителя и укажите причину!")
             continue
 
+        elif msg_lower.startswith("мут "):
+            parts_cmd = msg.split()
+            if len(parts_cmd) < 3:
+                send_msg(peer, "❌ Использование: мут (ответ/ссылка) (часы) (причина)\nПример: мут @user 2 оскорбление")
+                continue
+            target_id = parse_target(parts_cmd, 1, message_obj)
+            if not target_id:
+                send_msg(peer, "❌ Пользователь не найден!")
+                continue
+            try:
+                hours = int(parts_cmd[2])
+            except:
+                send_msg(peer, "❌ Укажите срок в часах!")
+                continue
+            reason = " ".join(parts_cmd[3:]) if len(parts_cmd) > 3 else "Не указана"
+            vk.messages.send(peer_id=peer, message=f"!мут {hours} ч", reply_to=message_obj.get('reply_message', {}).get('id') or message_obj.get('id'), random_id=0)
+            send_msg(peer, f"✅ Мут {hours}ч для {get_user_mention(target_id)}\nПричина: {reason}")
+            continue
+
         elif msg_lower.startswith("репорт "):
+            if not message_obj.get('reply_message'):
+                send_msg(peer, "❌ Ответьте на сообщение нарушителя!")
+                continue
+            target_id = message_obj['reply_message']['from_id']
+            target_text = message_obj['reply_message'].get('text', '')
+            reason = " ".join(parts[1:]) if len(parts) > 1 else "Не указана"
+            now_str = datetime.now(timezone(timedelta(hours=3))).strftime("%d.%m.%Y %H:%M:%S")
+            chat_names_rep = {2000000001: "Работяги / Бот Заработок", 2000000004: "Чат модерации", 2000000003: "Консоль"}
+            chat_name = chat_names_rep.get(peer, f"Чат {peer}")
+            report_msg = f"📋 Репорт\n\nОт: {get_user_mention(uid)}\nНа: {get_user_mention(target_id)} (ID: {target_id})\n💬 Чат: {chat_name}\nСообщение: {target_text}\nПричина: {reason}\n🕐 {now_str} (МСК)"
+            fwd_id = message_obj['reply_message']['id']
+            conn = sqlite3.connect('database.db')
+            cur = conn.execute("SELECT user_id FROM users WHERE moder_rank >= 1")
+            for (mod_id,) in cur.fetchall():
+                try:
+                    vk.messages.send(peer_id=mod_id, message=report_msg, random_id=0)
+                except:
+                    pass
+            conn.close()
+            send_msg(peer, "✅ Репорт отправлен!")
+            continue
             target_id = parse_target(parts, 1, message_obj)
             if not target_id:
                 send_msg(peer, "❌ Ответьте на сообщение нарушителя!")
@@ -1481,7 +1521,7 @@ for event in longpoll.listen():
             cur = conn.execute("SELECT user_id FROM users WHERE moder_rank >= 1")
             for (mod_id,) in cur.fetchall():
                 try:
-                    vk.messages.send(peer_id=mod_id, message=report_msg, forward_messages=message_obj.get('id'), random_id=0)
+                    vk.messages.send(peer_id=mod_id, message=report_msg, forward_messages=str(message_obj['id']), random_id=0)
                 except:
                     pass
             conn.close()
