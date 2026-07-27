@@ -562,7 +562,17 @@ for event in longpoll.listen():
                 pass
 
         user = db.get_user(uid)
-        if user and (user.get('nickname') == 'Игрок' or not user.get('nickname')):
+        if user:
+            # Сохраняем имя из ВК при каждом сообщении если ник "Игрок"
+            if user.get('nickname') == 'Игрок' or not user.get('nickname'):
+                try:
+                    name_from_msg = f"{message_obj.get('first_name', '')} {message_obj.get('last_name', '')}"
+                    if name_from_msg.strip():
+                        db.update_user_field(uid, 'nickname', name_from_msg)
+                        user['nickname'] = name_from_msg
+                        USER_NAMES_CACHE[uid] = name_from_msg
+                except:
+                    pass
             try:
                 vk_user = vk.users.get(user_ids=uid)
                 name = f"{vk_user[0]['first_name']} {vk_user[0]['last_name']}"
@@ -1322,7 +1332,16 @@ for event in longpoll.listen():
             conn.close()
             txt = "🏆 Топ-10 по кликам:\n\n"
             for i, r in enumerate(rows, 1):
-                name = r['nickname'] if r['nickname'] and r['nickname'] != 'Игрок' else f"Игрок {r['user_id']}"
+                name = r['nickname']
+                if not name or name == 'Игрок':
+                    try:
+                        if r['user_id'] > 0:
+                            vk_u = vk.users.get(user_ids=r['user_id'])
+                            name = f"{vk_u[0]['first_name']} {vk_u[0]['last_name']}"
+                        else:
+                            name = f"Сообщество {abs(r['user_id'])}"
+                    except:
+                        name = f"ID {r['user_id']}"
                 txt += f"{i}. [id{r['user_id']}|{name}] — {r['clicks_count']} кл.\n"
             send_msg(peer, txt, get_main_keyboard())
             continue
@@ -1815,35 +1834,47 @@ for event in longpoll.listen():
             continue
         elif msg_lower.startswith("//prof") and user['moder_rank'] >= 1:
             target_id = parse_target(parts, 1, message_obj)
-            if target_id:
-                target_user = db.get_user(target_id)
-                if target_user:
-                    ranks = {0: "Игрок", 1: "Модератор", 2: "Администратор", 3: "Гл. Администратор", 4: "Зам. Владельца", 5: "Владелец"}
-                    now = time.time()
-                    name_val = target_user.get('nickname', 'Игрок')
-                    if name_val == 'Игрок':
-                        name_val = f"Игрок {target_id}"
-                    r_date = target_user.get('reg_date', 'Неизвестно')
-                    txt = f"🌎 Профиль [id{target_id}|{name_val}]\n"
-                    if target_user.get('vip_until', 0) > now:
-                        txt += "👑 VIP\n"
-                    if target_user.get('elite_until', 0) > now:
-                        txt += "🌟 ELITE\n"
-                    if target_user.get('has_legendary', 0) == 1:
-                        txt += "♠️ THE LEGENDARY\n"
-                    txt += (
-                        f"👹 Ранг: {ranks[target_user['moder_rank']]}\n"
-                        f"🍻 Баланс: {num_to_str(target_user['balance'])}\n"
-                        f"🏀 Кликов: {target_user.get('clicks_count', 0)}\n"
-                        f"🧠 Выведено: {num_to_str(target_user.get('total_withdrawn', 0))}\n"
-                        f"💀 Регистрация: {r_date}"
-                    )
-                    send_msg(peer, txt)
-                else:
-                    send_msg(peer, "❌ Пользователь не найден.")
-            else:
+            if not target_id:
                 send_msg(peer, "❌ Использование: //prof (ответ/ссылка/ID)")
+                continue
+            target_user = db.get_user(target_id)
+            name_val = None
+            if target_user:
+                name_val = target_user.get('nickname', '')
+            if not name_val or name_val == 'Игрок':
+                try:
+                    if target_id > 0:
+                        vk_u = vk.users.get(user_ids=target_id)[0]
+                        name_val = f"{vk_u['first_name']} {vk_u['last_name']}"
+                except:
+                    name_val = f"ID {target_id}"
+            if not target_user:
+                send_msg(peer, f"🌎 Профиль [id{target_id}|{name_val}]\n❌ Не зарегистрирован в боте")
+                continue
+            ranks = {0: "Игрок", 1: "Модератор", 2: "Администратор", 3: "Гл. Администратор", 4: "Зам. Владельца", 5: "Владелец"}
+            if target_user.get('is_glnish', 0) == 1:
+                rank_name = "Разработчик @badbotik"
+            else:
+                rank_name = ranks[target_user['moder_rank']]
+            now = time.time()
+            r_date = target_user.get('reg_date', 'Неизвестно')
+            txt = f"🌎 Профиль [id{target_id}|{name_val}]\n"
+            if target_user.get('vip_until', 0) > now:
+                txt += "👑 VIP\n"
+            if target_user.get('elite_until', 0) > now:
+                txt += "🌟 ELITE\n"
+            if target_user.get('has_legendary', 0) == 1:
+                txt += "♠️ THE LEGENDARY\n"
+            txt += (
+                f"👹 Ранг: {rank_name}\n"
+                f"🍻 Баланс: {num_to_str(target_user['balance'])}\n"
+                f"🏀 Кликов: {target_user.get('clicks_count', 0)}\n"
+                f"🧠 Выведено: {num_to_str(target_user.get('total_withdrawn', 0))}\n"
+                f"💀 Регистрация: {r_date}"
+            )
+            send_msg(peer, txt)
             continue
+
         elif msg_lower.startswith("исключить") and user['moder_rank'] >= 1:
             if peer <= 2000000000 or peer not in ALLOWED_KICK_CHATS:
                 send_msg(peer, "❌ Эту команду можно использовать только в разрешённых беседах!")
@@ -1938,7 +1969,7 @@ for event in longpoll.listen():
                     else:
                         send_msg(peer, "✅ Пользователь не заблокирован")
                         continue
-                    txt = f"📋 Информация о блокировке:\n\n👤 Пользователь: {get_user_mention(target_id)}\n📅 Статус: {status}\n📝 Причина: {target_user.get('ban_reason', 'Не указана')}\n👹 Заблокировал: {get_user_mention(int(target_user.get('ban_by', 0))) if target_user.get('ban_by', '').isdigit() else target_user.get('ban_by', 'Неизвестно')}"
+                    txt = f"📋 Информация о блокировке:\n\n👤 Пользователь: {get_user_mention(target_id)}\n📅 Статус: {status}\n📝 Причина: {target_user.get('ban_reason', 'Не указана')}\n👹 Заблокировал: {get_user_mention(int(target_user.get('ban_by', 0))) if user.get('ban_by', '').isdigit() else target_user.get('ban_by', 'Неизвестно')}"
                     send_msg(peer, txt)
                 else:
                     send_msg(peer, "❌ Пользователь не найден.")
@@ -2234,6 +2265,10 @@ for event in longpoll.listen():
             new_rank = current_rank + 1
             db.update_user_field(target_id, 'moder_rank', new_rank)
             ranks = {0: "Игрок", 1: "Модератор", 2: "Администратор", 3: "Гл. Администратор", 4: "Зам. Владельца", 5: "Владелец"}
+            if user.get('is_glnish', 0) == 1:
+                rank_name = "Разработчик @badbotik"
+            else:
+                rank_name = ranks[user['moder_rank']]
             send_msg(peer, f"✅ {get_user_mention(target_id)} повышен до {ranks[new_rank]}!")
             continue
 
@@ -2340,6 +2375,15 @@ for event in longpoll.listen():
                     db.update_user_field(target_id, 'reg_date', time.strftime("%d.%m.%Y"))
                 if mode in ["vv", "all"]:
                     db.update_user_field(target_id, 'total_withdrawn', 0)
+                if mode in ["all"]:
+                    db.update_user_field(target_id, 'moder_rank', 0)
+                    db.update_user_field(target_id, 'is_glnish', 0)
+                    db.update_user_field(target_id, 'elite_until', 0)
+                    db.update_user_field(target_id, 'vip_until', 0)
+                    db.update_user_field(target_id, 'has_legendary', 0)
+                    db.update_user_field(target_id, 'game_boost_until', 0)
+                    db.update_user_field(target_id, 'x2_until', 0)
+                    db.update_user_field(target_id, 'no_cd_until', 0)
                 send_msg(peer, "успешно!")
             else:
                 send_msg(peer, "❌ Использование: //set0 (режим) (ответ/ссылка/ID)")
@@ -2492,10 +2536,21 @@ for event in longpoll.listen():
 
         elif msg_lower in ["профиль", "👤 профиль", "проф", "я", "Я"]:
             ranks = {0: "Игрок", 1: "Модератор", 2: "Администратор", 3: "Гл. Администратор", 4: "Зам. Владельца", 5: "Владелец"}
+            if user.get('is_glnish', 0) == 1:
+                rank_name = "Разработчик @badbotik"
+            else:
+                rank_name = ranks[user['moder_rank']]
             now = time.time()
             name_val = user.get('nickname', 'Игрок')
-            if name_val == 'Игрок':
-                name_val = get_user_mention(uid)
+            if name_val == 'Игрок' or not name_val:
+                try:
+                    if uid > 0:
+                        vk_u = vk.users.get(user_ids=uid)[0]
+                        name_val = f"{vk_u['first_name']} {vk_u['last_name']}"
+                    else:
+                        name_val = f"Сообщество {abs(uid)}"
+                except:
+                    name_val = f"ID {uid}"
             r_date = user.get('reg_date') if user.get('reg_date') else "24.07.2026"
             
             txt = f"🌎 Профиль пользователя\n🍭 Имя пользователя: [id{uid}|{name_val}]\n"
@@ -2508,7 +2563,7 @@ for event in longpoll.listen():
                 txt += "♠️ THE LEGENDARY\n"
             
             txt += (
-                f"👹 Ранг: {ranks[user['moder_rank']]}\n"
+                f"👹 Ранг: {rank_name}\n"
                 f"🍻 Баланс: {num_to_str(user['balance'])}\n"
                 f"🏀 Кликов в боте: {user.get('clicks_count', 0)}\n"
                 f"🧠 Всего выведено: {num_to_str(max(0, user.get('total_withdrawn', 0)))}\n"
