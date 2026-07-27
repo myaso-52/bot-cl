@@ -683,25 +683,8 @@ for event in longpoll.listen():
                             db.add_balance(uid, cg["reward"])
                             send_msg(peer, f"🎉 {get_user_mention(uid)} угадал {cg['secret']}!\n+{cg['reward_str']}")
                             active_games.pop(0, None)
-                        else:
-                            send_msg(peer, "❌ Неверно!")
-                    except: pass
-                else:
-                    if msg.lower().strip() == cg["secret"]:
-                        db.add_balance(uid, cg["reward"])
-                        send_msg(peer, f"🎉 {get_user_mention(uid)} угадал слово {cg['secret']}!\n+{cg['reward_str']}")
-                        active_games.pop(0, None)
-                continue
-        if contest_active and not contest_winner_found and peer == TARGET_CHAT_ID:
-            try:
-                guess = int(msg)
-                if 1 <= guess <= 50:
-                    if guess == contest_secret:
-                        contest_winner_found = True
-                        contest_active = False
-                        db.add_balance(uid, 1000000000000000)
-                        send_msg(peer, f"🎉 {get_user_mention(uid)} угадал число {contest_secret}!\nПриз: 1 мм зачислен на баланс!")
-            except:
+                    except:
+                        pass
                 pass
 
         if message_obj.get('reply_message') and peer == REPORT_CHAT_ID:
