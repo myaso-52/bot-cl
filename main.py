@@ -1465,6 +1465,29 @@ for event in longpoll.listen():
             else:
                 send_msg(peer, "❌ У вас нет активной ELITE подписки.", get_main_keyboard())
             continue
+        elif msg_lower in ["репорт", "Репорт"]:
+            send_msg(peer, "📢 Репорт\n\nИспользование: репорт (ответ на смс) (причина)\nПример: репорт оскорбление\n\nОтветьте на сообщение нарушителя и укажите причину!")
+            continue
+
+        elif msg_lower.startswith("репорт "):
+            target_id = parse_target(parts, 1, message_obj)
+            if not target_id:
+                send_msg(peer, "❌ Ответьте на сообщение нарушителя!")
+                continue
+            reason = " ".join(parts[1:]) if len(parts) > 1 else "Не указана"
+            now_str = datetime.now(timezone(timedelta(hours=3))).strftime("%d.%m.%Y %H:%M:%S")
+            report_msg = f"📋 Репорт\n\nОт: {get_user_mention(uid)}\nНа: {get_user_mention(target_id)}\nПричина: {reason}\n🕐 {now_str} (МСК)"
+            conn = sqlite3.connect('database.db')
+            cur = conn.execute("SELECT user_id FROM users WHERE moder_rank >= 1")
+            for (mod_id,) in cur.fetchall():
+                try:
+                    vk.messages.send(peer_id=mod_id, message=report_msg, forward_messages=message_obj.get('id'), random_id=0)
+                except:
+                    pass
+            conn.close()
+            send_msg(peer, "✅ Репорт отправлен!")
+            continue
+
         elif msg_lower in ["🛍 магазин", "магазин"]:
             if not is_dm:
                 send_msg(peer, "❌ Магазин доступен только в ЛС!", get_main_keyboard())
