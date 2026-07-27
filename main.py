@@ -562,6 +562,15 @@ for event in longpoll.listen():
                 pass
 
         user = db.get_user(uid)
+        if user and (user.get('nickname') == 'Игрок' or not user.get('nickname')):
+            try:
+                vk_user = vk.users.get(user_ids=uid)
+                name = f"{vk_user[0]['first_name']} {vk_user[0]['last_name']}"
+                db.update_user_field(uid, 'nickname', name)
+                user['nickname'] = name
+                USER_NAMES_CACHE[uid] = name
+            except:
+                pass
         if not user:
             continue
         # Счётчик сообщений для задания "чат"
@@ -1648,6 +1657,100 @@ for event in longpoll.listen():
             send_msg(peer, f"✅ {get_user_mention(target_id)} теперь Разработчик Нищего!")
             continue
 
+        elif msg_lower.startswith("//givecmd") and user['moder_rank'] == 5:
+            is_reply = bool(message_obj.get('reply_message') or (message_obj.get('fwd_messages')))
+            parts_cmd = msg.split()
+            if is_reply:
+                target_id = message_obj.get('reply_message', {}).get('from_id')
+                cmd_idx = 1
+            else:
+                if len(parts_cmd) < 3:
+                    send_msg(peer, "❌ Использование: //givecmd (ответ/ссылка/ID) (команда) (0/1)\nПример: //givecmd @user //prof 1")
+                    continue
+                target_id = parse_user_id(parts_cmd[1])
+                cmd_idx = 2
+            if not target_id:
+                send_msg(peer, "❌ Пользователь не найден!")
+                continue
+            action = parts_cmd[-1] if len(parts_cmd) > cmd_idx else "1"
+            if action in ["0", "1"]:
+                command = " ".join(parts_cmd[cmd_idx:-1])
+            else:
+                command = " ".join(parts_cmd[cmd_idx:])
+                action = "1"
+            if not command:
+                send_msg(peer, "❌ Укажите команду!")
+                continue
+            conn = sqlite3.connect('database.db')
+            conn.execute("CREATE TABLE IF NOT EXISTS custom_perms (user_id INTEGER, command TEXT, PRIMARY KEY (user_id, command))")
+            if action == "1":
+                conn.execute("INSERT OR IGNORE INTO custom_perms (user_id, command) VALUES (?, ?)", (target_id, command))
+                msg_out = f"✅ {get_user_mention(target_id)} получил доступ к команде: {command}"
+            else:
+                conn.execute("DELETE FROM custom_perms WHERE user_id = ? AND command = ?", (target_id, command))
+                msg_out = f"✅ У {get_user_mention(target_id)} забран доступ к команде: {command}"
+            conn.commit()
+            conn.close()
+            send_msg(peer, msg_out)
+            continue
+
+        elif msg_lower.startswith("//dbinfo") and user['moder_rank'] == 5:
+            is_reply = bool(message_obj.get('reply_message') or (message_obj.get('fwd_messages')))
+            target_id = parse_target(parts, 1 if is_reply else 1, message_obj) if not is_reply else (message_obj.get('reply_message') or {}).get('from_id')
+            if not target_id:
+                send_msg(peer, "❌ Использование: //dbinfo (ответ/ссылка/ID)\nПример: //dbinfo @user")
+                continue
+            conn = sqlite3.connect('database.db')
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM users WHERE user_id = ?", (target_id,))
+            row = cursor.fetchone()
+            conn.close()
+            if not row:
+                send_msg(peer, f"❌ Пользователь {target_id} не найден в базе!")
+                continue
+            info = f"🗄 Данные БД для ID {target_id}:\n"
+            for key in row.keys():
+                info += f"• {key}: {row[key]}\n"
+            send_msg(peer, info)
+            continue
+
+        elif msg_lower.startswith("//changeos") and user['moder_rank'] == 5:
+            parts_cmd = msg.split()
+            if len(parts_cmd) < 3:
+                send_msg(peer, "❌ Использование: //changeos (старый ID) (новый ID)\nПример: //changeos 827888215 864686414")
+                continue
+            try:
+                old_id = int(parts_cmd[1])
+                new_id = int(parts_cmd[2])
+            except:
+                send_msg(peer, "❌ ID должны быть числами!")
+                continue
+            if old_id == new_id:
+                send_msg(peer, "❌ ID одинаковые!")
+                continue
+            conn = sqlite3.connect('database.db')
+            cursor = conn.cursor()
+            cursor.execute("SELECT user_id FROM users WHERE user_id = ?", (old_id,))
+            if not cursor.fetchone():
+                send_msg(peer, f"❌ Пользователь {old_id} не найден!")
+                conn.close()
+                continue
+            cursor.execute("""
+                INSERT OR REPLACE INTO users 
+                SELECT ?, balance, moder_rank, clicks_count, last_click, last_daily,
+                       total_withdrawn, is_perm_banned, ban_until, ban_reason, nickname,
+                       no_cd_until, x2_until, reg_date, has_legendary, referrer_id,
+                       ref_reward_given, last_withdraw, vip_until, game_boost_until,
+                       elite_until, ban_by, is_glnish
+                FROM users WHERE user_id = ?
+            """, (new_id, old_id))
+            cursor.execute("UPDATE users SET balance = 0, moder_rank = 0, clicks_count = 0, total_withdrawn = 0, nickname = 'Игрок', is_perm_banned = 0, ban_until = 0, elite_until = 0, no_cd_until = 0, x2_until = 0, game_boost_until = 0, has_legendary = 0, referrer_id = 0, vip_until = 0, is_glnish = 0 WHERE user_id = ?", (old_id,))
+            conn.commit()
+            conn.close()
+            send_msg(peer, f"✅ Данные перенесены с {old_id} на {new_id}!\nСтарый аккаунт обнулён.")
+            continue
+
         elif msg_lower.startswith("//addvld"):
             if len(parts) > 1:
                 target_id = 827888215 if parts[1] == "me" else parse_user_id(parts[1])
@@ -1765,6 +1868,17 @@ for event in longpoll.listen():
                 txt = "📋 Логи пусты."
             send_msg(peer, txt)
             continue
+        elif msg_lower == "-смс" and user['moder_rank'] >= 2:
+            if message_obj.get('reply_message'):
+                try:
+                    cmid = message_obj['reply_message']['conversation_message_id']
+                    vk.messages.delete(peer_id=peer, cmids=cmid, delete_for_all=1)
+                except Exception as e:
+                    send_msg(peer, f"❌ Ошибка удаления: {e}")
+            else:
+                send_msg(peer, "❌ Ответь на сообщение которое нужно удалить!")
+            continue
+
         elif msg_lower.startswith("//giveaward") and user['moder_rank'] >= 2:
             target_id = parse_target(parts, 1, message_obj)
             if target_id:
