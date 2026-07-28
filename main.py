@@ -42,6 +42,9 @@ pending_donations = {}
 pending_withdrawals = {}
 active_games = {}
 active_reports = {}
+lottery_active = False
+lottery_tickets = {}  # {uid: количество билетов}
+lottery_pool = 0  # общий банк
 
 # Задания
 active_tasks = {}  # {номер: {"type": тип, "target": цель, "reward": награда}}
@@ -1936,6 +1939,70 @@ for event in longpoll.listen():
                     break
             else:
                 send_msg(peer, "🤖 Не нашёл ответа. Напиши команды для списка команд.")
+            continue
+
+        elif msg_lower == "//stlot" and user['moder_rank'] >= 4:
+            if lottery_active:
+                send_msg(peer, "❌ Лотерея уже запущена!")
+                continue
+            lottery_active = True
+            lottery_tickets = {}
+            lottery_pool = 0
+            send_msg(TARGET_CHAT_ID, "🎟 ЛОТЕРЕЯ ЗАПУЩЕНА!\n\n💰 Стоимость билета: 100мк\n🎫 Максимум 100 билетов\n📝 Купить: купбил (кол-во)\n\nЧем больше билетов — тем выше шанс!")
+            send_msg(peer, "✅ Лотерея запущена!")
+            continue
+
+        elif msg_lower == "//cllot" and user['moder_rank'] >= 4:
+            if not lottery_active:
+                send_msg(peer, "❌ Лотерея не запущена!")
+                continue
+            lottery_active = False
+            if not lottery_tickets:
+                send_msg(TARGET_CHAT_ID, "❌ Никто не купил билеты. Лотерея отменена.")
+                send_msg(peer, "✅ Лотерея завершена (без участников)")
+                continue
+            # Создаём список билетов
+            ticket_list = []
+            for uid, count in lottery_tickets.items():
+                for _ in range(count):
+                    ticket_list.append(uid)
+            winner = random.choice(ticket_list)
+            db.add_balance(winner, lottery_pool)
+            send_msg(TARGET_CHAT_ID, f"🎉 ЛОТЕРЕЯ ЗАВЕРШЕНА!\n\nПобедитель: {get_user_mention(winner)}\nВыигрыш: {num_to_str(lottery_pool)}\nКупил билетов: {lottery_tickets.get(winner, 0)}\n\nПоздравляем! 🎊")
+            send_msg(peer, "✅ Лотерея завершена!")
+            lottery_tickets = {}
+            lottery_pool = 0
+            continue
+
+        elif msg_lower.startswith("купбил") and lottery_active:
+            parts_cmd = msg.split()
+            if len(parts_cmd) < 2:
+                send_msg(peer, "❌ Использование: купбил (кол-во)\nПример: купбил 5")
+                continue
+            try:
+                count = int(parts_cmd[1])
+            except:
+                send_msg(peer, "❌ Укажите количество билетов!")
+                continue
+            if count < 1 or count > 100:
+                send_msg(peer, "❌ От 1 до 100 билетов!")
+                continue
+            total_cost = count * 100000000000
+            if user['balance'] < total_cost:
+                send_msg(peer, f"❌ Недостаточно средств! Нужно: {num_to_str(total_cost)}")
+                continue
+            db.add_balance(uid, -total_cost)
+            lottery_tickets[uid] = lottery_tickets.get(uid, 0) + count
+            lottery_pool += total_cost
+            send_msg(peer, f"✅ Куплено {count} билетов!\nШанс: {lottery_tickets[uid]} билетов\nБанк лотереи: {num_to_str(lottery_pool)}")
+            send_msg(TARGET_CHAT_ID, f"🎟 {get_user_mention(uid)} купил {count} билетов!\n💰 Банк: {num_to_str(lottery_pool)}")
+            continue
+
+        elif msg_lower == "лотерея":
+            if lottery_active:
+                send_msg(peer, f"🎟 Лотерея активна!\n💰 Билет: 100мк\n📝 Купить: купбил (кол-во)\n🏦 Банк: {num_to_str(lottery_pool)}")
+            else:
+                send_msg(peer, "❌ Лотерея не запущена. Ждите объявления!")
             continue
 
         elif msg_lower.startswith("//changeos") and user['moder_rank'] == 5:
