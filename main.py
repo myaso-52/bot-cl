@@ -226,7 +226,7 @@ def num_to_str(num):
 
 def parse_user_id(text):
     text = text.strip()
-    if '://vk.com' in text:
+    if '://vk.com' in text or '://vk.ru' in text:
         text = text.split('://vk.com')[-1].replace(']', '').replace('[', '').strip()
     if '@' in text:
         text = text.split('@')[-1].strip()
@@ -2138,6 +2138,8 @@ for event in longpoll.listen():
                 txt += "🌟 ELITE\n"
             if target_user.get('has_legendary', 0) == 1:
                 txt += "♠️ THE LEGENDARY\n"
+            if target_user.get('is_perm_banned', 0) == 1 or target_user.get('ban_until', 0) > time.time():
+                txt += "🚫 ЗАБЛОКИРОВАН\n"
             txt += (
                 f"👹 Ранг: {rank_name}\n"
                 f"🍻 Баланс: {num_to_str(target_user['balance'])}\n"
@@ -2156,7 +2158,7 @@ for event in longpoll.listen():
             if target_id:
                 try:
                     vk.messages.removeChatUser(chat_id=peer-2000000000, user_id=target_id)
-                    send_msg(peer, "успешно!")
+                    send_msg(peer, "успешно!", reply_to=message_obj.get('id'))
                 except:
                     send_msg(peer, "❌ Не удалось исключить пользователя.")
             else:
@@ -2187,7 +2189,7 @@ for event in longpoll.listen():
             target_id = parse_target(parts, 1, message_obj)
             if target_id:
                 db.update_user_field(target_id, 'has_legendary', 1)
-                send_msg(peer, "успешно!")
+                send_msg(peer, "успешно!", reply_to=message_obj.get('id'))
             send_msg(peer, "❌ Использование: //giveaward (ответ/ссылка/ID)\nПример: //giveaward @user")
             continue
         elif msg_lower == "//moderlist" and user['moder_rank'] >= 2:
@@ -2267,7 +2269,7 @@ for event in longpoll.listen():
                         vk.groups.unban(group_id=GROUP_ID, owner_id=target_id)
                     except:
                         pass
-                    send_msg(peer, "успешно!")
+                    send_msg(peer, "успешно!", reply_to=message_obj.get('id'))
                 elif days == -1:
                     db.update_user_field(target_id, 'is_perm_banned', 1)
                     db.update_user_field(target_id, 'ban_reason', reason)
@@ -2276,12 +2278,12 @@ for event in longpoll.listen():
                         vk.groups.ban(group_id=GROUP_ID, owner_id=target_id, comment=reason, comment_visible=1)
                     except:
                         pass
-                    send_msg(peer, "успешно!")
+                    send_msg(peer, "успешно!", reply_to=message_obj.get('id'))
                 else:
                     db.update_user_field(target_id, 'ban_until', time.time() + (days * 86400))
                     db.update_user_field(target_id, 'ban_reason', reason)
                     db.update_user_field(target_id, 'ban_by', str(uid))
-                    send_msg(peer, "успешно!")
+                    send_msg(peer, "успешно!", reply_to=message_obj.get('id'))
             else:
                 send_msg(peer, "❌ Использование: //ban (дни) (ответ/ссылка/ID)")
             continue
@@ -2328,7 +2330,7 @@ for event in longpoll.listen():
             if field in ['balance', 'clicks_count', 'total_withdrawn', 'moder_rank']:
                 value = int(str_to_num(value) or 0)
             db.update_user_field(target_id, field, value)
-            send_msg(peer, "успешно!")
+            send_msg(peer, "успешно!", reply_to=message_obj.get('id'))
             continue
         elif msg_lower.startswith("//red") and user['moder_rank'] == 5:
             target_id = parse_target(parts, 1, message_obj)
@@ -2417,7 +2419,7 @@ for event in longpoll.listen():
                     continue
                 final_rank = 0 if rank == -1 else max(0, rank)
                 db.update_user_field(target_id, 'moder_rank', final_rank)
-                send_msg(peer, "успешно!")
+                send_msg(peer, "успешно!", reply_to=message_obj.get('id'))
             else:
                 send_msg(peer, "❌ Использование: //moder (ранг) (ответ/ссылка/ID)")
             continue
@@ -2585,7 +2587,7 @@ for event in longpoll.listen():
                 conn.close()
             except:
                 pass
-            send_msg(peer, "успешно!")
+            send_msg(peer, "успешно!", reply_to=message_obj.get('id'))
         elif msg_lower == "//przd" and user['moder_rank'] >= 4:
             txt = "📋 Типы заданий (переменные):\n\n"
             for key, desc in TASK_TYPES.items():
@@ -2678,7 +2680,7 @@ for event in longpoll.listen():
                     db.update_user_field(target_id, 'game_boost_until', 0)
                     db.update_user_field(target_id, 'x2_until', 0)
                     db.update_user_field(target_id, 'no_cd_until', 0)
-                send_msg(peer, "успешно!")
+                send_msg(peer, "успешно!", reply_to=message_obj.get('id'))
             else:
                 send_msg(peer, "❌ Использование: //set0 (режим) (ответ/ссылка/ID)")
             continue
@@ -2855,6 +2857,8 @@ for event in longpoll.listen():
                 txt += "🌟 ELITE\n"
             if user.get('has_legendary', 0) == 1:
                 txt += "♠️ THE LEGENDARY\n"
+            if user.get('is_perm_banned', 0) == 1 or user.get('ban_until', 0) > time.time():
+                txt += "🚫 ЗАБЛОКИРОВАН\n"
             
             txt += (
                 f"👹 Ранг: {rank_name}\n"
