@@ -2083,7 +2083,7 @@ for event in longpoll.listen():
             try:
                 conn = sqlite3.connect('database.db')
                 c = conn.cursor()
-                c.execute("SELECT user_id, moder_rank, nickname FROM users WHERE moder_rank >= 1 ORDER BY moder_rank DESC")
+                c.execute("SELECT user_id, moder_rank, nickname FROM users WHERE moder_rank >= 2 ORDER BY moder_rank DESC")
                 staff = c.fetchall()
                 conn.close()
                 if staff:
