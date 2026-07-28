@@ -538,7 +538,9 @@ for event in longpoll.listen():
                         "крестики": "крестики-нолики", "помощь": "помощь", "администрация": "администрация",
                         "вывод": "вывод",
                         "кнб": "кнб", "вордли": "вордли", "сейф": "сейф", "бомба": "бомба", "виселица": "виселица", "рефка": "рефка",
-                        "задания": "задания"
+                        "задания": "задания",
+                        "топ_клик": "топ клик",
+                        "топ_вывод": "топ вывода"
                     }
                     if cmd_val == "игры2":
                         send_msg(peer, "Мини-игры (стр. 2/3):", get_games_keyboard(2))
@@ -1299,6 +1301,56 @@ for event in longpoll.listen():
         elif msg_lower.startswith("+ник"):
             send_msg(peer, "❌ Использование: +ник (новое имя)\nПример: +ник КрутойИгрок")
             continue
+        elif msg_lower == "топ":
+            send_msg(peer, "📊 Какой топ?\n• топ клик — по кликам\n• топ вывод — по выводу")
+            continue
+
+        elif msg_lower in ["топ кликов", "топ клик"]:
+            conn = sqlite3.connect('database.db')
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute("SELECT user_id, clicks_count, nickname FROM users ORDER BY clicks_count DESC LIMIT 10")
+            rows = cursor.fetchall()
+            conn.close()
+            txt = "🏆 Топ-10 по кликам:\n\n"
+            for i, r in enumerate(rows, 1):
+                name = r['nickname']
+                if not name or name == 'Игрок':
+                    try:
+                        if r['user_id'] > 0:
+                            vk_u = vk.users.get(user_ids=r['user_id'])
+                            name = f"{vk_u[0]['first_name']} {vk_u[0]['last_name']}"
+                        else:
+                            name = f"Сообщество {abs(r['user_id'])}"
+                    except:
+                        name = f"ID {r['user_id']}"
+                txt += f"{i}. [id{r['user_id']}|{name}] — {r['clicks_count']} кл.\n"
+            send_msg(peer, txt, get_main_keyboard())
+            continue
+
+        elif msg_lower in ["топ вывода"]:
+            conn = sqlite3.connect('database.db')
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute("SELECT user_id, total_withdrawn, nickname FROM users ORDER BY total_withdrawn DESC LIMIT 10")
+            rows = cursor.fetchall()
+            conn.close()
+            txt = "🏆 Топ-10 по выводу:\n\n"
+            for i, r in enumerate(rows, 1):
+                name = r['nickname']
+                if not name or name == 'Игрок':
+                    try:
+                        if r['user_id'] > 0:
+                            vk_u = vk.users.get(user_ids=r['user_id'])
+                            name = f"{vk_u[0]['first_name']} {vk_u[0]['last_name']}"
+                        else:
+                            name = f"Сообщество {abs(r['user_id'])}"
+                    except:
+                        name = f"ID {r['user_id']}"
+                txt += f"{i}. [id{r['user_id']}|{name}] — {num_to_str(r['total_withdrawn'])}\n"
+            send_msg(peer, txt, get_main_keyboard())
+            continue
+
         elif msg_lower in ["топ клик", "топ кликов"]:
             conn = sqlite3.connect('database.db')
             conn.row_factory = sqlite3.Row
@@ -1321,6 +1373,29 @@ for event in longpoll.listen():
                 txt += f"{i}. [id{r['user_id']}|{name}] — {r['clicks_count']} кл.\n"
             send_msg(peer, txt, get_main_keyboard())
             continue
+        elif msg_lower in ["топ вывод", "топ вывода"]:
+            conn = sqlite3.connect('database.db')
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute("SELECT user_id, total_withdrawn, nickname FROM users ORDER BY total_withdrawn DESC LIMIT 10")
+            rows = cursor.fetchall()
+            conn.close()
+            txt = "🏆 Топ-10 по выводу:\n\n"
+            for i, r in enumerate(rows, 1):
+                name = r['nickname']
+                if not name or name == 'Игрок':
+                    try:
+                        if r['user_id'] > 0:
+                            vk_u = vk.users.get(user_ids=r['user_id'])
+                            name = f"{vk_u[0]['first_name']} {vk_u[0]['last_name']}"
+                        else:
+                            name = f"Сообщество {abs(r['user_id'])}"
+                    except:
+                        name = f"ID {r['user_id']}"
+                txt += f"{i}. [id{r['user_id']}|{name}] — {num_to_str(r['total_withdrawn'])}\n"
+            send_msg(peer, txt, get_main_keyboard())
+            continue
+
         elif msg_lower in ["рефка", "🔗 рефка"]:
             send_msg(peer, f"🔗 Реферальная ссылка:\n\nhttps://vk.me/{GROUP_ID}?ref={uid}\n\n🎁 За друга: 500 мк!", get_main_keyboard())
             continue
@@ -1604,6 +1679,9 @@ for event in longpoll.listen():
             send_msg(peer, "❌ Использование: пополнить (сумма)\nПример: пополнить 2мм\nМинимум: 1мм", get_main_keyboard())
             continue
         elif msg_lower.startswith("пополнить ") and len(parts) > 1:
+            if not is_dm:
+                send_msg(peer, "❌ Пополнение доступно только в ЛС!")
+                continue
             amount = str_to_num(parts[1:])
             if not amount or amount < 1000000000000:
                 send_msg(peer, "❌ Минимальная сумма пополнения: 1 мм\nПример: пополнить 2мм")
@@ -1621,10 +1699,11 @@ for event in longpoll.listen():
                 send_msg(peer, "🔍 Проверяю перевод...")
                 time.sleep(2)
                 # Проверяем историю переводов
-                history = badbot.get_history(3)
+                history = badbot.get_history(50)
                 found = False
                 for tx in history:
-                    if tx.get("amount", 0) >= amount and tx.get("id"):
+                    tx_time = tx.get("time", 0)
+                    if tx.get("amount", 0) >= amount and tx.get("id") and (time.time() - tx_time) < 3600:
                         found = True
                         new_bal = db.add_balance(uid, amount)
                         send_msg(peer, f"✅ Успешно! Ваш баланс пополнен на {amount_str}\n💳 Текущий баланс: {num_to_str(new_bal)}", get_main_keyboard())
@@ -1767,7 +1846,7 @@ for event in longpoll.listen():
                 send_msg(peer, "❌ Неверный номер задания!")
                 continue
             if task_num not in active_tasks:
-                send_msg(peer, f"✅ Задание #{task_next_id} создано!\n📝 {task_desc}\n💰 Награда: {reward_str}")
+                send_msg(peer, f"❌ Задание #{task_num} не найдено!")
                 continue
             task = active_tasks[task_num]
             db.add_balance(target_id, task['reward'])
