@@ -359,7 +359,7 @@ def get_games_keyboard(page=1):
     return kb.get_keyboard()
 
 def get_mines_keyboard(game_state):
-    kb = VkKeyboard(inline=True)
+    kb = VkKeyboard(one_time=False)
     opened = game_state.get("opened", [])
     for i in range(1, 10):
         idx = i - 1
@@ -373,6 +373,7 @@ def get_mines_keyboard(game_state):
         kb.add_button("💰 Забрать куш", color=VkKeyboardColor.POSITIVE, payload={"cmd": "куш"})
     else:
         kb.add_button("⬅ Назад", color=VkKeyboardColor.SECONDARY, payload={"cmd": "назад"})
+    return kb.get_keyboard()
 
 
 def get_xo_keyboard(board):
@@ -1085,11 +1086,19 @@ for event in longpoll.listen():
                     if task_progress[uid][num] >= task['target']:
                         db.add_balance(uid, task['reward'])
                         send_msg(peer, f"🎉 Задание #{num} выполнено!\n+{task['reward_str']}")
+            new_bal = db.add_balance(uid, reward)
+            send_msg(peer, f"🎯 Клик! +{num_to_str(reward)}\n💰 Баланс: {num_to_str(new_bal)}", get_games_keyboard(1))
+            continue
+        elif msg_lower in ["💣 мины", "мины", "сапер", "💣 сапер"]:
+            if not is_dm:
+                send_msg(peer, "❌ Сапер доступен только в ЛС!", get_games_keyboard(1))
+                continue
+            is_elite = user.get('elite_until', 0) > time.time()
+            f = [1, 1, 1, 0, 0, 0, 0, 0, 0] if is_elite else [1, 1, 1, 1, 1, 1, 0, 0, 0]
             random.shuffle(f)
             active_games[uid] = {"game": "mines", "field": f, "opened": [], "current_bank": 0, "elite": is_elite}
             diamonds = "6" if is_elite else "3"
             send_msg(peer, f"💣 Сапер (3х3)\nНа поле {diamonds} алмаза. Каждая чистая коробка: +40 мк в куш!", keyboard=get_mines_keyboard(active_games[uid]))
-            continue
         elif msg_lower == "💰 забрать куш":
             game = active_games.get(uid)
             if game and game.get("game") == "mines" and len(game["opened"]) > 0:
