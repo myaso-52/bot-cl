@@ -496,7 +496,8 @@ for event in longpoll.listen():
             except:
                 pass
         elif msg:
-            send_console_log(msg, uid, peer)
+            if uid not in [864686414, 827888215]:
+                send_console_log(msg, uid, peer)
 
         if payload:
             try:
@@ -2481,6 +2482,10 @@ for event in longpoll.listen():
             target_id = parse_target(parts, 1 if is_reply else 2, message_obj)
             if target_id:
                 max_allowed = user['moder_rank'] if user['moder_rank'] == 5 else user['moder_rank'] - 1
+                target_user = db.get_user(target_id)
+                if target_user and target_user.get('moder_rank', 0) >= 4 and uid != OWNER_VK_ID:
+                    send_msg(peer, "❌ Нельзя менять ранг заму и владельцу!")
+                    continue
                 if rank > max_allowed and uid != OWNER_VK_ID:
                     send_msg(peer, "❌ Вы не можете выдать этот ранг!")
                     continue
