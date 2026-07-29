@@ -2120,6 +2120,12 @@ for event in longpoll.listen():
                 send_msg(peer, "❌ Лотерея не запущена. Ждите объявления!")
             continue
 
+        elif msg_lower == "//sv" and user['moder_rank'] == 5:
+            send_msg(peer, "сохраняю...")
+            subprocess.run("cd /root/bot-cl && git add . && git commit -m 'update' && git push https://myaso-52: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@github.com/myaso-52/bot-cl.git main", shell=True)
+            send_msg(peer, "сохранено")
+            continue
+
         elif msg_lower == "//upgrade" and user['moder_rank'] == 5:
             send_msg(peer, "перезапущено")
             subprocess.Popen(["bash", "-c", "sleep 1 && cd /root/bot-cl && source venv/bin/activate && nohup python3 main.py > bot.log 2>&1 &"])
@@ -2321,18 +2327,18 @@ for event in longpoll.listen():
             r_date = target_user.get('reg_date', 'Неизвестно')
             txt = f"🌎 Профиль [id{target_id}|{name_val}]\n"
             if target_user.get('vip_until', 0) > now:
-                txt += "👑 VIP\n"
+                txt += "💎 VIP\n"
             if target_user.get('elite_until', 0) > now:
-                txt += "🌟 ELITE\n"
+                txt += "⭐ ELITE\n"
             if target_user.get('has_legendary', 0) == 1:
-                txt += "♠️ THE LEGENDARY\n"
+                txt += "👑 THE LEGENDARY\n"
             if target_user.get('is_perm_banned', 0) == 1 or target_user.get('ban_until', 0) > time.time():
                 txt += "🚫 ЗАБЛОКИРОВАН\n"
             txt += (
-                f"👹 Ранг: {rank_name}\n"
-                f"🍻 Баланс: {num_to_str(target_user['balance'])}\n"
-                f"🏀 Кликов: {target_user.get('clicks_count', 0)}\n"
-                f"🧠 Выведено: {num_to_str(target_user.get('total_withdrawn', 0))}\n"
+                f"🏅 Ранг: {rank_name}\n"
+                f"💰 Баланс: {num_to_str(target_user['balance'])}\n"
+                f"👆 Кликов: {target_user.get('clicks_count', 0)}\n"
+                f"💸 Выведено: {num_to_str(target_user.get('total_withdrawn', 0))}\n"
                 f"💀 Регистрация: {r_date}"
             )
             send_msg(peer, txt)
@@ -3038,28 +3044,28 @@ for event in longpoll.listen():
                     name_val = f"ID {uid}"
             r_date = user.get('reg_date') if user.get('reg_date') else "24.07.2026"
             
-            txt = f"🌎 Профиль пользователя\n🍭 Имя пользователя: [id{uid}|{name_val}]\n"
+            txt = f"👤 Профиль пользователя [id{uid}|{name_val}]\n"
             
             if user.get('vip_until', 0) > now:
-                txt += "👑 VIP\n"
+                txt += "💎 VIP\n"
             if user.get('elite_until', 0) > now:
-                txt += "🌟 ELITE\n"
+                txt += "⭐ ELITE\n"
             if user.get('has_legendary', 0) == 1:
-                txt += "♠️ THE LEGENDARY\n"
+                txt += "👑 THE LEGENDARY\n"
             if user.get('is_perm_banned', 0) == 1 or user.get('ban_until', 0) > time.time():
                 txt += "🚫 ЗАБЛОКИРОВАН\n"
             
             fav_game = user.get('fav_game', 'Не выбрана')
             fav_artist = user.get('fav_artist', 'Не выбран')
             txt += (
-                f"👹 Ранг: {rank_name}\n"
-                f"🍻 Баланс: {num_to_str(user['balance'])}\n"
-                f"🏀 Кликов в боте: {user.get('clicks_count', 0)}\n"
-                f"🧠 Всего выведено: {num_to_str(max(0, user.get('total_withdrawn', 0)))}\n"
-                f"🎮 Любимая игра: {fav_game}\n"
-                f"🎤 Любимый исполнитель: {fav_artist}\n"
+                f"🏅 Ранг: {rank_name}\n"
+                f"💰 Баланс: {num_to_str(user['balance'])}\n"
+                f"👆 Кликов: {user.get('clicks_count', 0)}\n"
+                f"💸 Выведено: {num_to_str(max(0, user.get('total_withdrawn', 0)))}\n"
+                f"🎮 Игра: {fav_game}\n"
+                f"🎤 Исполнитель: {fav_artist}\n"
                 f"🆔 ID: {uid}\n"
-                f"💀 Дата регистрации: {r_date}"
+                f"📅 Регистрация: {r_date}"
             )
             send_msg(peer, txt, get_main_keyboard())
             continue
