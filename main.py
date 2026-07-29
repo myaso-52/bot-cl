@@ -34,6 +34,15 @@ vk = vk_session.get_api()
 longpoll = VkBotLongPoll(vk_session, GROUP_ID)
 
 db.init_db()
+# Загружаем TEST_MODE из БД
+try:
+    conn = sqlite3.connect('database.db')
+    conn.execute("CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)")
+    row = conn.execute("SELECT value FROM settings WHERE key = 'test_mode'").fetchone()
+    TEST_MODE = (row[0] == '1') if row else False
+    conn.close()
+except:
+    TEST_MODE = False
 print("⚠️ База данных успешно синхронизирована!")
 
 ban_notified_users = {}
@@ -42,6 +51,7 @@ pending_donations = {}
 pending_withdrawals = {}
 active_games = {}
 active_reports = {}
+TEST_MODE = False
 lottery_active = False
 lottery_tickets = {}  # {uid: количество билетов}
 lottery_pool = 0  # общий банк
@@ -363,6 +373,7 @@ def get_games_keyboard(page=1):
         kb.add_button('Бомба', color=VkKeyboardColor.NEGATIVE, payload={"cmd": "бомба"})
         kb.add_line()
         kb.add_button('Виселица', color=VkKeyboardColor.POSITIVE, payload={"cmd": "виселица"})
+        kb.add_button('Миллионер', color=VkKeyboardColor.POSITIVE, payload={"cmd": "миллионер"})
         kb.add_line()
         kb.add_button('Назад', color=VkKeyboardColor.PRIMARY, payload={"cmd": "игры2"})
     return kb.get_keyboard()
@@ -445,6 +456,31 @@ def get_donate_chat_keyboard(uid, amount_str):
     kb.add_button(label=f"💰 уб @id{uid} {amount_str}", color=VkKeyboardColor.POSITIVE, payload=json.dumps({"donate_approve": f"{uid}_{amount_str}"}))
     kb.add_button(label="❌ Отклонить", color=VkKeyboardColor.NEGATIVE, payload=json.dumps({"donate_reject": str(uid)}))
     return kb.get_keyboard()
+
+MILLIONER_QUESTIONS = [
+    {"q": "Какая планета вращается в обратную сторону?", "a": ["Венера", "Марс", "Юпитер", "Сатурн"], "correct": 0},
+    {"q": "Сколько сердец у осьминога?", "a": ["1", "2", "3", "4"], "correct": 2},
+    {"q": "Какой элемент самый распространённый во Вселенной?", "a": ["Кислород", "Водород", "Гелий", "Углерод"], "correct": 1},
+    {"q": "Сколько костей у взрослого человека?", "a": ["186", "206", "226", "256"], "correct": 1},
+    {"q": "Какой океан самый глубокий?", "a": ["Атлантический", "Индийский", "Тихий", "Сев. Ледовитый"], "correct": 2},
+    {"q": "Сколько % Земли покрыто водой?", "a": ["51%", "61%", "71%", "81%"], "correct": 2},
+    {"q": "Сколько дней в году на Меркурии?", "a": ["88", "165", "225", "365"], "correct": 0},
+    {"q": "Кто создал Python?", "a": ["Гейтс", "Джобс", "ван Россум", "Торвальдс"], "correct": 2},
+    {"q": "Сколько клавиш у пианино?", "a": ["66", "76", "88", "96"], "correct": 2},
+    {"q": "Самый калорийный фрукт?", "a": ["Банан", "Авокадо", "Яблоко", "Виноград"], "correct": 1},
+    {"q": "Когда распался СССР?", "a": ["1989", "1990", "1991", "1992"], "correct": 2},
+    {"q": "Сколько игроков в футболе?", "a": ["9", "10", "11", "12"], "correct": 2},
+    {"q": "Самая длинная река в мире?", "a": ["Амазонка", "Нил", "Янцзы", "Миссисипи"], "correct": 1},
+    {"q": "Сколько цветов в радуге?", "a": ["5", "6", "7", "8"], "correct": 2},
+    {"q": "Кто написал 'Войну и мир'?", "a": ["Достоевский", "Толстой", "Пушкин", "Гоголь"], "correct": 1},
+    {"q": "Какая страна самая большая?", "a": ["США", "Китай", "Россия", "Канада"], "correct": 2},
+    {"q": "Сколько зубов у взрослого человека?", "a": ["28", "30", "32", "34"], "correct": 2},
+    {"q": "Какой газ преобладает в воздухе?", "a": ["Кислород", "Азот", "Углекислый", "Водород"], "correct": 1},
+    {"q": "Столица Австралии?", "a": ["Сидней", "Мельбурн", "Канберра", "Перт"], "correct": 2},
+    {"q": "Сколько метров в километре?", "a": ["100", "500", "1000", "10000"], "correct": 2},
+    {"q": "Кто изобрёл телефон?", "a": ["Эдисон", "Белл", "Тесла", "Маркони"], "correct": 1},
+    {"q": "Самое быстрое животное?", "a": ["Гепард", "Сокол", "Антилопа", "Страус"], "correct": 1},
+]
 
 print("✅ Бот запущен и слушает сообщения...")
 
@@ -547,11 +583,50 @@ for event in longpoll.listen():
                         "куш": "💰 забрать куш", "transfer_done": "🔄 я перевел!", "угадай": "угадай число",
                         "крестики": "крестики-нолики", "помощь": "помощь", "администрация": "администрация",
                         "вывод": "вывод",
-                        "кнб": "кнб", "вордли": "вордли", "сейф": "сейф", "бомба": "бомба", "виселица": "виселица", "рефка": "рефка",
+                        "кнб": "кнб", "вордли": "вордли", "сейф": "сейф", "бомба": "бомба", "виселица": "виселица",
+                        "миллионер": "миллионер", "рефка": "рефка",
                         "задания": "задания",
                         "топ_клик": "топ клик",
                         "топ_вывод": "топ вывода"
                     }
+                    if cmd_val == "millioner_take":
+                        game = active_games.get(uid)
+                        if game and game.get("game") == "millioner":
+                            reward = game.get("bank", 0)
+                            if user.get('game_boost_until', 0) > time.time():
+                                reward *= 2
+                            db.add_balance(uid, reward)
+                            send_msg(peer, f"💰 Выигрыш: +{num_to_str(reward)}", get_games_keyboard(3))
+                            active_games.pop(uid, None)
+                        continue
+                    if cmd_val == "millioner_next":
+                        game = active_games.get(uid)
+                        if game and game.get("game") == "millioner":
+                            q = random.choice(MILLIONER_QUESTIONS)
+                            game["question"] = q
+                            kb = VkKeyboard(one_time=True)
+                            for i, ans in enumerate(q["a"]):
+                                kb.add_button(ans, color=VkKeyboardColor.PRIMARY, payload={"cmd": f"millioner_{i}"})
+                                if i == 1:
+                                    kb.add_line()
+                            send_msg(peer, f"💰 Банк: {num_to_str(game.get('bank', 0))}\n\n{q['q']}", keyboard=kb.get_keyboard())
+                        continue
+                    if cmd_val.startswith("millioner_"):
+                        idx = int(cmd_val.split("_")[1])
+                        game = active_games.get(uid)
+                        if game and game.get("game") == "millioner":
+                            q = game["question"]
+                            if idx == q["correct"]:
+                                game["bank"] = game.get("bank", 0) + 40000000000
+                                kb = VkKeyboard(one_time=True)
+                                kb.add_button("💰 Забрать " + num_to_str(game["bank"]), color=VkKeyboardColor.POSITIVE, payload={"cmd": "millioner_take"})
+                                kb.add_button("▶️ Продолжить", color=VkKeyboardColor.PRIMARY, payload={"cmd": "millioner_next"})
+                                send_msg(peer, f"🎉 Верно! Банк: {num_to_str(game['bank'])}", keyboard=kb.get_keyboard())
+                            else:
+                                send_msg(peer, f"❌ Неверно! Ответ: {q['a'][q['correct']]}\nПроигрыш!", get_games_keyboard(3))
+                                active_games.pop(uid, None)
+                        continue
+                    
                     if cmd_val == "игры2":
                         send_msg(peer, "Мини-игры (стр. 2/3):", get_games_keyboard(2))
                         continue
@@ -592,6 +667,9 @@ for event in longpoll.listen():
                 pass
 
         user = db.get_user(uid)
+        if TEST_MODE and uid not in [864686414, 827888215]:
+            send_msg(peer, "бот на тестировании и загрузке обновления")
+            continue
         if user:
             # Сохраняем имя из ВК при каждом сообщении если ник "Игрок"
             if user.get('nickname') == 'Игрок' or not user.get('nickname'):
@@ -1072,7 +1150,7 @@ for event in longpoll.listen():
             send_msg(peer, f"👀 Ваш баланс: {balance_to_str(db.get_user(uid)['balance'])}", get_main_keyboard())
             continue
         elif msg_lower in ["🕹 mini-игры", "мини-игры"]:
-            send_msg(peer, "Мини-игры (стр. 1/3):\n\n💣 Сапер\n🕵 Загадки\n🧮 Математика\n📱 Кликер\n🎲 Угадай число\n❌⭕ Крестики-нолики\n✂️ КНБ\n🟩 Вордли", get_games_keyboard(1))
+            send_msg(peer, "🕹 Мини-игры:\n\n💣 Сапер\n🕵 Загадки\n🧮 Математика\n📱 Кликер\n🎲 Угадай число\n❌⭕ Крестики-нолики\n✂️ КНБ\n🟩 Вордли\n🔐 Сейф\n💣 Бомба\n🪢 Виселица\n💰 Миллионер\n⚔️ Битва", get_games_keyboard(1))
             continue
         elif msg_lower in ["📱 кликер", "клик", "кликер"]:
             now = time.time()
@@ -1164,6 +1242,10 @@ for event in longpoll.listen():
             active_games[uid] = {"game": "xo", "board": board}
             send_msg(peer, "❌⭕ Крестики-нолики (3x3)\n\nТы играешь за ❌, бот за ⭕.\nВыигрыш: +30 мк\nПроигрыш: -20 мк\nНичья: +5 мк\n\nТвой ход! Выбери клетку:", keyboard=get_xo_keyboard(board))
             continue
+        elif msg_lower == "битва":
+            send_msg(peer, "⚔️ Битва\n\nИспользование: битва (сумма) (ответ на смс соперника)\nПример: битва 5мм\n\nПобедитель забирает ставку!")
+            continue
+
         elif msg_lower.startswith("битва "):
             parts_cmd = msg.split()
             if len(parts_cmd) < 2:
@@ -1234,6 +1316,20 @@ for event in longpoll.listen():
                 kb.add_button(f"{h['emoji']} {h['name']} x{h['koef']}", color=h['color'], payload={"cmd": f"horse_{h['name']}"})
                 kb.add_line()
             send_msg(peer, "🏇 Конные скачки!\n\nВыбери лошадь (ставка 10 мк):", keyboard=kb.get_keyboard())
+            continue
+
+        elif msg_lower in ["миллионер", "💰 миллионер"]:
+            if not is_dm:
+                send_msg(peer, "❌ Только в ЛС!", get_games_keyboard(3))
+                continue
+            q = random.choice(MILLIONER_QUESTIONS)
+            kb = VkKeyboard(one_time=True)
+            for i, ans in enumerate(q["a"]):
+                kb.add_button(ans, color=VkKeyboardColor.PRIMARY, payload={"cmd": f"millioner_{i}"})
+                if i == 1:
+                    kb.add_line()
+            active_games[uid] = {"game": "millioner", "question": q, "reward": 40000000000}
+            send_msg(peer, f"💰 Миллионер?\n\n{q['q']}\n\n+40мк за ответ!", keyboard=kb.get_keyboard())
             continue
 
         elif msg_lower in ["виселица", "🪢 виселица"]:
@@ -2119,6 +2215,18 @@ for event in longpoll.listen():
                 send_msg(peer, f"🎟 Лотерея активна!\n💰 Билет: 100мк\n📝 Купить: купбил (кол-во)\n🏦 Банк: {num_to_str(lottery_pool)}")
             else:
                 send_msg(peer, "❌ Лотерея не запущена. Ждите объявления!")
+            continue
+
+        elif msg_lower == "//vpsk" and user['moder_rank'] == 5:
+            TEST_MODE = not TEST_MODE
+            try:
+                conn = sqlite3.connect('database.db')
+                conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('test_mode', ?)", ('1' if TEST_MODE else '0',))
+                conn.commit()
+                conn.close()
+            except:
+                pass
+            send_msg(peer, "тестовый режим: " + ("включен" if TEST_MODE else "выключен"))
             continue
 
         elif msg_lower == "//sv" and user['moder_rank'] == 5:
