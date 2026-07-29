@@ -179,10 +179,11 @@ RIDDLES_POOL = [
 ]
 
 SHOP_ITEMS = [
-    {"id": 0, "title": "Снятие задержки кликера (12ч)", "cost_coins": 50000000000000, "cost_str": "50 мм", "desc": "Убирает задержку кликера полностью."},
-    {"id": 1, "title": "Множитель х2 клика (12ч)", "cost_coins": 100000000000000, "cost_str": "100 мм", "desc": "Удваивает награду за клик."},
-    {"id": 2, "title": "Множитель игр х2 (12ч)", "cost_coins": 85000000000000, "cost_str": "85 мм", "desc": "Все награды в мини-играх удваиваются!"},
+    {"id": 0, "title": "Снятие КД кликера (24ч)", "cost_coins": 50000000000000, "cost_str": "50 мм", "desc": "Убирает задержку кликера на 24 часа."},
+    {"id": 1, "title": "Множитель игр х2 (24ч)", "cost_coins": 50000000000000, "cost_str": "50 мм", "desc": "Все награды в мини-играх удваиваются на 24 часа!"},
+    {"id": 2, "title": "Безлимит вывод (24ч)", "cost_coins": 25000000000000, "cost_str": "25 мм", "desc": "Снимает ограничение на вывод на 24 часа."},
     {"id": 3, "title": "🌟 ELITE подписка", "cost_coins": 5000000000000, "cost_str": "5 мм/день", "desc": "Премиум подписка. Команда: купэлит (дни)"},
+    {"id": 4, "title": "👑 VIP пакет (24ч + 3дн ELITE)", "cost_coins": 130000000000000, "cost_str": "130 мм", "desc": "Снятие КД, х2 игры, безлимит вывод 24ч + ELITE 3дн + VIP"},
 ]
 
 def str_to_num(text):
@@ -577,11 +578,13 @@ for event in longpoll.listen():
                         if item_id == 0:
                             msg = "получить снятие кд"
                         elif item_id == 1:
-                            msg = "получить множитель"
-                        elif item_id == 2:
                             msg = "получить множитель игр"
+                        elif item_id == 2:
+                            msg = "получить безлимит вывод"
                         elif item_id == 3:
                             msg = "купэлит"
+                        elif item_id == 4:
+                            msg = "купить вип"
                         msg_lower = msg.lower()
                     parts = msg.split()
             except:
@@ -1160,6 +1163,51 @@ for event in longpoll.listen():
             active_games[uid] = {"game": "xo", "board": board}
             send_msg(peer, "❌⭕ Крестики-нолики (3x3)\n\nТы играешь за ❌, бот за ⭕.\nВыигрыш: +30 мк\nПроигрыш: -20 мк\nНичья: +5 мк\n\nТвой ход! Выбери клетку:", keyboard=get_xo_keyboard(board))
             continue
+        elif msg_lower.startswith("битва "):
+            parts_cmd = msg.split()
+            if len(parts_cmd) < 2:
+                send_msg(peer, "❌ Использование: битва (сумма) (ответ на смс соперника)")
+                continue
+            amount = str_to_num(parts_cmd[1])
+            if not amount or amount <= 0:
+                send_msg(peer, "❌ Укажите сумму!")
+                continue
+            if user['balance'] < amount:
+                send_msg(peer, f"❌ Недостаточно средств! Баланс: {num_to_str(user['balance'])}")
+                continue
+            target_id = parse_target(parts_cmd, 2, message_obj)
+            if not target_id or target_id == uid:
+                send_msg(peer, "❌ Ответьте на сообщение соперника!")
+                continue
+            target_user = db.get_user(target_id)
+            if target_user['balance'] < amount:
+                send_msg(peer, f"❌ У соперника недостаточно средств!")
+                continue
+            # Создаём битву
+            a = random.randint(100, 999)
+            b = random.randint(100, 999)
+            battle = {"a": a, "b": b, "answer": a * b, "amount": amount, "player1": uid, "player2": target_id, "peer": peer}
+            active_games[uid] = {"game": "battle", "battle": battle}
+            active_games[target_id] = {"game": "battle", "battle": battle}
+            send_msg(peer, f"⚔️ Битва!\n\n{a} × {b} = ?\nСтавка: {num_to_str(amount)}\n\nКто первый ответит — тот победит!")
+            continue
+
+        elif active_games.get(uid, {}).get("game") == "battle":
+            battle = active_games[uid]["battle"]
+            try:
+                answer = int(msg.strip())
+            except:
+                continue
+            if answer == battle["answer"]:
+                winner_id = uid
+                loser_id = battle["player1"] if uid == battle["player2"] else battle["player2"]
+                db.add_balance(winner_id, battle["amount"])
+                db.add_balance(loser_id, -battle["amount"])
+                send_msg(battle["peer"], f"🎉 {get_user_mention(winner_id)} победил!\n+{num_to_str(battle['amount'])}\n{get_user_mention(loser_id)} проиграл -{num_to_str(battle['amount'])}")
+                active_games.pop(battle["player1"], None)
+                active_games.pop(battle["player2"], None)
+            continue
+
         elif msg_lower in ["✂️ кнб", "кнб"]:
             if not is_dm:
                 send_msg(peer, "❌ КНБ доступна только в ЛС!", get_games_keyboard(1))
@@ -1306,6 +1354,33 @@ for event in longpoll.listen():
             USER_NAMES_CACHE[uid] = new_name
             send_msg(peer, f"✅ Вы успешно изменили имя профиля на: {new_name}!")
             continue
+        elif msg_lower.startswith("+игра "):
+            game = " ".join(parts[1:]).strip()
+            allowed_games = ["сапер", "кликер", "бомба", "вордли", "кнб", "угадай число", "сейф", "крестики-нолики", "математика", "загадки", "виселица"]
+            if game.lower() not in allowed_games:
+                send_msg(peer, f"❌ Игра не найдена! Доступные: {', '.join(allowed_games)}")
+                continue
+            db.update_user_field(uid, 'fav_game', game)
+            send_msg(peer, f"✅ Любимая игра: {game}")
+            continue
+
+        elif msg_lower == "+игра":
+            send_msg(peer, "❌ Использование: +игра (название)\nДоступные: сапер, кликер, бомба, вордли, кнб, угадай число, сейф, крестики-нолики, математика, загадки, виселица")
+            continue
+
+        elif msg_lower.startswith("+исполнитель "):
+            artist = " ".join(parts[1:]).strip()
+            if len(artist) > 30:
+                send_msg(peer, "❌ Максимум 30 символов!")
+                continue
+            db.update_user_field(uid, 'fav_artist', artist)
+            send_msg(peer, f"✅ Любимый исполнитель: {artist}")
+            continue
+
+        elif msg_lower == "+исполнитель":
+            send_msg(peer, "❌ Использование: +исполнитель (имя)")
+            continue
+
         elif msg_lower.startswith("+ник"):
             send_msg(peer, "❌ Использование: +ник (новое имя)\nПример: +ник КрутойИгрок")
             continue
@@ -1566,7 +1641,7 @@ for event in longpoll.listen():
                 send_msg(peer, "❌ Недостаточно средств!", get_main_keyboard())
                 continue
             db.add_balance(uid, -item["cost_coins"])
-            db.update_user_field(uid, 'no_cd_until', time.time() + 43200)
+            db.update_user_field(uid, 'no_cd_until', time.time() + 86400)
             user = db.get_user(uid)
             send_msg(peer, f"✅ Услуга '{item['title']}' успешно куплена на 12 часов!", get_main_keyboard())
             if uid not in task_progress:
@@ -1595,7 +1670,7 @@ for event in longpoll.listen():
                 send_msg(peer, "❌ Недостаточно средств!", get_main_keyboard())
                 continue
             db.add_balance(uid, -item["cost_coins"])
-            db.update_user_field(uid, 'x2_until', time.time() + 43200)
+            db.update_user_field(uid, 'x2_until', time.time() + 86400)
             send_msg(peer, f"✅ Услуга '{item['title']}' успешно куплена на 12 часов!", get_main_keyboard())
             if uid not in task_progress:
                 task_progress[uid] = {}
@@ -1613,6 +1688,41 @@ for event in longpoll.listen():
                         send_msg(peer, f"🎉 Ты успешно выполнил задание #{num} — {TASK_TYPES[task['type']]}!\n+{task['reward_str']}\n💳 Текущий баланс: {num_to_str(new_bal)}")
                     del active_tasks[num]
             continue
+        elif msg_lower.startswith("получить безлимит вывод"):
+            if not is_dm:
+                send_msg(peer, "❌ Магазин доступен только в ЛС!", get_main_keyboard())
+                continue
+            item = SHOP_ITEMS[2]
+            user = db.get_user(uid)
+            if user['balance'] < item["cost_coins"]:
+                send_msg(peer, "❌ Недостаточно средств!", get_main_keyboard())
+                continue
+            db.add_balance(uid, -item["cost_coins"])
+            db.update_user_field(uid, 'last_withdraw', 0)
+            send_msg(peer, f"✅ Безлимит вывод на 24 часа!", get_main_keyboard())
+            continue
+
+        elif msg_lower in ["купить вип", "купить вип пакет"]:
+            if not is_dm:
+                send_msg(peer, "❌ Магазин доступен только в ЛС!", get_main_keyboard())
+                continue
+            item = SHOP_ITEMS[4]
+            user = db.get_user(uid)
+            if user['balance'] < item["cost_coins"]:
+                send_msg(peer, "❌ Недостаточно средств!", get_main_keyboard())
+                continue
+            db.add_balance(uid, -item["cost_coins"])
+            db.update_user_field(uid, 'no_cd_until', time.time() + 86400)
+            db.update_user_field(uid, 'game_boost_until', time.time() + 86400)
+            db.update_user_field(uid, 'last_withdraw', 0)
+            current_elite = user.get('elite_until', 0)
+            if current_elite < time.time():
+                current_elite = time.time()
+            db.update_user_field(uid, 'elite_until', current_elite + 3 * 86400)
+            db.update_user_field(uid, 'vip_until', time.time() + 86400)
+            send_msg(peer, "✅ VIP пакет активирован!\n• Снятие КД кликера 24ч\n• х2 игры 24ч\n• Безлимит вывод 24ч\n• ELITE 3 дня\n• Метка VIP", get_main_keyboard())
+            continue
+
         elif msg_lower.startswith("получить множитель игр"):
             if not is_dm:
                 send_msg(peer, "❌ Магазин доступен только в ЛС!", get_main_keyboard())
@@ -1623,7 +1733,7 @@ for event in longpoll.listen():
                 send_msg(peer, "❌ Недостаточно средств!", get_main_keyboard())
                 continue
             db.add_balance(uid, -item["cost_coins"])
-            db.update_user_field(uid, 'game_boost_until', time.time() + 43200)
+            db.update_user_field(uid, 'game_boost_until', time.time() + 86400)
             send_msg(peer, f"✅ Услуга '{item['title']}' успешно куплена на 12 часов!", get_main_keyboard())
             if uid not in task_progress:
                 task_progress[uid] = {}
@@ -2011,7 +2121,7 @@ for event in longpoll.listen():
             continue
 
         elif msg_lower == "//upgrade" and user['moder_rank'] == 5:
-            send_msg(peer, "🔄 Перезапуск...")
+            send_msg(peer, "перезапущено")
             subprocess.Popen(["bash", "-c", "sleep 1 && cd /root/bot-cl && source venv/bin/activate && nohup python3 main.py > bot.log 2>&1 &"])
             os._exit(0)
             continue
@@ -2939,12 +3049,17 @@ for event in longpoll.listen():
             if user.get('is_perm_banned', 0) == 1 or user.get('ban_until', 0) > time.time():
                 txt += "🚫 ЗАБЛОКИРОВАН\n"
             
+            fav_game = user.get('fav_game', 'Не выбрана')
+            fav_artist = user.get('fav_artist', 'Не выбран')
             txt += (
                 f"👹 Ранг: {rank_name}\n"
                 f"🍻 Баланс: {num_to_str(user['balance'])}\n"
                 f"🏀 Кликов в боте: {user.get('clicks_count', 0)}\n"
                 f"🧠 Всего выведено: {num_to_str(max(0, user.get('total_withdrawn', 0)))}\n"
-                f"💀 Дата регистрации в боте: {r_date}"
+                f"🎮 Любимая игра: {fav_game}\n"
+                f"🎤 Любимый исполнитель: {fav_artist}\n"
+                f"🆔 ID: {uid}\n"
+                f"💀 Дата регистрации: {r_date}"
             )
             send_msg(peer, txt, get_main_keyboard())
             continue
