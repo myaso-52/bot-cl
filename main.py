@@ -1453,7 +1453,7 @@ for event in longpoll.listen():
             continue
         elif msg_lower.startswith("+игра "):
             game = " ".join(parts[1:]).strip()
-            allowed_games = ["сапер", "кликер", "бомба", "вордли", "кнб", "угадай число", "сейф", "крестики-нолики", "математика", "загадки", "виселица"]
+            allowed_games = ["сапер", "кликер", "бомба", "вордли", "кнб", "угадай число", "сейф", "крестики-нолики", "математика", "загадки", "виселица", "миллионер"]
             if game.lower() not in allowed_games:
                 send_msg(peer, f"❌ Игра не найдена! Доступные: {', '.join(allowed_games)}")
                 continue
