@@ -234,7 +234,8 @@ def num_to_str(num):
 
 def parse_user_id(text):
     text = text.strip()
-    if '://vk.com' in text or '://vk.ru' in text:
+    if '://vk.com/' in text or '://vk.ru/' in text:
+        text = text.split('/')[-1].strip()
         text = text.split('://vk.com')[-1].replace(']', '').replace('[', '').strip()
     if '@' in text:
         text = text.split('@')[-1].strip()
