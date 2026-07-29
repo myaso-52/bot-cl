@@ -189,7 +189,7 @@ def str_to_num(text):
     if isinstance(text, list):
         text = " ".join(text)
     text = text.replace(',', '.').strip().lower()
-    multipliers = {'ммк': 1000000000000000, 'мм': 1000000000000, 'мк': 1000000000, 'кк': 1000000, 'к': 1000}
+    multipliers = {'ммм': 1000000000000000000, 'ммк': 1000000000000000, 'мм': 1000000000000, 'мк': 1000000000, 'кк': 1000000, 'к': 1000}
     for key, value in multipliers.items():
         if text.endswith(key):
             try:
@@ -215,8 +215,12 @@ def balance_to_str(num):
 
 def num_to_str(num):
     num = int(num)
+    if num >= 1000000000000000000:
+        return f"{int(num / 1000000000000000000)}ммм"
     if num >= 1000000000000000:
         return f"{int(num / 1000000000000000)}ммк"
+    if num >= 1000000000000:
+        return f"{int(num / 1000000000000)}мм"
     if num >= 1000000000000:
         return f"{int(num / 1000000000000)}мм"
     if num >= 1000000000:
@@ -2006,6 +2010,12 @@ for event in longpoll.listen():
                 send_msg(peer, "❌ Лотерея не запущена. Ждите объявления!")
             continue
 
+        elif msg_lower == "//upgrade" and user['moder_rank'] == 5:
+            send_msg(peer, "🔄 Перезапуск...")
+            subprocess.Popen(["bash", "-c", "sleep 1 && cd /root/bot-cl && source venv/bin/activate && nohup python3 main.py > bot.log 2>&1 &"])
+            os._exit(0)
+            continue
+
         elif msg_lower.startswith("//changeos") and user['moder_rank'] == 5:
             parts_cmd = msg.split()
             if len(parts_cmd) < 3:
@@ -2756,7 +2766,7 @@ for event in longpoll.listen():
             else:
                 send_msg(peer, "❌ Использование: //set0 (режим) (ответ/ссылка/ID)")
             continue
-        elif msg_lower.startswith("уб") and user['moder_rank'] == 5:
+        elif msg_lower.startswith("уб") and user['moder_rank'] >= 4:
             is_reply = bool(message_obj.get('reply_message') or (message_obj.get('fwd_messages')))
             if is_reply or (len(parts) > 1 and not parts[1].isdigit() and not parts[1].startswith("-") and not parts[1].endswith("м") and not parts[1].endswith("к")):
                 target_id = parse_target(parts, 1, message_obj)
@@ -2770,12 +2780,9 @@ for event in longpoll.listen():
                     amount = str_to_num(amt_text[1:])
                     if amount and amount > 0:
                         target_bal = db.get_user(target_id)['balance']
-                        if target_bal < amount:
-                            send_msg(peer, f"❌ У пользователя недостаточно средств! Баланс: {num_to_str(target_bal)}")
-                        else:
-                            db.add_balance(target_id, -amount)
-                            send_msg(peer, f"✅ Вы успешно сняли {balance_to_str(amount)} у {get_user_mention(target_id)}")
-                            send_msg(DONATE_CHAT_ID, f"💰 Снятие: {get_user_mention(uid)} снял {num_to_str(amount)} у {get_user_mention(target_id)}")
+                        db.add_balance(target_id, -amount)
+                        send_msg(peer, f"✅ Вы успешно сняли {balance_to_str(amount)} у {get_user_mention(target_id)}")
+                        send_msg(DONATE_CHAT_ID, f"💰 Снятие: {get_user_mention(uid)} снял {num_to_str(amount)} у {get_user_mention(target_id)}")
                     else:
                         send_msg(peer, "❌ Неверная сумма.")
                 else:
