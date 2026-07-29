@@ -2123,7 +2123,7 @@ for event in longpoll.listen():
 
         elif msg_lower == "//sv" and user['moder_rank'] == 5:
             send_msg(peer, "сохраняю...")
-            subprocess.run("cd /root/bot-cl && git add . && git commit -m 'update' && git push https://myaso-52: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@github.com/myaso-52/bot-cl.git main", shell=True)
+            subprocess.run("cd /root/bot-cl && git add . && git commit -m 'update' && git push https://myaso-52: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@github.com/myaso-52/bot-cl.git main", shell=True)
             send_msg(peer, "сохранено")
             continue
 
