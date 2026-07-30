@@ -227,7 +227,10 @@ def balance_to_str(num):
     return result
 
 def num_to_str(num):
-    num = int(num)
+    try:
+        num = int(num)
+    except:
+        return str(num)
     
     if num >= 1000000000000000:
         return f"{int(num / 1000000000000000)}ммк"
@@ -2032,6 +2035,7 @@ for event in longpoll.listen():
                     tx_time = tx.get("time", 0)
                     if tx.get("amount", 0) >= amount and tx.get("id") and (time.time() - tx_time) < 3600:
                         found = True
+                        db.update_user_field(uid, 'total_deposited', user.get('total_deposited', 0) + amount)
                         new_bal = db.add_balance(uid, amount)
                         send_msg(peer, f"✅ Успешно! Ваш баланс пополнен на {amount_str}\n💳 Текущий баланс: {num_to_str(new_bal)}", get_main_keyboard())
                 # Проверка заданий на баланс
@@ -2823,14 +2827,14 @@ for event in longpoll.listen():
             if is_reply:
                 target_id = message_obj.get('reply_message', {}).get('from_id')
                 if len(parts) < 3:
-                    send_msg(peer, "❌ Использование: ответь на сообщение и напиши //edit (поле) (значение)\nПоля: balance, clicks_count, total_withdrawn, nickname, moder_rank (0-5), reg_date, aura")
+                    send_msg(peer, "❌ Использование: ответь на сообщение и напиши //edit (поле) (значение)\nПоля: balance, clicks_count, total_withdrawn, total_deposited, nickname, moder_rank (0-5), reg_date, aura")
                     continue
                 field = parts[1].lower()
                 val_idx = 2
             else:
                 target_id = parse_target(parts, 1, message_obj)
                 if len(parts) < 3:
-                    send_msg(peer, "❌ Использование: //edit (ответ/ссылка) (поле) (значение)\nПоля: balance, clicks_count, total_withdrawn, nickname, moder_rank(0-5), reg_date, aura\nПример: //edit @user balance 100мм")
+                    send_msg(peer, "❌ Использование: //edit (ответ/ссылка) (поле) (значение)\nПоля: balance, clicks_count, total_withdrawn, total_deposited, nickname, moder_rank(0-5), reg_date, aura\nПример: //edit @user balance 100мм")
                     continue
                 field = parts[2].lower()
                 val_idx = 3
@@ -2838,7 +2842,7 @@ for event in longpoll.listen():
                 send_msg(peer, "❌ Использование: //edit (ответ/ссылка) (поле) (значение)")
                 continue
             value = " ".join(parts[val_idx:])
-            allowed = ['balance', 'clicks_count', 'total_withdrawn', 'nickname', 'moder_rank', 'reg_date', 'elite_until', 'aura']
+            allowed = ['balance', 'clicks_count', 'total_withdrawn', 'nickname', 'moder_rank', 'reg_date', 'elite_until', 'aura', 'total_deposited']
             if field not in allowed:
                 send_msg(peer, f"❌ Доступные поля: {', '.join(allowed)}")
                 continue
@@ -3382,6 +3386,20 @@ for event in longpoll.listen():
             send_msg(peer, f"⚡ Аура +10! Всего: {user.get('aura', 0) + 10}")
             continue
 
+        elif msg_lower in ["топ пополнений", "топ пополнения"]:
+            conn = sqlite3.connect('database.db')
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute("SELECT user_id, total_deposited, nickname FROM users WHERE total_deposited > 0 ORDER BY total_deposited DESC LIMIT 10")
+            rows = cursor.fetchall()
+            conn.close()
+            txt = "🏆 Топ-10 по пополнениям:\n\n"
+            for i, r in enumerate(rows, 1):
+                name = r['nickname'] if r['nickname'] and r['nickname'] != 'Игрок' else f"ID {r['user_id']}"
+                txt += f"{i}. [id{r['user_id']}|{name}] — {num_to_str(r['total_deposited'])}\n"
+            send_msg(peer, txt, get_main_keyboard())
+            continue
+
         elif msg_lower in ["топ аура", "топ ауры"]:
             conn = sqlite3.connect('database.db')
             conn.row_factory = sqlite3.Row
@@ -3433,6 +3451,7 @@ for event in longpoll.listen():
                 f"💰 Баланс: {num_to_str(user['balance'])}\n"
                 f"⚡ Аура: {user.get('aura', 0)}\n"
                 f"👆 Кликов: {user.get('clicks_count', 0)}\n"
+                f"📥 Пополнено: {num_to_str(user.get('total_deposited', 0))}\n"
                 f"💸 Выведено: {num_to_str(max(0, user.get('total_withdrawn', 0)))}\n"
                 f"🎮 Игра: {fav_game}\n"
                 f"🎤 Исполнитель: {fav_artist}\n"
