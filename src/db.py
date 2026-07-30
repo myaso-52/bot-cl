@@ -96,7 +96,7 @@ def update_user_field(user_id, field_name, value):
         'ban_until', 'ban_reason', 'nickname', 'no_cd_until', 
         'x2_until', 'reg_date', 'has_legendary', 'referrer_id', 
         'ref_reward_given', 'last_withdraw', 'vip_until', 'game_boost_until',
-        'elite_until', 'fav_game', 'fav_artist'
+        'elite_until', 'fav_game', 'fav_artist', 'aura', 'last_aura'
     ]
     if field_name not in allowed_fields:
         return
@@ -106,6 +106,8 @@ def update_user_field(user_id, field_name, value):
         conn.commit()
 
 def add_balance(user_id, amount):
+    if abs(amount) > 1000000000000000000:
+        return 0
     with sqlite3.connect(DB_PATH) as conn:
         cursor = conn.cursor()
         cursor.execute("UPDATE users SET balance = balance + ? WHERE user_id = ?", (amount, user_id))

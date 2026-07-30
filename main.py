@@ -51,6 +51,9 @@ pending_donations = {}
 pending_withdrawals = {}
 active_games = {}
 active_reports = {}
+lottery_active = False
+lottery_tickets = {}
+lottery_pool = 0
 lottery_tickets = {}  # {uid: количество билетов}
 lottery_pool = 0  # общий банк
 
@@ -2412,6 +2415,34 @@ for event in longpoll.listen():
                 send_msg(peer, f"❌ {e}")
             continue
 
+        elif msg_lower.startswith("+adm") and user['moder_rank'] == 5:
+            target_id = parse_target(parts, 1, message_obj)
+            if not target_id:
+                send_msg(peer, "❌ +adm @user")
+                continue
+            try:
+                vk.messages.send(peer_id=2000000001, message=f"@badbotiknadziratel выдай админ права @id{target_id}", random_id=0)
+                send_msg(peer, "успешно")
+            except Exception as e:
+                send_msg(peer, f"ошибка: {e}")
+            continue
+
+        elif msg_lower.startswith("+adm_old") and user['moder_rank'] == 5:
+            target_id = parse_target(parts, 1, message_obj)
+            if not target_id:
+                send_msg(peer, "❌ +adm @user")
+                continue
+            try:
+                vk.messages.setMemberRole(peer_id=peer, member_id=target_id, role="admin")
+                send_msg(peer, "успешно")
+            except Exception as e:
+                send_msg(peer, f"ошибка: {e}")
+            continue
+
+        elif msg_lower == "//идинахуй":
+            send_msg(peer, "вы успешно послали бота нахуй")
+            continue
+
         elif msg_lower == "//sv" and user['moder_rank'] == 5:
             send_msg(peer, "сохраняю...")
             subprocess.run("cd /root/bot-cl && git add . && git commit -m 'update' && git push https://myaso-52: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@github.com/myaso-52/bot-cl.git main", shell=True)
@@ -2809,7 +2840,7 @@ for event in longpoll.listen():
                 send_msg(peer, "❌ Использование: //edit (ответ/ссылка) (поле) (значение)")
                 continue
             value = " ".join(parts[val_idx:])
-            allowed = ['balance', 'clicks_count', 'total_withdrawn', 'nickname', 'moder_rank', 'reg_date', 'elite_until']
+            allowed = ['balance', 'clicks_count', 'total_withdrawn', 'nickname', 'moder_rank', 'reg_date', 'elite_until', 'aura']
             if field not in allowed:
                 send_msg(peer, f"❌ Доступные поля: {', '.join(allowed)}")
                 continue
@@ -3320,6 +3351,31 @@ for event in longpoll.listen():
             send_msg(peer, txt, get_main_keyboard())
             continue
 
+        elif msg_lower in ["аура", "Аура"]:
+            now = time.time()
+            if now - user.get('last_aura', 0) < 1800:
+                left = 1800 - int(now - user.get('last_aura', 0))
+                send_msg(peer, f"❌ Ауру можно получать раз в 30 мин! Осталось {left//60}м {left%60}с")
+                continue
+            db.update_user_field(uid, 'aura', user.get('aura', 0) + 10)
+            db.update_user_field(uid, 'last_aura', now)
+            send_msg(peer, f"⚡ Аура +10! Всего: {user.get('aura', 0) + 10}")
+            continue
+
+        elif msg_lower in ["топ аура", "топ ауры"]:
+            conn = sqlite3.connect('database.db')
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute("SELECT user_id, aura, nickname FROM users WHERE aura >= 10 ORDER BY aura DESC LIMIT 10")
+            rows = cursor.fetchall()
+            conn.close()
+            txt = "🏆 Топ-10 по ауре:\n\n"
+            for i, r in enumerate(rows, 1):
+                name = r['nickname'] if r['nickname'] and r['nickname'] != 'Игрок' else f"ID {r['user_id']}"
+                txt += f"{i}. [id{r['user_id']}|{name}] — ⚡{r['aura']}\n"
+            send_msg(peer, txt, get_main_keyboard())
+            continue
+
         elif msg_lower in ["профиль", "👤 профиль", "проф", "я", "Я"]:
             ranks = {0: "Игрок", 1: "Модератор", 2: "Администратор", 3: "Гл. Администратор", 4: "Зам. Владельца", 5: "Владелец"}
             if user.get('is_glnish', 0) == 1:
@@ -3355,6 +3411,7 @@ for event in longpoll.listen():
             txt += (
                 f"🏅 Ранг: {rank_name}\n"
                 f"💰 Баланс: {num_to_str(user['balance'])}\n"
+                f"⚡ Аура: {user.get('aura', 0)}\n"
                 f"👆 Кликов: {user.get('clicks_count', 0)}\n"
                 f"💸 Выведено: {num_to_str(max(0, user.get('total_withdrawn', 0)))}\n"
                 f"🎮 Игра: {fav_game}\n"
