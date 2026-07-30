@@ -224,8 +224,7 @@ def balance_to_str(num):
 
 def num_to_str(num):
     num = int(num)
-    if num >= 1000000000000000000:
-        return f"{int(num / 1000000000000000000)}ммм"
+    
     if num >= 1000000000000000:
         return f"{int(num / 1000000000000000)}ммк"
     if num >= 1000000000000:
@@ -3197,6 +3196,9 @@ for event in longpoll.listen():
                 else:
                     amount = str_to_num(amt_text)
                     if amount and amount > 0:
+                        if amount > 1000000000000000000000:
+                            send_msg(peer, "❌ Слишком большая сумма!")
+                            continue
                         new_bal = db.add_balance(target_id, amount)
                         if target_id == uid:
                             send_msg(peer, f"✅ Вы успешно выдали себе {balance_to_str(amount)}!\n💳 Ваш баланс: {balance_to_str(new_bal)}")
