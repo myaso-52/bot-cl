@@ -1477,6 +1477,9 @@ for event in longpoll.listen():
             if amount < 1000000000000:
                 send_msg(peer, f"❌ Минимальная сумма вывода: 1мм. Ваш запрос: {num_to_str(amount)}")
                 continue
+            if amount > 20000000000000000:
+                send_msg(peer, f"❌ Максимальная сумма вывода за раз: 20мм. Ваш запрос: {num_to_str(amount)}")
+                continue
             if cupons.get(uid, 0) > 0:
                 cupons[uid] -= 1
                 send_msg(peer, f"🎫 Использован купон! Бесплатный вывод {num_to_str(amount)}")
