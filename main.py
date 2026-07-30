@@ -806,6 +806,19 @@ for event in longpoll.listen():
                     send_msg(REPORT_CHAT_ID, f"✅ Ответ отправлен заявителю {get_user_mention(rep_data['uid'])}")
                     break
 
+        if active_games.get(uid, {}).get("game") == "captcha":
+            game = active_games[uid]
+            try:
+                if int(msg.strip()) == game["answer"]:
+                    active_games.pop(uid, None)
+                    send_msg(peer, "✅ Продолжай!")
+                else:
+                    game["answer"] = random.randint(100, 999)
+                    send_msg(peer, f"❌ Неверно! Новое: {game['answer']}")
+            except:
+                send_msg(peer, f"❌ Введи число: {game['answer']}")
+            continue
+
         if active_games.get(uid, {}).get("game") == "bomb":
             if not is_dm:
                 continue
@@ -1220,8 +1233,13 @@ for event in longpoll.listen():
             if (now - user.get('last_click', 0)) < required_cd:
                 continue
             db.update_user_field(uid, 'last_click', now)
-
             db.update_user_field(uid, 'clicks_count', user.get('clicks_count', 0) + 1)
+            # Капча каждые 15 кликов
+            if user.get('clicks_count', 0) % 15 == 0:
+                captcha_num = random.randint(100, 999)
+                active_games[uid] = {"game": "captcha", "answer": captcha_num}
+                send_msg(peer, f"🤖 Докажи что ты не бот!\nВведи число: {captcha_num}")
+                continue
             for num, task in list(active_tasks.items()):
                 if task['type'] == 'клик' and num in active_tasks:
                     if uid not in task_progress:
@@ -1339,6 +1357,35 @@ for event in longpoll.listen():
                     active_games[b["p1"]] = b; active_games[b["p2"]] = b
                     send_msg(b["peer"], f"⚔️ БИТВА!\n\n{a} x {bb} = ?\nСтавка: {num_to_str(b['amount'])}")
                     break
+            continue
+
+        if active_games.get(uid, {}).get("game") == "captcha":
+            game = active_games[uid]
+            if msg_lower in ["клик", "кликер"]:
+                send_msg(peer, "❌ Сначала введи число с картинки!")
+                continue
+            try:
+                if int(msg.strip()) == game["answer"]:
+                    active_games.pop(uid, None)
+                    send_msg(peer, "✅ Продолжай кликать!")
+                else:
+                    game["answer"] = random.randint(100, 999)
+                    send_msg(peer, f"❌ Неверно! Новое число: {game['answer']}")
+            except:
+                pass
+            continue
+
+        elif active_games.get(uid, {}).get("game") == "captcha_old":
+            game = active_games[uid]
+            try:
+                if int(msg.strip()) == game["answer"]:
+                    send_msg(peer, "✅ Продолжай кликать!")
+                else:
+                    send_msg(peer, "❌ Неверно! Попробуй ещё раз.")
+                    game["answer"] = random.randint(100, 999)
+                    send_msg(peer, f"Введи число: {game['answer']}")
+            except:
+                pass
             continue
 
         elif active_games.get(uid, {}).get("game") == "battle_go":
