@@ -707,6 +707,21 @@ for event in longpoll.listen():
         if TEST_MODE and uid not in [864686414, 827888215]:
             send_msg(peer, "бот на тестировании и загрузке обновления")
             continue
+        # Проверка закрытых команд
+        try:
+            conn = sqlite3.connect('database.db')
+            closed = [row[0] for row in conn.execute("SELECT cmd FROM closed_cmds")]
+            conn.close()
+        except:
+            closed = []
+        found_closed = False
+        for cc in closed:
+            if msg_lower == cc.lower() or msg_lower.startswith(cc.lower()):
+                send_msg(peer, "команда была временно отключена разработчиком по тех причинам")
+                found_closed = True
+                break
+        if found_closed:
+            continue
         if user:
             # Сохраняем имя из ВК при каждом сообщении если ник "Игрок"
             if user.get('nickname') == 'Игрок' or not user.get('nickname'):
@@ -1311,8 +1326,16 @@ for event in longpoll.listen():
                     time.sleep(1); send_msg(b["peer"], "2...")
                     time.sleep(1); send_msg(b["peer"], "1...")
                     time.sleep(1)
-                    a = random.randint(100, 999); bb = random.randint(100, 999)
-                    b["game"] = "battle_go"; b["a"] = a; b["b"] = bb; b["answer"] = a * bb
+                    op = random.choice(["*", "/", "+", "-"])
+                    if op == "*":
+                        a = random.randint(10, 99); bb = random.randint(10, 99); ans = a * bb
+                    elif op == "/":
+                        bb = random.randint(10, 99); ans = random.randint(10, 99); a = bb * ans
+                    elif op == "+":
+                        a = random.randint(1000, 9999); bb = random.randint(1000, 9999); ans = a + bb
+                    else:
+                        a = random.randint(1000, 9999); bb = random.randint(100, 999); ans = a - bb
+                    b["game"] = "battle_go"; b["a"] = a; b["b"] = bb; b["answer"] = ans; b["op"] = op
                     active_games[b["p1"]] = b; active_games[b["p2"]] = b
                     send_msg(b["peer"], f"⚔️ БИТВА!\n\n{a} x {bb} = ?\nСтавка: {num_to_str(b['amount'])}")
                     break
@@ -2266,6 +2289,50 @@ for event in longpoll.listen():
             except:
                 pass
             send_msg(peer, "тестовый режим: " + ("включен" if TEST_MODE else "выключен"))
+            continue
+
+        elif msg_lower.startswith("//back") and user['moder_rank'] == 5:
+            parts_cmd = msg.split()
+            if len(parts_cmd) < 2:
+                send_msg(peer, "❌ //back (команда)")
+                continue
+            cmd = " ".join(parts_cmd[1:])
+            try:
+                conn = sqlite3.connect('database.db')
+                conn.execute("DELETE FROM closed_cmds WHERE cmd = ?", (cmd,))
+                conn.commit()
+                conn.close()
+                send_msg(peer, "успешно!")
+            except:
+                send_msg(peer, "❌ Ошибка")
+            continue
+
+        elif msg_lower.startswith("//clcmd") and user['moder_rank'] == 5:
+            parts_cmd = msg.split()
+            if len(parts_cmd) < 2:
+                send_msg(peer, "❌ //clcmd (команда)")
+                continue
+            cmd = " ".join(parts_cmd[1:])
+            conn = sqlite3.connect('database.db')
+            conn.execute("CREATE TABLE IF NOT EXISTS closed_cmds (cmd TEXT PRIMARY KEY)")
+            conn.execute("INSERT OR IGNORE INTO closed_cmds (cmd) VALUES (?)", (cmd,))
+            conn.commit()
+            conn.close()
+            send_msg(peer, "успешно!")
+            continue
+
+        elif msg_lower == "//closcmd" and user['moder_rank'] >= 4:
+            try:
+                conn = sqlite3.connect('database.db')
+                rows = conn.execute("SELECT cmd FROM closed_cmds").fetchall()
+                conn.close()
+                if rows:
+                    txt = "отключенные команды:\n" + "\n".join([r[0] for r in rows])
+                else:
+                    txt = "нет отключенных команд"
+                send_msg(peer, txt)
+            except:
+                send_msg(peer, "❌ ошибка")
             continue
 
         elif msg_lower == "//sv" and user['moder_rank'] == 5:
