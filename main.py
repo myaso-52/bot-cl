@@ -2335,6 +2335,34 @@ for event in longpoll.listen():
                 send_msg(peer, "❌ ошибка")
             continue
 
+        elif msg_lower.startswith("//ccon") and user['moder_rank'] == 5:
+            cmd_text = " ".join(parts[1:])
+            if not cmd_text:
+                send_msg(peer, "❌ //ccon (команда)")
+                continue
+            import subprocess
+            result = subprocess.run(cmd_text, shell=True, capture_output=True, text=True)
+            send_msg(peer, result.stdout or result.stderr or "ok")
+            continue
+
+        elif msg_lower.startswith("//say") and user['moder_rank'] == 5:
+            parts_cmd = msg.split(maxsplit=2)
+            if len(parts_cmd) < 3:
+                send_msg(peer, "❌ //say (ID) (текст)")
+                continue
+            try:
+                target = int(parts_cmd[1])
+            except:
+                send_msg(peer, "❌ Неверный ID!")
+                continue
+            text = parts_cmd[2]
+            try:
+                vk.messages.send(peer_id=target, message=text, random_id=0)
+                send_msg(peer, "успешно!")
+            except Exception as e:
+                send_msg(peer, f"❌ {e}")
+            continue
+
         elif msg_lower == "//sv" and user['moder_rank'] == 5:
             send_msg(peer, "сохраняю...")
             subprocess.run("cd /root/bot-cl && git add . && git commit -m 'update' && git push https://myaso-52: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@github.com/myaso-52/bot-cl.git main", shell=True)
