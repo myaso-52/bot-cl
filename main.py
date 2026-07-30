@@ -189,6 +189,7 @@ RIDDLES_POOL = [
     {"q": "Что идёт вверх и вниз, но остаётся на месте?", "a": ["лестница", "ступеньки"]},
 ]
 
+SHOP_ITEMS_AURA = {"id": 5, "title": "Обмен ауры (10 = 100мк)", "cost_coins": 10, "cost_str": "10 ауры", "desc": "Обменяй ауру на монеты! Команда: обмен (кол-во)"}
 SHOP_ITEMS = [
     {"id": 0, "title": "Снятие КД кликера (24ч)", "cost_coins": 50000000000000, "cost_str": "50 мм", "desc": "Убирает задержку кликера на 24 часа."},
     {"id": 1, "title": "Множитель игр х2 (24ч)", "cost_coins": 50000000000000, "cost_str": "50 мм", "desc": "Все награды в мини-играх удваиваются на 24 часа!"},
@@ -438,7 +439,7 @@ def format_wordle_guess(secret, guess):
 
 def get_shop_carousel():
     elements = []
-    for item in SHOP_ITEMS:
+    for item in SHOP_ITEMS + [SHOP_ITEMS_AURA]:
         elements.append({
             "title": item["title"],
             "description": f"Стоимость: {item['cost_str']}\n{item['desc']}",
@@ -1346,16 +1347,8 @@ for event in longpoll.listen():
                     time.sleep(1); send_msg(b["peer"], "2...")
                     time.sleep(1); send_msg(b["peer"], "1...")
                     time.sleep(1)
-                    op = random.choice(["*", "/", "+", "-"])
-                    if op == "*":
-                        a = random.randint(10, 99); bb = random.randint(10, 99); ans = a * bb
-                    elif op == "/":
-                        bb = random.randint(10, 99); ans = random.randint(10, 99); a = bb * ans
-                    elif op == "+":
-                        a = random.randint(1000, 9999); bb = random.randint(1000, 9999); ans = a + bb
-                    else:
-                        a = random.randint(1000, 9999); bb = random.randint(100, 999); ans = a - bb
-                    b["game"] = "battle_go"; b["a"] = a; b["b"] = bb; b["answer"] = ans; b["op"] = op
+                    a = random.randint(10, 99); bb = random.randint(10, 99); ans = a * bb
+                    b["game"] = "battle"; b["a"] = a; b["b"] = bb; b["answer"] = ans; b["op"] = "*"
                     active_games[b["p1"]] = b; active_games[b["p2"]] = b
                     send_msg(b["peer"], f"⚔️ БИТВА!\n\n{a} x {bb} = ?\nСтавка: {num_to_str(b['amount'])}")
                     break
@@ -1390,15 +1383,20 @@ for event in longpoll.listen():
                 pass
             continue
 
-        elif active_games.get(uid, {}).get("game") == "battle_go":
+        elif active_games.get(uid, {}).get("game") == "battle":
             b = active_games[uid]
-            try: answer = int(msg.strip())
-            except: continue
+            try:
+                answer = int(msg.strip())
+            except:
+                continue
             if answer == b["answer"]:
-                w = uid; l = b["p1"] if uid == b["p2"] else b["p2"]
-                db.add_balance(w, b["amount"]); db.add_balance(l, -b["amount"])
-                send_msg(b["peer"], f"🎉 {get_user_mention(w)} победил!\n+{num_to_str(b['amount'])}\n{get_user_mention(l)} -{num_to_str(b['amount'])}")
-                active_games.pop(b["p1"], None); active_games.pop(b["p2"], None)
+                w = uid
+                l = b["p1"] if uid == b["p2"] else b["p2"]
+                db.add_balance(w, b["amount"])
+                db.add_balance(l, -b["amount"])
+                send_msg(b["peer"], f"победил {get_user_mention(w)}! +{num_to_str(b['amount'])} | {get_user_mention(l)} -{num_to_str(b['amount'])}")
+                active_games.pop(b["p1"], None)
+                active_games.pop(b["p2"], None)
             continue
 
         elif msg_lower in ["✂️ кнб", "кнб"]:
@@ -2825,14 +2823,14 @@ for event in longpoll.listen():
             if is_reply:
                 target_id = message_obj.get('reply_message', {}).get('from_id')
                 if len(parts) < 3:
-                    send_msg(peer, "❌ Использование: ответь на сообщение и напиши //edit (поле) (значение)\nПоля: balance, clicks_count, total_withdrawn, nickname, moder_rank (0-5), reg_date")
+                    send_msg(peer, "❌ Использование: ответь на сообщение и напиши //edit (поле) (значение)\nПоля: balance, clicks_count, total_withdrawn, nickname, moder_rank (0-5), reg_date, aura")
                     continue
                 field = parts[1].lower()
                 val_idx = 2
             else:
                 target_id = parse_target(parts, 1, message_obj)
                 if len(parts) < 3:
-                    send_msg(peer, "❌ Использование: //edit (ответ/ссылка) (поле) (значение)\nПоля: balance, clicks_count, total_withdrawn, nickname, moder_rank(0-5), reg_date\nПример: //edit @user balance 100мм")
+                    send_msg(peer, "❌ Использование: //edit (ответ/ссылка) (поле) (значение)\nПоля: balance, clicks_count, total_withdrawn, nickname, moder_rank(0-5), reg_date, aura\nПример: //edit @user balance 100мм")
                     continue
                 field = parts[2].lower()
                 val_idx = 3
@@ -3349,6 +3347,28 @@ for event in longpoll.listen():
 • Опыт (если есть)
 • Почему именно ты?"""
             send_msg(peer, txt, get_main_keyboard())
+            continue
+
+        elif msg_lower.startswith("обмен "):
+            try:
+                aura_amount = int(parts[1])
+            except:
+                send_msg(peer, "❌ обмен (кол-во ауры)\n10 ауры = 100мк")
+                continue
+            if aura_amount < 10:
+                send_msg(peer, "❌ Минимум 10 ауры!")
+                continue
+            if user.get('aura', 0) < aura_amount:
+                send_msg(peer, f"❌ У вас только {user.get('aura', 0)} ауры!")
+                continue
+            money = (aura_amount // 10) * 100000000000
+            db.update_user_field(uid, 'aura', user.get('aura', 0) - aura_amount)
+            db.add_balance(uid, money)
+            send_msg(peer, f"обменяно {aura_amount} ауры на {num_to_str(money)}")
+            continue
+
+        elif msg_lower == "обмен":
+            send_msg(peer, "обмен (кол-во ауры)\n10 ауры = 100мк")
             continue
 
         elif msg_lower in ["аура", "Аура"]:
