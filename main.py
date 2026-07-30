@@ -2663,6 +2663,9 @@ for event in longpoll.listen():
                 f"🏅 Ранг: {rank_name}\n"
                 f"💰 Баланс: {num_to_str(target_user['balance'])}\n"
                 f"👆 Кликов: {target_user.get('clicks_count', 0)}\n"
+                f"⚡ Аура: {target_user.get('aura', 0)}\n"
+                f"📥 Пополнено: {num_to_str(target_user.get('total_deposited', 0))}\n"
+                f"🆔 ID: {target_id}\n"
                 f"💸 Выведено: {num_to_str(target_user.get('total_withdrawn', 0))}\n"
                 f"💀 Регистрация: {r_date}"
             )
