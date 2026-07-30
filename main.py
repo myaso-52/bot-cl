@@ -51,8 +51,6 @@ pending_donations = {}
 pending_withdrawals = {}
 active_games = {}
 active_reports = {}
-TEST_MODE = False
-lottery_active = False
 lottery_tickets = {}  # {uid: количество билетов}
 lottery_pool = 0  # общий банк
 
@@ -480,6 +478,25 @@ MILLIONER_QUESTIONS = [
     {"q": "Сколько метров в километре?", "a": ["100", "500", "1000", "10000"], "correct": 2},
     {"q": "Кто изобрёл телефон?", "a": ["Эдисон", "Белл", "Тесла", "Маркони"], "correct": 1},
     {"q": "Самое быстрое животное?", "a": ["Гепард", "Сокол", "Антилопа", "Страус"], "correct": 1},
+    {"q": "Сколько часов в сутках?", "a": ["12", "24", "36", "48"], "correct": 1},
+    {"q": "Самая большая планета?", "a": ["Земля", "Марс", "Юпитер", "Сатурн"], "correct": 2},
+    {"q": "Кто написал 'Мастера и Маргариту'?", "a": ["Толстой", "Булгаков", "Достоевский", "Чехов"], "correct": 1},
+    {"q": "Сколько континентов?", "a": ["5", "6", "7", "8"], "correct": 2},
+    {"q": "Столица Японии?", "a": ["Пекин", "Сеул", "Токио", "Бангкок"], "correct": 2},
+    {"q": "Какой год високосный?", "a": ["2018", "2019", "2020", "2021"], "correct": 2},
+    {"q": "Самое глубокое озеро?", "a": ["Байкал", "Титикака", "Виктория", "Онтарио"], "correct": 0},
+    {"q": "Символ золота?", "a": ["Ag", "Au", "Fe", "Cu"], "correct": 1},
+    {"q": "Столица Бразилии?", "a": ["Рио", "Бразилиа", "Сан-Паулу", "Сальвадор"], "correct": 1},
+    {"q": "Самая маленькая страна?", "a": ["Монако", "Ватикан", "Сан-Марино", "Мальдивы"], "correct": 1},
+    {"q": "Вес литра воды?", "a": ["0.5кг", "1кг", "1.5кг", "2кг"], "correct": 1},
+    {"q": "Кто открыл Америку?", "a": ["Магеллан", "Колумб", "Кук", "Диаш"], "correct": 1},
+    {"q": "Полос на флаге США?", "a": ["11", "12", "13", "14"], "correct": 2},
+    {"q": "Костей в черепе?", "a": ["12", "18", "22", "29"], "correct": 2},
+    {"q": "Самая высокая гора?", "a": ["Эверест", "К2", "Канченджанга", "Лхоцзе"], "correct": 0},
+    {"q": "Автор Гарри Поттера?", "a": ["Толкин", "Роулинг", "Льюис", "Мартин"], "correct": 1},
+    {"q": "Литров в галлоне?", "a": ["2.5", "3.0", "3.78", "4.5"], "correct": 2},
+    {"q": "Кто создал интернет?", "a": ["Гейтс", "Бернерс-Ли", "Джобс", "Цукерберг"], "correct": 1},
+    {"q": "Дней в неделе?", "a": ["5", "6", "7", "8"], "correct": 2},
 ]
 
 print("✅ Бот запущен и слушает сообщения...")
@@ -589,11 +606,29 @@ for event in longpoll.listen():
                         "топ_клик": "топ клик",
                         "топ_вывод": "топ вывода"
                     }
+                    if cmd_val == "millioner_5050":
+                        game = active_games.get(uid)
+                        if game and game.get("game") == "millioner":
+                            if user['balance'] < 100000000000:
+                                continue
+                            db.add_balance(uid, -100000000000)
+                            q = game["question"]
+                            c = q["correct"]
+                            w = [i for i in range(4) if i != c]
+                            random.shuffle(w)
+                            s = sorted([c, w[0]])
+                            kb = VkKeyboard(one_time=True)
+                            for i in s:
+                                kb.add_button(q["a"][i], color=VkKeyboardColor.PRIMARY, payload={"cmd": f"millioner_{i}"})
+                                if i == s[0]: kb.add_line()
+                            send_msg(peer, f"💡 50/50\n\n{q['q']}", keyboard=kb.get_keyboard())
+                        continue
                     if cmd_val == "millioner_take":
                         game = active_games.get(uid)
                         if game and game.get("game") == "millioner":
                             reward = game.get("bank", 0)
-                            if user.get('game_boost_until', 0) > time.time():
+                            fresh_user = db.get_user(uid)
+                            if fresh_user.get('game_boost_until', 0) > time.time():
                                 reward *= 2
                             db.add_balance(uid, reward)
                             send_msg(peer, f"💰 Выигрыш: +{num_to_str(reward)}", get_games_keyboard(3))
@@ -609,7 +644,9 @@ for event in longpoll.listen():
                                 kb.add_button(ans, color=VkKeyboardColor.PRIMARY, payload={"cmd": f"millioner_{i}"})
                                 if i == 1:
                                     kb.add_line()
-                            send_msg(peer, f"💰 Банк: {num_to_str(game.get('bank', 0))}\n\n{q['q']}", keyboard=kb.get_keyboard())
+                            kb.add_line()
+                        kb.add_button("💡 50/50 (100мк)", color=VkKeyboardColor.NEGATIVE, payload={"cmd": "millioner_5050"})
+                        send_msg(peer, f"💰 Банк: {num_to_str(game.get('bank', 0))}\n\n{q['q']}", keyboard=kb.get_keyboard())
                         continue
                     if cmd_val.startswith("millioner_"):
                         idx = int(cmd_val.split("_")[1])
@@ -1246,49 +1283,50 @@ for event in longpoll.listen():
             send_msg(peer, "⚔️ Битва\n\nИспользование: битва (сумма) (ответ на смс соперника)\nПример: битва 5мм\n\nПобедитель забирает ставку!")
             continue
 
-        elif msg_lower.startswith("битва "):
+        elif msg_lower.startswith("битва ") and len(parts) > 1:
             parts_cmd = msg.split()
-            if len(parts_cmd) < 2:
-                send_msg(peer, "❌ Использование: битва (сумма) (ответ на смс соперника)")
-                continue
             amount = str_to_num(parts_cmd[1])
             if not amount or amount <= 0:
                 send_msg(peer, "❌ Укажите сумму!")
                 continue
             if user['balance'] < amount:
-                send_msg(peer, f"❌ Недостаточно средств! Баланс: {num_to_str(user['balance'])}")
+                send_msg(peer, f"❌ Недостаточно средств!")
                 continue
             target_id = parse_target(parts_cmd, 2, message_obj)
             if not target_id or target_id == uid:
                 send_msg(peer, "❌ Ответьте на сообщение соперника!")
                 continue
-            target_user = db.get_user(target_id)
-            if target_user['balance'] < amount:
+            if db.get_user(target_id)['balance'] < amount:
                 send_msg(peer, f"❌ У соперника недостаточно средств!")
                 continue
-            # Создаём битву
-            a = random.randint(100, 999)
-            b = random.randint(100, 999)
-            battle = {"a": a, "b": b, "answer": a * b, "amount": amount, "player1": uid, "player2": target_id, "peer": peer}
-            active_games[uid] = {"game": "battle", "battle": battle}
-            active_games[target_id] = {"game": "battle", "battle": battle}
-            send_msg(peer, f"⚔️ Битва!\n\n{a} × {b} = ?\nСтавка: {num_to_str(amount)}\n\nКто первый ответит — тот победит!")
+            battle_key = f"bwait_{uid}_{target_id}"
+            active_games[battle_key] = {"game": "battle_wait", "amount": amount, "p1": uid, "p2": target_id, "peer": peer}
+            send_msg(peer, f"⚔️ {get_user_mention(uid)} вызывает на битву {get_user_mention(target_id)} на {num_to_str(amount)}!\n\n{get_user_mention(target_id)}, напиши 'принять'")
             continue
 
-        elif active_games.get(uid, {}).get("game") == "battle":
-            battle = active_games[uid]["battle"]
-            try:
-                answer = int(msg.strip())
-            except:
-                continue
-            if answer == battle["answer"]:
-                winner_id = uid
-                loser_id = battle["player1"] if uid == battle["player2"] else battle["player2"]
-                db.add_balance(winner_id, battle["amount"])
-                db.add_balance(loser_id, -battle["amount"])
-                send_msg(battle["peer"], f"🎉 {get_user_mention(winner_id)} победил!\n+{num_to_str(battle['amount'])}\n{get_user_mention(loser_id)} проиграл -{num_to_str(battle['amount'])}")
-                active_games.pop(battle["player1"], None)
-                active_games.pop(battle["player2"], None)
+        elif msg_lower == "принять":
+            for key, b in list(active_games.items()):
+                if b.get("game") == "battle_wait" and b["p2"] == uid:
+                    send_msg(b["peer"], "3...")
+                    time.sleep(1); send_msg(b["peer"], "2...")
+                    time.sleep(1); send_msg(b["peer"], "1...")
+                    time.sleep(1)
+                    a = random.randint(100, 999); bb = random.randint(100, 999)
+                    b["game"] = "battle_go"; b["a"] = a; b["b"] = bb; b["answer"] = a * bb
+                    active_games[b["p1"]] = b; active_games[b["p2"]] = b
+                    send_msg(b["peer"], f"⚔️ БИТВА!\n\n{a} x {bb} = ?\nСтавка: {num_to_str(b['amount'])}")
+                    break
+            continue
+
+        elif active_games.get(uid, {}).get("game") == "battle_go":
+            b = active_games[uid]
+            try: answer = int(msg.strip())
+            except: continue
+            if answer == b["answer"]:
+                w = uid; l = b["p1"] if uid == b["p2"] else b["p2"]
+                db.add_balance(w, b["amount"]); db.add_balance(l, -b["amount"])
+                send_msg(b["peer"], f"🎉 {get_user_mention(w)} победил!\n+{num_to_str(b['amount'])}\n{get_user_mention(l)} -{num_to_str(b['amount'])}")
+                active_games.pop(b["p1"], None); active_games.pop(b["p2"], None)
             continue
 
         elif msg_lower in ["✂️ кнб", "кнб"]:
@@ -1328,7 +1366,8 @@ for event in longpoll.listen():
                 kb.add_button(ans, color=VkKeyboardColor.PRIMARY, payload={"cmd": f"millioner_{i}"})
                 if i == 1:
                     kb.add_line()
-            active_games[uid] = {"game": "millioner", "question": q, "reward": 40000000000}
+            kb.add_button("💡 50/50 (100мк)", color=VkKeyboardColor.NEGATIVE, payload={"cmd": "millioner_5050"})
+            active_games[uid] = {"game": "millioner", "question": q, "reward": 40000000000, "bank": 0}
             send_msg(peer, f"💰 Миллионер?\n\n{q['q']}\n\n+40мк за ответ!", keyboard=kb.get_keyboard())
             continue
 
