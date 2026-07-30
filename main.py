@@ -1689,7 +1689,7 @@ for event in longpoll.listen():
             continue
 
         elif msg_lower in ["рефка", "🔗 рефка"]:
-            send_msg(peer, f"🔗 Реферальная ссылка:\n\nhttps://vk.me/{GROUP_ID}?ref={uid}\n\n🎁 За друга: 500 мк!", get_main_keyboard())
+            send_msg(peer, f"🔗 Реферальная ссылка:\n\nhttps://vk.me/club240438650?ref={uid}\n\n🎁 За друга: 500 мк!", get_main_keyboard())
             continue
         elif msg_lower in ["услуги", "мои услуги"]:
             user = db.get_user(uid)
