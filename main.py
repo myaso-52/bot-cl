@@ -364,20 +364,17 @@ def get_games_keyboard(page=1):
         kb.add_button('Назад', color=VkKeyboardColor.SECONDARY, payload={"cmd": "назад"})
         kb.add_button('Дальше', color=VkKeyboardColor.PRIMARY, payload={"cmd": "игры2"})
     elif page == 2:
-        kb.add_button('Угадай число', color=VkKeyboardColor.POSITIVE, payload={"cmd": "угадай"})
         kb.add_button('Крестики-нолики', color=VkKeyboardColor.POSITIVE, payload={"cmd": "крестики"})
-        kb.add_line()
-        kb.add_button('КНБ', color=VkKeyboardColor.POSITIVE, payload={"cmd": "кнб"})
         kb.add_button('Вордли', color=VkKeyboardColor.POSITIVE, payload={"cmd": "вордли"})
+        kb.add_line()
+        kb.add_button('Сейф', color=VkKeyboardColor.POSITIVE, payload={"cmd": "сейф"})
+        kb.add_button('Виселица', color=VkKeyboardColor.POSITIVE, payload={"cmd": "виселица"})
         kb.add_line()
         kb.add_button('Назад', color=VkKeyboardColor.PRIMARY, payload={"cmd": "игры1"})
         kb.add_button('Дальше', color=VkKeyboardColor.PRIMARY, payload={"cmd": "игры3"})
     else:
-        kb.add_button('Сейф', color=VkKeyboardColor.POSITIVE, payload={"cmd": "сейф"})
-        kb.add_button('Бомба', color=VkKeyboardColor.NEGATIVE, payload={"cmd": "бомба"})
-        kb.add_line()
-        kb.add_button('Виселица', color=VkKeyboardColor.POSITIVE, payload={"cmd": "виселица"})
         kb.add_button('Миллионер', color=VkKeyboardColor.POSITIVE, payload={"cmd": "миллионер"})
+        kb.add_button('Битва', color=VkKeyboardColor.PRIMARY, payload={"cmd": "битва"})
         kb.add_line()
         kb.add_button('Назад', color=VkKeyboardColor.PRIMARY, payload={"cmd": "игры2"})
     return kb.get_keyboard()
@@ -603,10 +600,10 @@ for event in longpoll.listen():
                         "баланс": "баланс", "бонус": "бонус", "пополнить": "пополнить",
                         "сапер": "сапер", "загадки": "загадки", "математика": "математика",
                         "кликер": "кликер", "тех_поддержка": "тех. поддержка", "назад": "назад",
-                        "куш": "💰 забрать куш", "transfer_done": "🔄 я перевел!", "угадай": "угадай число",
+                        "куш": "💰 забрать куш", "transfer_done": "🔄 я перевел!",
                         "крестики": "крестики-нолики", "помощь": "помощь", "администрация": "администрация",
                         "вывод": "вывод",
-                        "кнб": "кнб", "вордли": "вордли", "сейф": "сейф", "бомба": "бомба", "виселица": "виселица",
+                        "вордли": "вордли", "сейф": "сейф", "виселица": "виселица",
                         "миллионер": "миллионер", "рефка": "рефка",
                         "задания": "задания",
                         "топ_клик": "топ клик",
@@ -1091,10 +1088,7 @@ for event in longpoll.listen():
             send_msg(peer, f"Твой ход! ❌\n\n{field}", keyboard=get_xo_keyboard(board))
             continue
 
-        if msg_lower.startswith("knb_"):
-            if not is_dm:
-                send_msg(peer, "❌ КНБ доступна только в ЛС!", get_main_keyboard())
-                continue
+        
             choices = {"камень": "🪨", "ножницы": "✂️", "бумага": "📄"}
             player_choice = msg_lower.split("_")[1]
             if player_choice not in choices:
@@ -1151,37 +1145,7 @@ for event in longpoll.listen():
             continue
 
         state = user_states.get(uid)
-        if state and state.get("action") == "waiting_guess":
-            if msg_lower in ["назад", "⬅ назад", "мини-игры", "🕹 mini-игры"]:
-                user_states.pop(uid, None)
-                send_msg(peer, "🕹 Возврат в игры:", get_games_keyboard(1))
-                continue
-            try:
-                guess = int(msg)
-                secret = state["secret"]
-                attempts = state["attempts"] + 1
-                if guess == secret:
-                    reward = state["reward"]
-                    if user.get('game_boost_until', 0) > time.time():
-                        reward *= 2
-                    db.add_balance(uid, reward)
-                    user_states.pop(uid, None)
-                    send_msg(peer, f"🎉 Верно! Загаданное число: {secret}\nТы угадал за {attempts} попыток!\n+{num_to_str(reward)} на баланс!", get_games_keyboard(1))
-                    continue
-                elif guess < secret:
-                    hint = "🔺 Больше!"
-                else:
-                    hint = "🔻 Меньше!"
-                if attempts >= 7:
-                    user_states.pop(uid, None)
-                    send_msg(peer, f"❌ Попытки кончились! Число было: {secret}", get_games_keyboard(1))
-                    continue
-                user_states[uid]["attempts"] = attempts
-                send_msg(peer, f"{hint}\n🎲 Попытка {attempts}/7. Твоё число: {guess}")
-                continue
-            except:
-                send_msg(peer, "❌ Введи число от 1 до 100!")
-                continue
+        # waiting_guess удалено
 
         if state and state.get("action") in ["waiting_riddle_answer", "waiting_math_answer"]:
             if msg_lower in ["загадки", "математика", "🕹 mini-игры", "мини-игры", "назад", "⬅ назад", "сапер", "💣 сапер", "кликер", "тех. поддержка", "угадай число", "🎲 угадай число", "крестики-нолики", "❌⭕ крестики-нолики", "кнб", "✂️ кнб", "вордли", "🟩 вордли", "сейф", "🔐 сейф", "купэлит", "элит", "elite"]:
@@ -1221,7 +1185,7 @@ for event in longpoll.listen():
             send_msg(peer, f"👀 Ваш баланс: {balance_to_str(db.get_user(uid)['balance'])}", get_main_keyboard())
             continue
         elif msg_lower in ["🕹 mini-игры", "мини-игры"]:
-            send_msg(peer, "🕹 Мини-игры:\n\n💣 Сапер\n🕵 Загадки\n🧮 Математика\n📱 Кликер\n🎲 Угадай число\n❌⭕ Крестики-нолики\n✂️ КНБ\n🟩 Вордли\n🔐 Сейф\n💣 Бомба\n🪢 Виселица\n💰 Миллионер\n⚔️ Битва", get_games_keyboard(1))
+            send_msg(peer, "🕹 Мини-игры:\n\n💣 Сапер\n🕵 Загадки\n🧮 Математика\n📱 Кликер\n❌⭕ Крестики-нолики\n🟩 Вордли\n🔐 Сейф\n🪢 Виселица\n💰 Миллионер\n⚔️ Битва", get_games_keyboard(1))
             continue
         elif msg_lower in ["📱 кликер", "клик", "кликер"]:
             now = time.time()
@@ -1305,11 +1269,7 @@ for event in longpoll.listen():
             user_states[uid] = {"action": "waiting_riddle_answer", "answers": r["a"], "reward": 40000000000}
             send_msg(peer, f"🕵️‍♂️ Загадка (+40 мк)\n\n{r['q']}\n⚠️ 1 попытка!")
             continue
-        elif msg_lower in ["🎲 угадай число", "угадай число"]:
-            secret = random.randint(1, 100)
-            user_states[uid] = {"action": "waiting_guess", "secret": secret, "attempts": 0, "reward": 50000000000}
-            send_msg(peer, "🎲 Угадай число (+50 мк)!\n\nЯ загадал число от 1 до 100.\nУ тебя 7 попыток. Пиши число в чат!")
-            continue
+        # угадай число удалено
         elif msg_lower in ["❌⭕ крестики-нолики", "крестики-нолики"]:
             if not is_dm:
                 send_msg(peer, "❌ Крестики-нолики доступны только в ЛС!", get_games_keyboard(1))
@@ -1402,10 +1362,7 @@ for event in longpoll.listen():
                 active_games.pop(b["p2"], None)
             continue
 
-        elif msg_lower in ["✂️ кнб", "кнб"]:
-            if not is_dm:
-                send_msg(peer, "❌ КНБ доступна только в ЛС!", get_games_keyboard(1))
-                continue
+        
             send_msg(peer, "✂️ КНБ\n\nВыигрыш: +25 мк\nНичья: +5 мк\nПроигрыш: 0\n\nВыбери:", keyboard=get_knb_keyboard())
             continue
         elif msg_lower in ["🏇 скачки", "скачки"]:
@@ -2269,10 +2226,7 @@ for event in longpoll.listen():
                 send_msg(peer, "🤖 Не нашёл ответа. Напиши команды для списка команд.")
             continue
 
-        elif msg_lower == "//stlot" and user['moder_rank'] >= 4:
-            if lottery_active:
-                send_msg(peer, "❌ Лотерея уже запущена!")
-                continue
+        
             lottery_active = True
             lottery_tickets = {}
             lottery_pool = 0
@@ -2280,10 +2234,7 @@ for event in longpoll.listen():
             send_msg(peer, "✅ Лотерея запущена!")
             continue
 
-        elif msg_lower == "//cllot" and user['moder_rank'] >= 4:
-            if not lottery_active:
-                send_msg(peer, "❌ Лотерея не запущена!")
-                continue
+        
             lottery_active = False
             if not lottery_tickets:
                 send_msg(TARGET_CHAT_ID, "❌ Никто не купил билеты. Лотерея отменена.")
@@ -2302,11 +2253,7 @@ for event in longpoll.listen():
             lottery_pool = 0
             continue
 
-        elif msg_lower.startswith("купбил") and lottery_active:
-            parts_cmd = msg.split()
-            if len(parts_cmd) < 2:
-                send_msg(peer, "❌ Использование: купбил (кол-во)\nПример: купбил 5")
-                continue
+        
             try:
                 count = int(parts_cmd[1])
             except:
@@ -2326,12 +2273,7 @@ for event in longpoll.listen():
             send_msg(TARGET_CHAT_ID, f"🎟 {get_user_mention(uid)} купил {count} билетов!\n💰 Банк: {num_to_str(lottery_pool)}")
             continue
 
-        elif msg_lower == "лотерея":
-            if lottery_active:
-                send_msg(peer, f"🎟 Лотерея активна!\n💰 Билет: 100мк\n📝 Купить: купбил (кол-во)\n🏦 Банк: {num_to_str(lottery_pool)}")
-            else:
-                send_msg(peer, "❌ Лотерея не запущена. Ждите объявления!")
-            continue
+        
 
         elif msg_lower == "//vpsk" and user['moder_rank'] == 5:
             TEST_MODE = not TEST_MODE
