@@ -106,7 +106,7 @@ def update_user_field(user_id, field_name, value):
         conn.commit()
 
 def add_balance(user_id, amount):
-    if abs(amount) > 1000000000000000000:
+    if abs(amount) > 1000000000000000000000:
         return 0
     with sqlite3.connect(DB_PATH) as conn:
         cursor = conn.cursor()

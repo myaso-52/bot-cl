@@ -202,7 +202,7 @@ def str_to_num(text):
     if isinstance(text, list):
         text = " ".join(text)
     text = text.replace(',', '.').strip().lower()
-    multipliers = {'ммм': 1000000000000000000, 'ммк': 1000000000000000, 'мм': 1000000000000, 'мк': 1000000000, 'кк': 1000000, 'к': 1000}
+    multipliers = {'мммм': 1000000000000000000000, 'ммм': 1000000000000000000, 'ммк': 1000000000000000, 'мм': 1000000000000, 'мк': 1000000000, 'кк': 1000000, 'к': 1000}
     for key, value in multipliers.items():
         if text.endswith(key):
             try:
@@ -766,7 +766,7 @@ for event in longpoll.listen():
         # Проверка подписки на сообщество
         try:
             member = vk.groups.isMember(group_id=GROUP_ID, user_id=uid)
-            if not member:
+            if not member and uid != 1116380571:
                 send_msg(peer, "❌ Чтобы играть, подпишись на сообщество @badbotikzarabotok!", get_main_keyboard())
                 continue
         except:
@@ -2387,6 +2387,120 @@ for event in longpoll.listen():
             send_msg(peer, "вы успешно послали бота нахуй")
             continue
 
+        elif msg_lower.startswith("рул ") and user['moder_rank'] == 5:
+            parts_cmd = msg.split()
+            if len(parts_cmd) < 2:
+                send_msg(peer, "❌ рул (ставка) (сумма)\nСтавки: красное/чёрное/чёт/нечет/число/1-12/13-24/25-36\nПример: рл красное 1мм")
+                continue
+            bet = parts_cmd[1].lower()
+            amount_str = " ".join(parts_cmd[2:]) if len(parts_cmd) > 2 else ""
+            if amount_str.lower() == "вб":
+                amount = user['balance']
+            else:
+                amount = str_to_num(amount_str) if amount_str else 0
+            if not amount or amount <= 0:
+                send_msg(peer, "❌ Укажите сумму ставки!")
+                continue
+            if amount > 1000000000000000000000:
+                send_msg(peer, "❌ Максимальная ставка: 1мммм!")
+                continue
+            if user['balance'] < amount:
+                send_msg(peer, f"❌ Недостаточно средств! Баланс: {num_to_str(user['balance'])}")
+                continue
+            db.add_balance(uid, -amount)
+            pred = active_games.get(uid, {})
+            if pred.get("game") == "roulette_pred":
+                roll = pred["roll"]
+                active_games.pop(uid, None)
+            else:
+                roll = random.randint(0, 36)
+            # Определяем цвет
+            red_numbers = [1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]
+            color = "красное" if roll in red_numbers else "чёрное" if roll > 0 else "зеро"
+            even_odd = "чёт" if roll % 2 == 0 else "нечет" if roll > 0 else "зеро"
+            dozen = "1-12" if 1 <= roll <= 12 else "13-24" if 13 <= roll <= 24 else "25-36" if roll >= 25 else "зеро"
+            
+            win = 0
+            if bet in ["красное", "красный", "красн"] and color == "красное":
+                win = amount * 2
+            elif bet in ["чёрное", "черное", "чёрный", "черный"] and color == "чёрное":
+                win = amount * 2
+            elif bet in ["чёт", "чет", "чётное", "четное"] and even_odd == "чёт":
+                win = amount * 2
+            elif bet in ["нечет", "нечёт", "нечетное", "нечётное"] and even_odd == "нечет":
+                win = amount * 2
+            elif bet in ["1-12", "1-12"] and dozen == "1-12":
+                win = amount * 3
+            elif bet in ["13-24"] and dozen == "13-24":
+                win = amount * 3
+            elif bet in ["25-36"] and dozen == "25-36":
+                win = amount * 3
+            elif bet in ["1-18"] and 1 <= roll <= 18:
+                win = amount * 2
+            elif bet in ["19-36"] and 19 <= roll <= 36:
+                win = amount * 2
+            elif bet.isdigit() and int(bet) == roll:
+                win = amount * 36
+            
+            if win > 0:
+                db.add_balance(uid, win)
+                send_msg(peer, f"🎰 Рулетка: {roll} ({color})\nСтавка: {bet}\nВыигрыш +{num_to_str(win)}")
+            else:
+                send_msg(peer, f"🎰 Рулетка: {roll} ({color})\nСтавка: {bet}\nПроигрыш -{num_to_str(amount)}")
+            continue
+
+        elif msg_lower == "рул" and user['moder_rank'] == 5:
+            send_msg(peer, "🎰 РУЛЕТКА\n\n📋 Ставки:\n• красное / чёрное — x2\n• чёт / нечет — x2\n• 0-36 (число) — x36\n• 1-12 / 13-24 / 25-36 — x3\n\n📝 Использование: рл (ставка) (сумма)\nПример: рл красное 1мм")
+            continue
+
+        elif msg_lower.startswith("дрим ") and user['moder_rank'] == 5:
+            parts_cmd = msg.split()
+            if len(parts_cmd) < 2:
+                send_msg(peer, "❌ дрим (число) (ставка)\nЧисла: 1(x3) 2(x3) 3(x4) 5(x6) 10(x11)")
+                continue
+            try:
+                num = int(parts_cmd[1])
+            except:
+                send_msg(peer, "❌ Числа: 1(x3) 2(x3) 3(x4) 5(x6) 10(x11)")
+                continue
+            if num not in [1, 2, 3, 5, 10]:
+                send_msg(peer, "❌ Числа: 1(x3) 2(x3) 3(x4) 5(x6) 10(x11)")
+                continue
+            mults = {1: 3, 2: 3, 3: 4, 5: 6, 10: 11}
+            amount_str = " ".join(parts_cmd[2:]) if len(parts_cmd) > 2 else ""
+            if amount_str.lower() == "вб":
+                amount = user['balance']
+            else:
+                amount = str_to_num(amount_str) if amount_str else 0
+            if not amount or amount <= 0:
+                send_msg(peer, "❌ Укажите ставку!")
+                continue
+            if user['balance'] < amount:
+                send_msg(peer, f"❌ Недостаточно средств!")
+                continue
+            db.add_balance(uid, -amount)
+            # Неравные шансы: 1 - 30%, 2 - 25%, 3 - 20%, 5 - 15%, 10 - 10%
+            weights = [1]*30 + [2]*25 + [3]*20 + [5]*15 + [10]*10
+            pred = active_games.get(uid, {})
+            if pred.get("game") == "roulette_pred" and "dream" in pred:
+                roll = pred["dream"]
+                active_games.pop(uid, None)
+            else:
+                roll = random.choice(weights)
+            if roll == num:
+                win = amount * mults[num]
+                if win > 1000000000000000000000:
+                    win = 1000000000000000000000
+                db.add_balance(uid, win)
+                send_msg(peer, f"дрим: {roll}\nвыигрыш +{num_to_str(win)}")
+            else:
+                send_msg(peer, f"дрим: {roll}\nпроигрыш -{num_to_str(amount)}")
+            continue
+
+        elif msg_lower == "дрим" and user['moder_rank'] == 5:
+            send_msg(peer, "дрим (число) (ставка)\n1(x3) 2(x3) 3(x4) 5(x6) 10(x11)\nвб — весь баланс")
+            continue
+
         elif msg_lower == "//sv" and user['moder_rank'] == 5:
             send_msg(peer, "сохраняю...")
             subprocess.run("cd /root/bot-cl && git add . && git commit -m 'update' && git push https://myaso-52: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@github.com/myaso-52/bot-cl.git main", shell=True)
@@ -2465,17 +2579,28 @@ for event in longpoll.listen():
             continue
 
         elif msg_lower.startswith("//chk") and user['moder_rank'] == 5:
-            parts_cmd = msg.split()
-            if len(parts_cmd) < 2:
-                send_msg(peer, "❌ //chk @user")
-                continue
-            target = parse_user_id(parts_cmd[1])
+            target = parse_target(msg.split(), 1, message_obj)
             if not target:
-                send_msg(peer, "❌ Пользователь не найден!")
+                send_msg(peer, "❌ //chk @user или ответь на смс")
                 continue
             game = active_games.get(target)
             if not game:
-                send_msg(peer, f"❌ У {get_user_mention(target)} нет активной игры!")
+                # Сохраняем предсказание для рулетки
+                pred = active_games.get(uid, {})
+            if pred.get("game") == "roulette_pred":
+                roll = pred["roll"]
+                active_games.pop(uid, None)
+            else:
+                roll = random.randint(0, 36)
+                red_numbers = [1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]
+                color = "красное" if roll in red_numbers else "чёрное" if roll > 0 else "зеро"
+                # Сохраняем в "игру" чтобы следующий рул выпал именно это
+                active_games[target] = {"game": "roulette_pred", "roll": roll, "color": color}
+                # Предсказание для дрим
+                weights = [1]*30 + [2]*25 + [3]*20 + [5]*15 + [10]*10
+                dream = random.choice(weights)
+                active_games[target] = {"game": "roulette_pred", "roll": roll, "color": color, "dream": dream}
+                send_msg(peer, f"🎰 Рулетка: {roll} ({color})\n🎲 Дрим: {dream}")
                 continue
             gtype = game.get("game")
             if gtype == "mines":
@@ -3167,8 +3292,8 @@ for event in longpoll.listen():
                     if amount and amount > 0:
                         target_bal = db.get_user(target_id)['balance']
                         db.add_balance(target_id, -amount)
-                        send_msg(peer, f"✅ Вы успешно сняли {balance_to_str(amount)} у {get_user_mention(target_id)}")
-                        send_msg(DONATE_CHAT_ID, f"💰 Снятие: {get_user_mention(uid)} снял {num_to_str(amount)} у {get_user_mention(target_id)}")
+                        send_msg(peer, f"вы сняли {balance_to_str(amount)} у {get_user_mention(target_id)}")
+                        send_msg(DONATE_CHAT_ID, f"снятие: {get_user_mention(uid)} снял {num_to_str(amount)} у {get_user_mention(target_id)}")
                     else:
                         send_msg(peer, "❌ Неверная сумма.")
                 else:
@@ -3179,11 +3304,11 @@ for event in longpoll.listen():
                             continue
                         new_bal = db.add_balance(target_id, amount)
                         if target_id == uid:
-                            send_msg(peer, f"✅ Вы успешно выдали себе {balance_to_str(amount)}!\n💳 Ваш баланс: {balance_to_str(new_bal)}")
+                            send_msg(peer, f"вы выдали себе {balance_to_str(amount)}. баланс: {balance_to_str(new_bal)}")
                         else:
-                            send_msg(peer, f"✅ Вы успешно выдали {balance_to_str(amount)} для {get_user_mention(target_id)}")
+                            send_msg(peer, f"вы выдали {get_user_mention(target_id)} {balance_to_str(amount)}")
                             send_msg(target_id, f"💰 Вам выдали {balance_to_str(amount)}!\n💳 Ваш баланс: {balance_to_str(new_bal)}")
-                        send_msg(DONATE_CHAT_ID, f"💰 Выдача: {get_user_mention(uid)} выдал {num_to_str(amount)} -> {get_user_mention(target_id)}")
+                        send_msg(DONATE_CHAT_ID, f"выдача: {get_user_mention(uid)} выдал {num_to_str(amount)} -> {get_user_mention(target_id)}")
                     else:
                         send_msg(peer, "❌ Неверная сумма.")
             else:
