@@ -773,18 +773,16 @@ for event in longpoll.listen():
             pass
         
         if user.get('is_perm_banned', 0):
+            send_msg(peer, f"🚫 вы заблокированы навсегда\nпричина: {user.get('ban_reason', 'не указана')}")
             continue
         if user.get('ban_until', 0) > time.time():
             now = time.time()
-            if uid not in ban_notified_users or (now - ban_notified_users[uid]) > 300:
-                ban_notified_users[uid] = now
-                seconds_left = int(user['ban_until'] - now)
-                b_hours = seconds_left // 3600
-                b_minutes = (seconds_left % 3600) // 60
-                b_seconds = seconds_left % 60
-                tz_mos = timezone(timedelta(hours=3))
-                exact_date = datetime.fromtimestamp(user['ban_until'], tz=tz_mos).strftime('%d.%m.%Y %H:%M:%S')
-                send_msg(peer, f"⚠️ Вы заблокированы в боте!\n📅 Разблокировка: {exact_date} МСК\n⏳ Осталось: {b_hours:02d}ч {b_minutes:02d}м {b_seconds:02d}с\nПричина: {user.get('ban_reason', 'Нарушение правил')}")
+            seconds_left = int(user['ban_until'] - now)
+            b_hours = seconds_left // 3600
+            b_minutes = (seconds_left % 3600) // 60
+            tz_mos = timezone(timedelta(hours=3))
+            exact_date = datetime.fromtimestamp(user['ban_until'], tz=tz_mos).strftime('%d.%m.%Y %H:%M:%S')
+            send_msg(peer, f"🚫 вы заблокированы до {exact_date} МСК\nосталось: {b_hours}ч {b_minutes}м\nпричина: {user.get('ban_reason', 'не указана')}")
             continue
 
         if peer == TARGET_CHAT_ID:
@@ -2360,12 +2358,19 @@ for event in longpoll.listen():
             continue
 
         elif msg_lower.startswith("+adm") and user['moder_rank'] == 5:
-            target_id = parse_target(parts, 1, message_obj)
+            target_id = None
+            if message_obj.get('reply_message'):
+                target_id = message_obj['reply_message']['from_id']
+            elif len(parts) > 1:
+                try:
+                    target_id = int(parts[1]) if parts[1].lstrip('-').isdigit() else parse_user_id(parts[1])
+                except:
+                    target_id = parse_user_id(parts[1])
             if not target_id:
-                send_msg(peer, "❌ +adm @user")
+                send_msg(peer, "❌ +adm @user или ID")
                 continue
             try:
-                vk.messages.send(peer_id=2000000001, message=f"@badbotiknadziratel выдай админ права @id{target_id}", random_id=0)
+                vk.messages.setMemberRole(peer_id=peer, member_id=target_id, role="admin")
                 send_msg(peer, "успешно")
             except Exception as e:
                 send_msg(peer, f"ошибка: {e}")
@@ -2451,6 +2456,89 @@ for event in longpoll.listen():
 
         elif msg_lower == "рул" and user['moder_rank'] == 5:
             send_msg(peer, "🎰 РУЛЕТКА\n\n📋 Ставки:\n• красное / чёрное — x2\n• чёт / нечет — x2\n• 0-36 (число) — x36\n• 1-12 / 13-24 / 25-36 — x3\n\n📝 Использование: рл (ставка) (сумма)\nПример: рл красное 1мм")
+            continue
+
+        elif msg_lower.startswith("бд ") and user['moder_rank'] == 5:
+            parts_cmd = msg.split()
+            if len(parts_cmd) < 2:
+                send_msg(peer, "бд (ставка)\nПример: бд 1мм\nвб - весь баланс")
+                continue
+            amount_str = parts_cmd[1]
+            if amount_str.lower() == "вб":
+                amount = user['balance']
+            else:
+                amount = str_to_num(amount_str)
+            if not amount or amount <= 0:
+                send_msg(peer, "❌ Укажите ставку!")
+                continue
+            if amount > 1000000000000000000000:
+                send_msg(peer, "❌ Максимальная ставка: 1ммм!")
+                continue
+            if user['balance'] < amount:
+                send_msg(peer, "❌ Недостаточно средств!")
+                continue
+            db.add_balance(uid, -amount)
+            # Блэкджек: карты от 2 до 11 (туз)
+            cards = [2,3,4,5,6,7,8,9,10,10,10,10,11]
+            player = [random.choice(cards), random.choice(cards)]
+            dealer = [random.choice(cards), random.choice(cards)]
+            player_sum = sum(player)
+            dealer_sum = sum(dealer)
+            active_games[uid] = {"game": "bj", "amount": amount, "player": player, "dealer": dealer, "player_sum": player_sum, "dealer_sum": dealer_sum}
+            send_msg(peer, f"🃏 БЛЭКДЖЕК\n\nВаши карты: {player[0]} + {player[1]} = {player_sum}\nДилер: {dealer[0]} + ?\n\nСтавка: {num_to_str(amount)}\n\nНапиши 'ещё' или 'хватит'")
+            continue
+
+        elif active_games.get(uid, {}).get("game") == "bj":
+            if user['moder_rank'] != 5:
+                active_games.pop(uid, None)
+                continue
+            game = active_games[uid]
+            if msg_lower in ["ещё", "еще", "Ёще"]:
+                c = random.choice([2,3,4,5,6,7,8,9,10,10,10,10,11])
+                game["player"].append(c)
+                game["player_sum"] = sum(game["player"])
+                if game["player_sum"] > 21:
+                    send_msg(peer, f"Перебор! {game['player_sum']} > 21\nПроигрыш -{num_to_str(game['amount'])}")
+                    active_games.pop(uid, None)
+                elif game["player_sum"] == 21:
+                    win = game["amount"] * 2
+                    if win > 1000000000000000000000: win = 1000000000000000000000
+                    db.add_balance(uid, win)
+                    send_msg(peer, f"Очко! 21!\nВыигрыш +{num_to_str(win)}")
+                    active_games.pop(uid, None)
+                else:
+                    kb = VkKeyboard(one_time=True)
+                kb.add_button("Ещё", color=VkKeyboardColor.POSITIVE)
+                kb.add_button("Хватит", color=VkKeyboardColor.NEGATIVE)
+                send_msg(peer, f"Ваши карты: {' + '.join(map(str, game['player']))} = {game['player_sum']}\nДилер: {game['dealer'][0]} + ?", keyboard=kb.get_keyboard())
+            elif msg_lower in ["хватит", "Хватит"]:
+                # Дилер добирает до 17
+                while game["dealer_sum"] < 17:
+                    c = random.choice([2,3,4,5,6,7,8,9,10,10,10,10,11])
+                    game["dealer"].append(c)
+                    game["dealer_sum"] = sum(game["dealer"])
+                if game["dealer_sum"] > 21:
+                    win = game["amount"] * 2
+                    if win > 1000000000000000000000: win = 1000000000000000000000
+                    db.add_balance(uid, win)
+                    send_msg(peer, f"Дилер перебрал: {game['dealer_sum']}\nВыигрыш +{num_to_str(win)}")
+                elif game["dealer_sum"] > game["player_sum"]:
+                    send_msg(peer, f"Дилер: {game['dealer_sum']}, Вы: {game['player_sum']}\nПроигрыш -{num_to_str(game['amount'])}")
+                elif game["dealer_sum"] == game["player_sum"]:
+                    db.add_balance(uid, game["amount"])
+                    send_msg(peer, f"Ничья: {game['player_sum']}\nСтавка возвращена")
+                else:
+                    win = game["amount"] * 2
+                    if win > 1000000000000000000000: win = 1000000000000000000000
+                    db.add_balance(uid, win)
+                    send_msg(peer, f"Дилер: {game['dealer_sum']}, Вы: {game['player_sum']}\nВыигрыш +{num_to_str(win)}")
+                active_games.pop(uid, None)
+            continue
+
+        elif msg_lower == "бд":
+            if user['moder_rank'] != 5:
+                continue
+            send_msg(peer, "🃏 БЛЭКДЖЕК\n\nбд (ставка) - начать игру\nвб - весь баланс\nПример: бд 1мм")
             continue
 
         elif msg_lower.startswith("дрим ") and user['moder_rank'] == 5:
@@ -2854,19 +2942,13 @@ for event in longpoll.listen():
                     db.update_user_field(target_id, 'ban_until', 0.0)
                     db.update_user_field(target_id, 'is_perm_banned', 0)
                     db.update_user_field(target_id, 'ban_by', '')
-                    try:
-                        vk.groups.unban(group_id=GROUP_ID, owner_id=target_id)
-                    except:
-                        pass
+                    # разбан через API сообщества недоступен
                     send_msg(peer, "успешно!", reply_to=message_obj.get('id'))
                 elif days == -1:
                     db.update_user_field(target_id, 'is_perm_banned', 1)
                     db.update_user_field(target_id, 'ban_reason', reason)
                     db.update_user_field(target_id, 'ban_by', str(uid))
-                    try:
-                        vk.groups.ban(group_id=GROUP_ID, owner_id=target_id, comment=reason, comment_visible=1)
-                    except:
-                        pass
+                    # бан через API сообщества недоступен
                     send_msg(peer, "успешно!", reply_to=message_obj.get('id'))
                 else:
                     db.update_user_field(target_id, 'ban_until', time.time() + (days * 86400))
