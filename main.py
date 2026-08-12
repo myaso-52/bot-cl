@@ -1499,9 +1499,21 @@ for event in longpoll.listen():
             conn = sqlite3.connect('database.db')
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
-            cursor.execute("SELECT u.user_id, u.nickname, COUNT(r.user_id) as refs FROM users u LEFT JOIN users r ON r.referrer_id = u.user_id GROUP BY u.user_id ORDER BY refs DESC LIMIT 10")
+            cursor.execute("""
+                SELECT u.user_id, u.nickname, 
+                       CASE WHEN u.ref_set = 1 THEN u.ref_count ELSE COUNT(r.user_id) END as refs 
+                FROM users u 
+                LEFT JOIN users r ON r.referrer_id = u.user_id 
+                GROUP BY u.user_id 
+                HAVING refs >= 1 
+                ORDER BY refs DESC 
+                LIMIT 10
+            """)
             rows = cursor.fetchall()
             conn.close()
+            if not rows:
+                send_msg(peer, "🏆 Топ-10 по рефералам:\n\nЕщё нет игроков в топе")
+                continue
             txt = "🏆 Топ-10 по рефералам:\n\n"
             for i, r in enumerate(rows, 1):
                 name = r['nickname'] if r['nickname'] and r['nickname'] != 'Игрок' else f"ID {r['user_id']}"
@@ -1510,7 +1522,11 @@ for event in longpoll.listen():
             try:
                 conn_r = sqlite3.connect('database.db')
                 cur = conn_r.cursor()
-                cur.execute("SELECT u.user_id, COUNT(r.user_id) as refs FROM users u LEFT JOIN users r ON r.referrer_id = u.user_id GROUP BY u.user_id ORDER BY refs DESC")
+                cur.execute("""
+                    SELECT u.user_id, CASE WHEN u.ref_set = 1 THEN u.ref_count ELSE COUNT(r.user_id) END as refs 
+                    FROM users u LEFT JOIN users r ON r.referrer_id = u.user_id 
+                    GROUP BY u.user_id HAVING refs >= 1 ORDER BY refs DESC
+                """)
                 ids = [row[0] for row in cur.fetchall()]
                 conn_r.close()
                 if uid in ids:
@@ -2980,7 +2996,10 @@ for event in longpoll.listen():
             if target_user.get('is_perm_banned', 0) == 1 or target_user.get('ban_until', 0) > time.time():
                 txt += "🚫 ЗАБЛОКИРОВАН\n"
             conn_r = sqlite3.connect('database.db')
-            refs_count = conn_r.execute("SELECT COUNT(*) FROM users WHERE referrer_id=?", (target_id,)).fetchone()[0]
+            real_refs = conn_r.execute("SELECT COUNT(*) FROM users WHERE referrer_id=?", (target_id,)).fetchone()[0]
+            manual_refs = target_user.get('ref_count', 0) if target_user else 0
+            ref_set = target_user.get('ref_set', 0) if target_user else 0
+            refs_count = manual_refs if ref_set == 1 else real_refs
             conn_r.close()
             txt += (
                 f"🏅 Ранг: {rank_name}\n"
@@ -3154,8 +3173,14 @@ for event in longpoll.listen():
                 val_idx = 2
             else:
                 target_id = parse_target(parts, 1, message_obj)
+                if not target_id:
+                    # Пробуем parse_user_id (поддержка ника без @)
+                    try:
+                        target_id = parse_user_id(parts[1])
+                    except:
+                        pass
                 if len(parts) < 3:
-                    send_msg(peer, "❌ Использование: //edit (ответ/ссылка) (поле) (значение)\nПоля: balance, clicks_count, total_withdrawn, total_deposited, nickname, moder_rank(0-5), reg_date, aura\nПример: //edit @user balance 100мм")
+                    send_msg(peer, "❌ Использование: //edit (ответ/ссылка) (поле) (значение)\nПоля: balance, clicks_count, total_withdrawn, total_deposited, nickname, moder_rank(0-5), reg_date, aura, ref\nПример: //edit @user balance 100мм")
                     continue
                 field = parts[2].lower()
                 val_idx = 3
@@ -3168,22 +3193,11 @@ for event in longpoll.listen():
                 send_msg(peer, f"❌ Доступные поля: {', '.join(allowed)}")
                 continue
             if field == 'ref':
-                # Создаём фейковых рефералов
-                try:
-                    conn_r = sqlite3.connect('database.db')
-                    # Удаляем старых фейковых рефов
-                    conn_r.execute("DELETE FROM users WHERE referrer_id=? AND is_fake_ref=1", (target_id,))
-                    ref_count = int(str_to_num(value) or 0)
-                    for _ in range(min(ref_count, 1000)):
-                        fake_uid = -random.randint(100000000, 999999999)
-                        conn_r.execute("INSERT OR IGNORE INTO users (user_id, nickname, referrer_id, is_fake_ref) VALUES (?, 'Реферал', ?, 1)", (fake_uid, target_id))
-                    conn_r.commit()
-                    conn_r.close()
-                    send_msg(peer, f"✅ Рефы обновлены: {ref_count}")
-                    continue
-                except Exception as e:
-                    send_msg(peer, f"❌ Ошибка: {e}")
-                    continue
+                ref_count = int(str_to_num(value) or 0)
+                db.update_user_field(target_id, 'ref_count', ref_count)
+                db.update_user_field(target_id, 'ref_set', 1)
+                send_msg(peer, "успешно!", reply_to=message_obj.get('id'))
+                continue
             if field in ['balance', 'clicks_count', 'total_withdrawn', 'moder_rank', 'referrer_id']:
                 value = int(str_to_num(value) or 0)
             db.update_user_field(target_id, field, value)
@@ -3788,7 +3802,10 @@ for event in longpoll.listen():
             fav_artist = user.get('fav_artist', 'Не выбран')
             # Считаем рефералов
             conn_r = sqlite3.connect('database.db')
-            refs_count = conn_r.execute("SELECT COUNT(*) FROM users WHERE referrer_id=?", (uid,)).fetchone()[0]
+            real_refs = conn_r.execute("SELECT COUNT(*) FROM users WHERE referrer_id=?", (uid,)).fetchone()[0]
+            manual_refs = user.get('ref_count', 0) if user else 0
+            ref_set = user.get('ref_set', 0) if user else 0
+            refs_count = manual_refs if ref_set == 1 else real_refs
             conn_r.close()
             txt += (
                 f"🏅 Ранг: {rank_name}\n"
