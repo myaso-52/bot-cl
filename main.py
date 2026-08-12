@@ -1393,11 +1393,13 @@ for event in longpoll.listen():
                 continue
             now = time.time()
             last_withdraw = user.get('last_withdraw', 0)
-            withdraw_cd = 1800 if user.get('elite_until', 0) > now else 7200
-            if now - last_withdraw < withdraw_cd:
-                left = int(withdraw_cd - (now - last_withdraw))
-                send_msg(peer, f"❌ Вывод доступен раз в {withdraw_cd//3600}ч {(withdraw_cd%3600)//60}м!\nОсталось: {left//3600}ч {(left%3600)//60}м")
-                continue
+            # Если last_withdraw = 0 (куплен безлимит) - КД нет
+            if last_withdraw > 0:
+                withdraw_cd = 1800 if user.get('elite_until', 0) > now else 7200
+                if now - last_withdraw < withdraw_cd:
+                    left = int(withdraw_cd - (now - last_withdraw))
+                    send_msg(peer, f"❌ Вывод доступен раз в {withdraw_cd//3600}ч {(withdraw_cd%3600)//60}м!\nОсталось: {left//3600}ч {(left%3600)//60}м")
+                    continue
             db.add_balance(uid, -amount)
             db.update_user_field(uid, 'total_withdrawn', user.get('total_withdrawn', 0) + amount)
             db.update_user_field(uid, 'last_withdraw', now)
@@ -1451,8 +1453,28 @@ for event in longpoll.listen():
         elif msg_lower.startswith("+ник"):
             send_msg(peer, "❌ Использование: +ник (новое имя)\nПример: +ник КрутойИгрок")
             continue
-        elif msg_lower == "топ":
-            send_msg(peer, "📊 Какой топ?\n• топ клик — по кликам\n• топ вывод — по выводу")
+        elif msg_lower in ["топ"]:
+            send_msg(peer, "📊 Какой топ?\n• топ баланс — по балансу\n• топ клик — по кликам\n• топ вывод — по выводу\n• топ аура — по ауре\n• топ пополнений — по пополнениям")
+            continue
+
+        elif msg_lower in ["топ баланс", "топ баланса", "топ денег", "топ богачей"]:
+            conn = sqlite3.connect('database.db')
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute("SELECT user_id, balance, nickname FROM users ORDER BY balance DESC LIMIT 10")
+            rows = cursor.fetchall()
+            conn.close()
+            txt = "🏆 Топ-10 по балансу:\n\n"
+            for i, r in enumerate(rows, 1):
+                name = r['nickname']
+                if not name or name == 'Игрок':
+                    try:
+                        vk_u = vk.users.get(user_ids=r['user_id'])
+                        name = f"{vk_u[0]['first_name']} {vk_u[0]['last_name']}"
+                    except:
+                        name = f"ID {r['user_id']}"
+                txt += f"{i}. [id{r['user_id']}|{name}] — {num_to_str(r['balance'])}\n"
+            send_msg(peer, txt, get_main_keyboard())
             continue
 
         elif msg_lower in ["топ кликов", "топ клик"]:
@@ -2774,7 +2796,8 @@ for event in longpoll.listen():
             send_msg(peer, txt, get_main_keyboard())
             continue
         elif msg_lower == "//help":
-            txt = "🎲 ИГРОВЫЕ КОМАНДЫ:\n\n💰 Экономика:\n• баланс — проверить баланс\n• вывод (сумма) — вывести деньги\n• пополнить (сумма) — пополнить баланс\n• бонус — ежедневный бонус\n• рефка — реферальная ссылка\n\n🕹 Мини-игры:\n• клик — кликер (+15 мк)\n• мины / сапер — игра сапёр\n• математика — решить пример\n• загадки — отгадать загадку\n• угадай число — угадать число\n• крестики-нолики — игра X/O\n• кнб — камень-ножницы-бумага\n• вордли — угадать слово\n• сейф — взломать код\n• бомба — обезвредить бомбу\n\n👤 Профиль:\n• профиль — посмотреть профиль\n• +ник (имя) — сменить ник\n• топ клик — топ по кликам\n\n🛍 Магазин:\n• магазин — купить услуги\n• услуги — активные услуги\n• элит — привилегии ELITE\n• купэлит (дни) — купить ELITE\n• мой элит — остаток ELITE\n\n📋 Прочее:\n• задания — список заданий\n• прогресс — прогресс заданий\n• +день — засчитать вход\n• промо (код) — активировать промокод\n• промокоды — список промокодов\n• репорт — пожаловаться\n• администрация — список админов\n• правила — правила бота\n• модер — стать модератором\n• команды — этот список"
+            txt = "🎲 ИГРОВЫЕ КОМАНДЫ:\n\n💰 Экономика:\n• баланс — проверить баланс\n• вывод (сумма) — вывести деньги\n• пополнить (сумма) — пополнить баланс\n• бонус — ежедневный бонус\n• рефка — реферальная ссылка\n\n🕹 Мини-игры:\n• клик — кликер (+15 мк)\
+• топ клик — топ по кликам\n\n🛍 Магазин:\n• магазин — купить услуги\n• услуги — активные услуги\n• элит — привилегии ELITE\n• купэлит (дни) — купить ELITE\n• мой элит — остаток ELITE\n\n📋 Прочее:\n• задания — список заданий\n• прогресс — прогресс заданий\n• +день — засчитать вход\n• промо (код) — активировать промокод\n• промокоды — список промокодов\n• репорт — пожаловаться\n• администрация — список админов\n• правила — правила бота\n• модер — стать модератором\n• команды — этот список"
             if user['moder_rank'] >= 1:
                 txt += "\n\n⚠️ МОДЕРАТОР [1+]:\n• bal (ответ/ссылка) — баланс игрока\n• //prof (ответ/ссылка) — профиль игрока\n• исключить (ответ/ссылка) — кик из чата\n• //pin (ответ на смс) — закрепить сообщение"
             if user['moder_rank'] >= 2:
