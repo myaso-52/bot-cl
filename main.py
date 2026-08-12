@@ -2281,7 +2281,7 @@ for event in longpoll.listen():
             kb.add_line()
             kb.add_button("🔴 Кейс со всем (4мм)", color=VkKeyboardColor.NEGATIVE, payload={"cmd": "buycase_all"})
             kb.add_button("🟣 Кейс с услугами (70мм)", color=VkKeyboardColor.NEGATIVE, payload={"cmd": "buycase_service"})
-            send_msg(peer, "🎁 КЕЙСЫ\n\n🟡 Аура: 50-250 ауры\n🟢 Валюта: 500мк-3мм\n🔴 Всё: 1-4мм + 100-500 ауры\n🟣 Услуги: рандом из магазина + ELITE 7-31дн\n\nВыбери кейс для покупки:", keyboard=kb.get_keyboard())
+            send_msg(peer, "🎁 КЕЙСЫ\n\n🟡 Аура: 30-300 ауры\n🟢 Валюта: 2мм-5мм\n🔴 Всё: 1-4мм или 100-500 ауры\n🟣 Услуги: рандом из магазина + ELITE 7-31дн\n\nВыбери кейс для покупки:", keyboard=kb.get_keyboard())
             continue
 
         elif msg_lower in ["мои кейсы", "mycases", "📦 мои кейсы"]:
@@ -2351,15 +2351,15 @@ for event in longpoll.listen():
                     send_msg(peer, f"🎁 Открыл кейс со всем!\n⚡ +{aura} ауры!")
             elif ctype == "service":
                 items = [
-                    {"name": "Безлимит вывод 24ч", "func": lambda: db.update_user_field(uid, 'last_withdraw', 0), "chance": 35},
-                    {"name": "Снятие КД кликера 24ч", "func": lambda: db.update_user_field(uid, 'no_cd_until', time.time()+86400), "chance": 20},
-                    {"name": "Множитель клика х2 24ч", "func": lambda: db.update_user_field(uid, 'x2_until', time.time()+86400), "chance": 15},
+                    {"name": "Безлимит вывод 24ч", "func": lambda: db.update_user_field(uid, 'last_withdraw', 0), "chance": 30},
+                    {"name": "Снятие КД кликера 24ч", "func": lambda: db.update_user_field(uid, 'no_cd_until', time.time()+86400), "chance": 18},
+                    {"name": "Множитель клика х2 24ч", "func": lambda: db.update_user_field(uid, 'x2_until', time.time()+86400), "chance": 14},
                     {"name": "Множитель игр х2 24ч", "func": lambda: db.update_user_field(uid, 'game_boost_until', time.time()+86400), "chance": 12},
-                    {"name": "ELITE 7 дней", "func": lambda: db.update_user_field(uid, 'elite_until', max(user.get('elite_until',0), time.time())+7*86400), "chance": 8},
-                    {"name": "ELITE 14 дней", "func": lambda: db.update_user_field(uid, 'elite_until', max(user.get('elite_until',0), time.time())+14*86400), "chance": 5},
-                    {"name": "ELITE 21 день", "func": lambda: db.update_user_field(uid, 'elite_until', max(user.get('elite_until',0), time.time())+21*86400), "chance": 2},
-                    {"name": "ELITE 31 день", "func": lambda: db.update_user_field(uid, 'elite_until', max(user.get('elite_until',0), time.time())+31*86400), "chance": 1},
-                    {"name": "VIP пакет", "func": lambda: (db.update_user_field(uid, 'no_cd_until', time.time()+86400), db.update_user_field(uid, 'game_boost_until', time.time()+86400), db.update_user_field(uid, 'last_withdraw', 0), db.update_user_field(uid, 'elite_until', max(user.get('elite_until',0), time.time())+3*86400), db.update_user_field(uid, 'vip_until', time.time()+86400)), "chance": 2},
+                    {"name": "ELITE 7 дней", "func": lambda: db.update_user_field(uid, 'elite_until', max(user.get('elite_until',0), time.time())+7*86400), "chance": 10},
+                    {"name": "ELITE 14 дней", "func": lambda: db.update_user_field(uid, 'elite_until', max(user.get('elite_until',0), time.time())+14*86400), "chance": 7},
+                    {"name": "ELITE 21 день", "func": lambda: db.update_user_field(uid, 'elite_until', max(user.get('elite_until',0), time.time())+21*86400), "chance": 4},
+                    {"name": "ELITE 31 день", "func": lambda: db.update_user_field(uid, 'elite_until', max(user.get('elite_until',0), time.time())+31*86400), "chance": 2},
+                    {"name": "VIP пакет", "func": lambda: (db.update_user_field(uid, 'no_cd_until', time.time()+86400), db.update_user_field(uid, 'game_boost_until', time.time()+86400), db.update_user_field(uid, 'last_withdraw', 0), db.update_user_field(uid, 'elite_until', max(user.get('elite_until',0), time.time())+3*86400), db.update_user_field(uid, 'vip_until', time.time()+86400)), "chance": 3},
                 ]
                 names_list = [i["name"] for i in items]
                 weights_list = [i["chance"] for i in items]
