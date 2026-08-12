@@ -34,6 +34,13 @@ vk = vk_session.get_api()
 longpoll = VkBotLongPoll(vk_session, GROUP_ID)
 
 db.init_db()
+# Таблица кейсов
+try:
+    conn_cases = sqlite3.connect('database.db')
+    conn_cases.execute("CREATE TABLE IF NOT EXISTS cases (user_id INTEGER, type TEXT, count INTEGER, PRIMARY KEY (user_id, type))")
+    conn_cases.commit()
+    conn_cases.close()
+except: pass
 # Загружаем TEST_MODE из БД
 try:
     conn = sqlite3.connect('database.db')
@@ -128,21 +135,21 @@ WORDLE_WORDS = [
     "волна", "вышка", "гараж", "гений", "герой", "голос", "горка", "гость",
     "груша", "дверь", "диван", "диета", "дождь", "доска", "драка", "жажда",
     "жених", "живот", "забор", "завод", "закат", "замок", "запах", "зебра",
-    "земля", "золото", "игрок", "кабан", "канал", "книга", "ковер", "кость",
-    "кофе", "крыло", "кулак", "лампа", "лента", "лимон", "линия", "лодка",
-    "ложка", "луна", "масло", "место", "месяц", "метро", "мозг", "море",
-    "мороз", "мост", "музей", "мышь", "мясо", "налог", "народ", "небо",
-    "номер", "ночь", "обед", "огонь", "океан", "орел", "орех", "отец",
-    "очки", "пакет", "палец", "парк", "паук", "песня", "песок", "петля",
-    "печь", "пирог", "план", "победа", "поезд", "пожар", "помощь", "право",
-    "птица", "пуля", "радио", "рана", "река", "роза", "роман", "рыба",
-    "рынок", "салат", "сахар", "свет", "свеча", "семья", "сила", "скала",
-    "слава", "снег", "собака", "совет", "соль", "спина", "спорт", "стена",
-    "стиль", "стол", "стул", "танец", "театр", "текст", "тема", "тень",
-    "товар", "точка", "трава", "труд", "удар", "ужин", "улица", "урок",
-    "утро", "факт", "фара", "ферма", "финал", "фирма", "флаг", "флот",
-    "форма", "фраза", "фрукт", "хвост", "хлеб", "цвет", "цель", "цена",
-    "центр", "чай", "час", "чудо", "шанс", "школа", "штора", "шум",
+    "земля", "игрок", "кабан", "канал", "книга", "ковер", "кость",
+    "крыло", "кулак", "лампа", "лента", "лимон", "линия", "лодка",
+    "ложка", "масло", "место", "месяц", "метро",
+    "мороз", "музей", "налог", "народ",
+    "номер", "огонь", "океан",
+    "пакет", "палец", "песня", "песок", "петля",
+    "пирог", "поезд", "пожар", "право",
+    "птица", "радио", "роман",
+    "рынок", "салат", "сахар", "свеча", "семья", "скала",
+    "слава", "совет", "спина", "спорт", "стена",
+    "стиль", "танец", "театр", "текст",
+    "товар", "точка", "трава",
+    "ферма", "финал", "фирма",
+    "форма", "фраза", "фрукт", "хвост",
+    "центр", "школа", "штора",
     "экран", "ягода"
 ]
 
@@ -342,6 +349,7 @@ def get_main_keyboard():
     kb.add_button('Администрация', color=VkKeyboardColor.POSITIVE, payload={"cmd": "администрация"})
     kb.add_line()
     kb.add_button('💸 Вывод', color=VkKeyboardColor.NEGATIVE, payload={"cmd": "вывод"})
+    kb.add_button('🎁 Кейсы', color=VkKeyboardColor.POSITIVE, payload={"cmd": "кейс"})
     return kb.get_keyboard()
 
 
@@ -566,117 +574,10 @@ for event in longpoll.listen():
                 p_obj = json.loads(payload) if isinstance(payload, str) else payload
                 if "cmd" in p_obj:
                     cmd_val = p_obj["cmd"]
-                    if cmd_val.startswith("horse_"):
-                        horse_name = cmd_val.replace("horse_", "")
-                        game = active_games.get(uid)
-                        if game and game.get("game") == "horses":
-                            horses = game["horses"]
-                            selected = next((h for h in horses if h["name"] == horse_name), None)
-                            if not selected:
-                                continue
-                            db.add_balance(uid, -10000000000)
-                            # Запускаем гонку
-                            results = []
-                            for h in horses:
-                                score = sum(random.randint(1, 5) for _ in range(5))
-                                results.append({"name": h["name"], "emoji": h["emoji"], "score": score, "koef": h["koef"]})
-                            results.sort(key=lambda x: x["score"], reverse=True)
-                            winner = results[0]
-                            race_msg = "🏇 Скачки! Ставка: 10 мк\n\n"
-                            for r in results:
-                                race_msg += f"{r['emoji']} {r['name']}: {r['score']} очков\n"
-                            if winner["name"] == horse_name:
-                                win_amount = int(10000000000 * winner["koef"])
-                                db.add_balance(uid, win_amount)
-                                race_msg += f"\n🎉 {winner['emoji']} {winner['name']} победил!\nВыигрыш: +{num_to_str(win_amount)}"
-                            else:
-                                race_msg += f"\n😢 Твой {selected['emoji']} {selected['name']} проиграл.\nПобедил: {winner['emoji']} {winner['name']}"
-                            send_msg(peer, race_msg, get_games_keyboard(3))
-                            active_games.pop(uid, None)
-                            continue
-                    cmd_val = p_obj["cmd"]
-                    cmd_map = {
-                        "профиль": "профиль", "мини-игры": "мини-игры", "магазин": "магазин",
-                        "баланс": "баланс", "бонус": "бонус", "пополнить": "пополнить",
-                        "сапер": "сапер", "загадки": "загадки", "математика": "математика",
-                        "кликер": "кликер", "тех_поддержка": "тех. поддержка", "назад": "назад",
-                        "куш": "💰 забрать куш", "transfer_done": "🔄 я перевел!",
-                        "крестики": "крестики-нолики", "помощь": "помощь", "администрация": "администрация",
-                        "вывод": "вывод",
-                        "вордли": "вордли", "сейф": "сейф", "виселица": "виселица",
-                        "миллионер": "миллионер", "рефка": "рефка",
-                        "задания": "задания",
-                        "топ_клик": "топ клик",
-                        "топ_вывод": "топ вывода"
-                    }
-                    if cmd_val == "millioner_5050":
-                        game = active_games.get(uid)
-                        if game and game.get("game") == "millioner":
-                            if user['balance'] < 100000000000:
-                                continue
-                            db.add_balance(uid, -100000000000)
-                            q = game["question"]
-                            c = q["correct"]
-                            w = [i for i in range(4) if i != c]
-                            random.shuffle(w)
-                            s = sorted([c, w[0]])
-                            kb = VkKeyboard(one_time=True)
-                            for i in s:
-                                kb.add_button(q["a"][i], color=VkKeyboardColor.PRIMARY, payload={"cmd": f"millioner_{i}"})
-                                if i == s[0]: kb.add_line()
-                            send_msg(peer, f"💡 50/50\n\n{q['q']}", keyboard=kb.get_keyboard())
-                        continue
-                    if cmd_val == "millioner_take":
-                        game = active_games.get(uid)
-                        if game and game.get("game") == "millioner":
-                            reward = game.get("bank", 0)
-                            fresh_user = db.get_user(uid)
-                            if fresh_user.get('game_boost_until', 0) > time.time():
-                                reward *= 2
-                            db.add_balance(uid, reward)
-                            send_msg(peer, f"💰 Выигрыш: +{num_to_str(reward)}", get_games_keyboard(3))
-                            active_games.pop(uid, None)
-                        continue
-                    if cmd_val == "millioner_next":
-                        game = active_games.get(uid)
-                        if game and game.get("game") == "millioner":
-                            q = random.choice(MILLIONER_QUESTIONS)
-                            game["question"] = q
-                            kb = VkKeyboard(one_time=True)
-                            for i, ans in enumerate(q["a"]):
-                                kb.add_button(ans, color=VkKeyboardColor.PRIMARY, payload={"cmd": f"millioner_{i}"})
-                                if i == 1:
-                                    kb.add_line()
-                            kb.add_line()
-                        kb.add_button("💡 50/50 (100мк)", color=VkKeyboardColor.NEGATIVE, payload={"cmd": "millioner_5050"})
-                        send_msg(peer, f"💰 Банк: {num_to_str(game.get('bank', 0))}\n\n{q['q']}", keyboard=kb.get_keyboard())
-                        continue
-                    if cmd_val.startswith("millioner_"):
-                        idx = int(cmd_val.split("_")[1])
-                        game = active_games.get(uid)
-                        if game and game.get("game") == "millioner":
-                            q = game["question"]
-                            if idx == q["correct"]:
-                                game["bank"] = game.get("bank", 0) + 40000000000
-                                kb = VkKeyboard(one_time=True)
-                                kb.add_button("💰 Забрать " + num_to_str(game["bank"]), color=VkKeyboardColor.POSITIVE, payload={"cmd": "millioner_take"})
-                                kb.add_button("▶️ Продолжить", color=VkKeyboardColor.PRIMARY, payload={"cmd": "millioner_next"})
-                                send_msg(peer, f"🎉 Верно! Банк: {num_to_str(game['bank'])}", keyboard=kb.get_keyboard())
-                            else:
-                                send_msg(peer, f"❌ Неверно! Ответ: {q['a'][q['correct']]}\nПроигрыш!", get_games_keyboard(3))
-                                active_games.pop(uid, None)
-                        continue
-                    
-                    if cmd_val == "игры2":
-                        send_msg(peer, "Мини-игры (стр. 2/3):", get_games_keyboard(2))
-                        continue
-                    if cmd_val == "игры3":
-                        send_msg(peer, "Мини-игры (стр. 3/3):", get_games_keyboard(3))
-                        continue
-                    if cmd_val == "игры1":
-                        send_msg(peer, "Мини-игры (стр. 1/3):", get_games_keyboard(1))
-                        continue
-                    if cmd_val in cmd_map:
+                    if cmd_val == "mycases":
+                        msg = "мои кейсы"
+                        msg_lower = msg.lower()
+                    elif cmd_val in cmd_map:
                         msg = cmd_map[cmd_val]
                         msg_lower = msg.lower()
                     elif cmd_val.startswith("box_"):
@@ -1249,7 +1150,6 @@ for event in longpoll.listen():
                             send_msg(peer, f"🎉 Ты успешно выполнил задание #{num} — {TASK_TYPES[task['type']]}!\n+{task['reward_str']}\n💳 Текущий баланс: {num_to_str(new_bal)}")
                             del active_tasks[num]
                         if uid in task_progress and num in task_progress[uid]:
-                                del task_progress[uid][num]
                                 del task_progress[uid][num]
                 active_games.pop(uid, None)
             continue
@@ -2273,6 +2173,135 @@ for event in longpoll.listen():
 
         
 
+        elif msg_lower in ["кейс", "кейсы", "case", "🎁 кейсы"]:
+            if not is_dm:
+                send_msg(peer, "❌ Кейсы только в ЛС!")
+                continue
+            kb = VkKeyboard(one_time=False)
+            kb.add_button("📦 Мои кейсы", color=VkKeyboardColor.PRIMARY, payload={"cmd": "mycases"})
+            kb.add_line()
+            kb.add_button("🟡 Кейс с аурой (1мм)", color=VkKeyboardColor.POSITIVE, payload={"cmd": "buycase_aura"})
+            kb.add_button("🟢 Кейс с валютой (2мм)", color=VkKeyboardColor.POSITIVE, payload={"cmd": "buycase_money"})
+            kb.add_line()
+            kb.add_button("🔴 Кейс со всем (3мм)", color=VkKeyboardColor.NEGATIVE, payload={"cmd": "buycase_all"})
+            kb.add_button("🟣 Кейс с услугами (70мм)", color=VkKeyboardColor.NEGATIVE, payload={"cmd": "buycase_service"})
+            send_msg(peer, "🎁 КЕЙСЫ\n\n🟡 Аура: 50-250 ауры\n🟢 Валюта: 500мк-3мм\n🔴 Всё: 1-4мм + 100-500 ауры\n🟣 Услуги: рандом из магазина + ELITE 7-31дн\n\nВыбери кейс для покупки:", keyboard=kb.get_keyboard())
+            continue
+
+        elif msg_lower in ["мои кейсы", "mycases", "📦 мои кейсы"]:
+            if not is_dm:
+                send_msg(peer, "❌ Только в ЛС!")
+                continue
+            conn_c = sqlite3.connect('database.db')
+            cases = conn_c.execute("SELECT type, count FROM cases WHERE user_id=? AND count>0", (uid,)).fetchall()
+            conn_c.close()
+            if not cases:
+                send_msg(peer, "🎁 У вас нет кейсов. Купите в магазине: кейс")
+                continue
+            txt = "🎁 ВАШИ КЕЙСЫ:\n\n"
+            kb = VkKeyboard(one_time=False)
+            names = {"aura": "🟡 Аура", "money": "🟢 Валюта", "all": "🔴 Всё", "service": "🟣 Услуги"}
+            for ctype, count in cases:
+                txt += f"{names.get(ctype, ctype)}: {count} шт.\n"
+                kb.add_button(f"Открыть {names.get(ctype, ctype)}", color=VkKeyboardColor.POSITIVE, payload={"cmd": f"opencase_{ctype}"})
+                kb.add_line()
+            kb.add_button("⬅ Назад", color=VkKeyboardColor.SECONDARY, payload={"cmd": "назад"})
+            send_msg(peer, txt, keyboard=kb.get_keyboard())
+            continue
+
+        elif msg_lower.startswith("opencase_") or (payload and "opencase_" in str(payload)):
+            if not is_dm:
+                continue
+            # Определяем тип кейса
+            if msg_lower.startswith("opencase_"):
+                ctype = msg_lower.split("_", 1)[1]
+            else:
+                p = json.loads(payload) if isinstance(payload, str) else payload
+                ctype = p.get("cmd", "").split("_", 1)[1]
+            
+            conn_c = sqlite3.connect('database.db')
+            row = conn_c.execute("SELECT count FROM cases WHERE user_id=? AND type=?", (uid, ctype)).fetchone()
+            if not row or row[0] <= 0:
+                conn_c.close()
+                send_msg(peer, "❌ У вас нет такого кейса!")
+                continue
+            # Списываем кейс
+            conn_c.execute("UPDATE cases SET count=count-1 WHERE user_id=? AND type=?", (uid, ctype))
+            conn_c.commit()
+            conn_c.close()
+            
+            if ctype == "aura":
+                # От 50 до 250, чем выше тем меньше шанс
+                r = random.choices([50,75,100,125,150,175,200,225,250], weights=[30,22,16,12,8,5,4,2,1])[0]
+                db.update_user_field(uid, 'aura', user.get('aura', 0) + r)
+                send_msg(peer, f"🎁 Открыл кейс с аурой!\n⚡ +{r} ауры!\nВсего ауры: {user.get('aura', 0) + r}")
+            elif ctype == "money":
+                r = random.choices([500000000000, 800000000000, 1200000000000, 1700000000000, 2200000000000, 2800000000000, 3000000000000], 
+                                   weights=[28,22,17,13,10,6,4])[0]
+                db.add_balance(uid, r)
+                send_msg(peer, f"🎁 Открыл кейс с валютой!\n💰 +{num_to_str(r)}!")
+            elif ctype == "all":
+                money = random.choices([1000000000000, 1500000000000, 2000000000000, 2500000000000, 3000000000000, 3500000000000, 4000000000000],
+                                       weights=[25,20,17,14,11,8,5])[0]
+                aura = random.choices([100,150,200,250,300,350,400,450,500],
+                                     weights=[25,20,17,14,10,7,4,2,1])[0]
+                db.add_balance(uid, money)
+                db.update_user_field(uid, 'aura', user.get('aura', 0) + aura)
+                send_msg(peer, f"🎁 Открыл кейс со всем!\n💰 +{num_to_str(money)}\n⚡ +{aura} ауры!")
+            elif ctype == "service":
+                items = [
+                    {"name": "Снятие КД кликера 24ч", "func": lambda: db.update_user_field(uid, 'no_cd_until', time.time()+86400), "chance": 25},
+                    {"name": "Множитель клика х2 24ч", "func": lambda: db.update_user_field(uid, 'x2_until', time.time()+86400), "chance": 20},
+                    {"name": "Множитель игр х2 24ч", "func": lambda: db.update_user_field(uid, 'game_boost_until', time.time()+86400), "chance": 18},
+                    {"name": "Безлимит вывод 24ч", "func": lambda: db.update_user_field(uid, 'last_withdraw', 0), "chance": 15},
+                    {"name": "ELITE 7 дней", "func": lambda: db.update_user_field(uid, 'elite_until', max(user.get('elite_until',0), time.time())+7*86400), "chance": 10},
+                    {"name": "ELITE 14 дней", "func": lambda: db.update_user_field(uid, 'elite_until', max(user.get('elite_until',0), time.time())+14*86400), "chance": 6},
+                    {"name": "ELITE 21 день", "func": lambda: db.update_user_field(uid, 'elite_until', max(user.get('elite_until',0), time.time())+21*86400), "chance": 3},
+                    {"name": "ELITE 31 день", "func": lambda: db.update_user_field(uid, 'elite_until', max(user.get('elite_until',0), time.time())+31*86400), "chance": 2},
+                    {"name": "VIP пакет", "func": lambda: (db.update_user_field(uid, 'no_cd_until', time.time()+86400), db.update_user_field(uid, 'game_boost_until', time.time()+86400), db.update_user_field(uid, 'last_withdraw', 0), db.update_user_field(uid, 'elite_until', max(user.get('elite_until',0), time.time())+3*86400), db.update_user_field(uid, 'vip_until', time.time()+86400)), "chance": 1},
+                ]
+                names_list = [i["name"] for i in items]
+                weights_list = [i["chance"] for i in items]
+                chosen = random.choices(items, weights=weights_list)[0]
+                chosen["func"]()
+                send_msg(peer, f"🎁 Открыл кейс с услугами!\n🎉 Выпало: {chosen['name']}!")
+            continue
+
+        elif msg_lower.startswith("buycase_") or (payload and "buycase_" in str(payload)):
+            if not is_dm:
+                continue
+            if msg_lower.startswith("buycase_"):
+                ctype = msg_lower.split("_", 1)[1]
+            else:
+                p = json.loads(payload) if isinstance(payload, str) else payload
+                ctype = p.get("cmd", "").split("_", 1)[1]
+            
+            prices = {"aura": 1000000000000, "money": 2000000000000, "all": 3000000000000, "service": 70000000000000}
+            names = {"aura": "с аурой", "money": "с валютой", "all": "со всем", "service": "с услугами"}
+            
+            if ctype not in prices:
+                continue
+            
+            price = prices[ctype]
+            if user['balance'] < price:
+                send_msg(peer, f"❌ Недостаточно средств! Нужно: {num_to_str(price)}")
+                continue
+            
+            db.add_balance(uid, -price)
+            conn_c = sqlite3.connect('database.db')
+            conn_c.execute("INSERT INTO cases (user_id, type, count) VALUES (?, ?, 1) ON CONFLICT(user_id, type) DO UPDATE SET count=count+1", (uid, ctype))
+            conn_c.commit()
+            conn_c.close()
+            
+            kb = VkKeyboard(one_time=True)
+            kb.add_button(f"🎁 Открыть кейс {names[ctype]}", color=VkKeyboardColor.POSITIVE, payload={"cmd": f"opencase_{ctype}"})
+            kb.add_line()
+            kb.add_button("📦 Мои кейсы", color=VkKeyboardColor.PRIMARY, payload={"cmd": "mycases"})
+            kb.add_button("⬅ Назад", color=VkKeyboardColor.SECONDARY, payload={"cmd": "назад"})
+            send_msg(peer, f"✅ Купил кейс {names[ctype]} за {num_to_str(price)}!\n💰 Баланс: {num_to_str(user['balance'] - price)}", keyboard=kb.get_keyboard())
+            continue
+
+
         elif msg_lower == "//vpsk" and user['moder_rank'] == 5:
             TEST_MODE = not TEST_MODE
             try:
@@ -2339,22 +2368,29 @@ for event in longpoll.listen():
             send_msg(peer, result.stdout or result.stderr or "ok")
             continue
 
-        elif msg_lower.startswith("//say") and user['moder_rank'] == 5:
+        elif msg_lower.startswith("sms") and user['moder_rank'] == 5:
             parts_cmd = msg.split(maxsplit=2)
             if len(parts_cmd) < 3:
-                send_msg(peer, "❌ //say (ID) (текст)")
+                send_msg(peer, "❌ sms (ссылка/ID/ответ) (текст)")
                 continue
-            try:
-                target = int(parts_cmd[1])
-            except:
-                send_msg(peer, "❌ Неверный ID!")
-                continue
-            text = parts_cmd[2]
-            try:
-                vk.messages.send(peer_id=target, message=text, random_id=0)
-                send_msg(peer, "успешно!")
-            except Exception as e:
-                send_msg(peer, f"❌ {e}")
+            target = None
+            # Ответ на сообщение
+            if message_obj.get('reply_message'):
+                target = message_obj['reply_message']['from_id']
+                text = " ".join(parts_cmd[1:])
+            else:
+                target_text = parts_cmd[1]
+                # Парсим через parse_user_id
+                target = parse_user_id(target_text)
+                text = parts_cmd[2] if len(parts_cmd) > 2 else ""
+            if target:
+                try:
+                    vk.messages.send(peer_id=target, message=text, random_id=0)
+                    send_msg(peer, "успешно!")
+                except Exception as e:
+                    send_msg(peer, f"❌ {e}")
+            else:
+                send_msg(peer, "❌ пользователь не найден")
             continue
 
         elif msg_lower.startswith("+adm") and user['moder_rank'] == 5:
