@@ -2927,7 +2927,7 @@ for event in longpoll.listen():
             if user['moder_rank'] >= 3:
                 txt += "\n\n👹 ГЛ. АДМИНИСТРАТОР [3+]:\n• //ban (дни) (ответ/ссылка) — заблокировать (-1=навсегда, 0=разбан)\n• //moder (ранг) (ответ/ссылка) — выдать/снять модера (-1=снять)"
             if user['moder_rank'] >= 4:
-                txt += "\n\n🏆 ЗАМ. ВЛАДЕЛЬЦА [4+]:\n• //newzd (тип) (цель) (награда) — создать задание\n• //delzd (номер) — удалить задание\n• //przd — типы заданий\n• //rangup (ответ/ссылка) — повысить\n• //cupon (ответ/ссылка) (кол-во) — выдать выводы\n• //post (текст) — пост в группу\n• //set0 (режим) (ответ/ссылка) — обнулить\n• //giveelite (дни) (ответ/ссылка) — выдать ELITE\n• //unelite (ответ/ссылка) — снять ELITE\n• //newpromo (название) (активаций) (сумма) — создать промокод"
+                txt += "\n\n🏆 ЗАМ. ВЛАДЕЛЬЦА [4+]:\n• //newzd (тип) (цель) (награда) — создать задание\n• //delzd (номер) — удалить задание\n• //przd — типы заданий\n• //rangup (ответ/ссылка) — повысить\n• //cupon (ответ/ссылка) (кол-во) — выдать выводы\n• //post (текст) — пост в группу\n• //set0 (режим) (ответ/ссылка) — обнулить\n• //giveelite (дни) (ответ/ссылка) — выдать ELITE\n• //unelite (ответ/ссылка) — снять ELITE\n• //newpromo (название) (активаций) (сумма) — создать промокод\n• givecase (юз) (тип) (кол-во) — выдать кейсы"
             if user['moder_rank'] == 5:
                 txt += "\n\n🎱 ВЛАДЕЛЕЦ [5]:\n• пополнить (ответ/ссылка) (сумма) — выдать баланс\n• уб (ответ/ссылка) (сумма) — выдать/снять баланс\n• //upcmd (текст) — изменить справку\n• //bdban (ответ/ссылка) — исключить из всех чатов\n• //edit (ответ/ссылка) (поле) (значение) — изменить параметры\n• //red (ответ/ссылка) — назначить редактора\n• //рассылка (текст) — рассылка всем\n• //stop — остановить бота\n• //chatid — узнать ID чата\n• //update — перезапустить бота\n• //fix — диагностика"
             send_msg(peer, txt, get_main_keyboard())
@@ -3210,6 +3210,52 @@ for event in longpoll.listen():
             else:
                 send_msg(peer, "❌ Использование: //red (ответ/ссылка/ID)\nПример: //red @user")
             continue
+        elif msg_lower.startswith("givecase") and user['moder_rank'] >= 4:
+            parts_cmd = msg.split()
+            # Ответ на смс: givecase (тип) (кол-во)
+            if message_obj.get('reply_message'):
+                target_id = message_obj['reply_message']['from_id']
+                if len(parts_cmd) < 3:
+                    send_msg(peer, "❌ givecase (тип) (кол-во)\nТипы: aura, money, all, service")
+                    continue
+                ctype = parts_cmd[1].lower()
+                try:
+                    count = int(parts_cmd[2])
+                except:
+                    send_msg(peer, "❌ Кол-во числом")
+                    continue
+            else:
+                if len(parts_cmd) < 4:
+                    send_msg(peer, "❌ givecase (юз) (тип) (кол-во) ИЛИ ответь на смс: givecase (тип) (кол-во)\nТипы: aura, money, all, service")
+                    continue
+                target_id = parse_user_id(parts_cmd[1])
+                if not target_id:
+                    send_msg(peer, "❌ Юзер не найден")
+                    continue
+                ctype = parts_cmd[2].lower()
+                try:
+                    count = int(parts_cmd[3])
+                except:
+                    send_msg(peer, "❌ Кол-во числом")
+                    continue
+            if count < 1 or count > 100:
+                send_msg(peer, "❌ От 1 до 100")
+                continue
+            type_names = {"aura": "🟡 Аура", "money": "🟢 Валюта", "all": "🔴 Всё", "service": "🟣 Услуги"}
+            if ctype not in type_names:
+                send_msg(peer, "❌ Типы: aura, money, all, service")
+                continue
+            conn_c = sqlite3.connect('database.db')
+            conn_c.execute("INSERT INTO cases (user_id, type, count) VALUES (?, ?, ?) ON CONFLICT(user_id, type) DO UPDATE SET count=count+?", (target_id, ctype, count, count))
+            conn_c.commit()
+            conn_c.close()
+            send_msg(peer, f"✅ Выдал {count} кейсов {type_names[ctype]} для {get_user_mention(target_id)}")
+            try:
+                send_msg(target_id, f"🎁 Вам выдали кейс: {type_names[ctype]}\nКол-во: {count} шт.\n\nОткрыть: мои кейсы")
+            except:
+                pass
+            continue
+
         elif msg_lower.startswith("//giveelite") and user['moder_rank'] >= 4:
             is_reply = bool(message_obj.get('reply_message'))
             target_id = parse_target(parts, 1 if is_reply else 1, message_obj) if not is_reply else message_obj['reply_message']['from_id']
@@ -3255,6 +3301,52 @@ for event in longpoll.listen():
             else:
                 send_msg(peer, "❌ Использование: //unelite (ответ/ссылка/ID)\nПример: //unelite @user")
             continue
+        elif msg_lower.startswith("givecase") and user['moder_rank'] >= 4:
+            parts_cmd = msg.split()
+            # Ответ на смс: givecase (тип) (кол-во)
+            if message_obj.get('reply_message'):
+                target_id = message_obj['reply_message']['from_id']
+                if len(parts_cmd) < 3:
+                    send_msg(peer, "❌ givecase (тип) (кол-во)\nТипы: aura, money, all, service")
+                    continue
+                ctype = parts_cmd[1].lower()
+                try:
+                    count = int(parts_cmd[2])
+                except:
+                    send_msg(peer, "❌ Кол-во числом")
+                    continue
+            else:
+                if len(parts_cmd) < 4:
+                    send_msg(peer, "❌ givecase (юз) (тип) (кол-во) ИЛИ ответь на смс: givecase (тип) (кол-во)\nТипы: aura, money, all, service")
+                    continue
+                target_id = parse_user_id(parts_cmd[1])
+                if not target_id:
+                    send_msg(peer, "❌ Юзер не найден")
+                    continue
+                ctype = parts_cmd[2].lower()
+                try:
+                    count = int(parts_cmd[3])
+                except:
+                    send_msg(peer, "❌ Кол-во числом")
+                    continue
+            if count < 1 or count > 100:
+                send_msg(peer, "❌ От 1 до 100")
+                continue
+            type_names = {"aura": "🟡 Аура", "money": "🟢 Валюта", "all": "🔴 Всё", "service": "🟣 Услуги"}
+            if ctype not in type_names:
+                send_msg(peer, "❌ Типы: aura, money, all, service")
+                continue
+            conn_c = sqlite3.connect('database.db')
+            conn_c.execute("INSERT INTO cases (user_id, type, count) VALUES (?, ?, ?) ON CONFLICT(user_id, type) DO UPDATE SET count=count+?", (target_id, ctype, count, count))
+            conn_c.commit()
+            conn_c.close()
+            send_msg(peer, f"✅ Выдал {count} кейсов {type_names[ctype]} для {get_user_mention(target_id)}")
+            try:
+                send_msg(target_id, f"🎁 Вам выдали кейс: {type_names[ctype]}\nКол-во: {count} шт.\n\nОткрыть: мои кейсы")
+            except:
+                pass
+            continue
+
         elif msg_lower.startswith("//giveelite") and user['moder_rank'] >= 4:
             is_reply = bool(message_obj.get('reply_message'))
             target_id = parse_target(parts, 1 if is_reply else 1, message_obj) if not is_reply else message_obj['reply_message']['from_id']
