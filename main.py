@@ -1592,6 +1592,9 @@ for event in longpoll.listen():
                 left = int(user['game_boost_until'] - now)
                 txt += f"• Множитель игр х2: ещё {left//3600}ч {(left%3600)//60}м\n"
                 has_any = True
+            if user.get('last_withdraw', 0) == 0:
+                txt += "• Безлимит вывод: активен\n"
+                has_any = True
             if not has_any:
                 txt += "❌ Нет активных услуг."
             send_msg(peer, txt, get_main_keyboard())
@@ -1791,7 +1794,7 @@ for event in longpoll.listen():
             send_msg(peer, f"✅ Безлимит вывод на 24 часа!", get_main_keyboard())
             continue
 
-        elif msg_lower in ["купить вип", "купить вип пакет"]:
+        elif msg_lower in ["купить вип", "купить вип пакет"] or msg_lower.startswith("купить 👑 vip"):
             if not is_dm:
                 send_msg(peer, "❌ Магазин доступен только в ЛС!", get_main_keyboard())
                 continue
