@@ -2328,12 +2328,12 @@ for event in longpoll.listen():
             
             if ctype == "aura":
                 # От 50 до 250, чем выше тем меньше шанс
-                r = random.choices([50,75,100,125,150,175,200,225,250], weights=[45,25,13,8,4,2,1,1,1])[0]
+                r = random.choices([30,50,75,100,125,150,175,200,225,250,275,300], weights=[35,25,15,9,6,4,2,2,1,1,1,1])[0]
                 db.update_user_field(uid, 'aura', user.get('aura', 0) + r)
                 send_msg(peer, f"🎁 Открыл кейс с аурой!\n⚡ +{r} ауры!\nВсего ауры: {user.get('aura', 0) + r}")
             elif ctype == "money":
-                r = random.choices([1000000000000, 1200000000000, 1500000000000, 1800000000000, 2200000000000, 2500000000000, 3000000000000, 3500000000000, 4000000000000, 5000000000000], 
-                                   weights=[38,26,15,9,5,3,2,1,1,1])[0]
+                r = random.choices([2000000000000, 2500000000000, 3000000000000, 3500000000000, 4000000000000, 4500000000000, 5000000000000], 
+                                   weights=[35,25,17,10,6,4,3])[0]
                 db.add_balance(uid, r)
                 send_msg(peer, f"🎁 Открыл кейс с валютой!\n💰 +{num_to_str(r)}!")
             elif ctype == "all":
@@ -2341,25 +2341,25 @@ for event in longpoll.listen():
                 drop_type = random.choice(["money", "aura"])
                 if drop_type == "money":
                     money = random.choices([1000000000000, 1500000000000, 2000000000000, 2500000000000, 3000000000000, 3500000000000, 4000000000000],
-                                           weights=[40,24,15,9,6,4,2])[0]
+                                           weights=[45,25,14,8,4,3,1])[0]
                     db.add_balance(uid, money)
                     send_msg(peer, f"🎁 Открыл кейс со всем!\n💰 +{num_to_str(money)}")
                 else:
                     aura = random.choices([100,150,200,250,300,350,400,450,500],
-                                         weights=[45,24,14,8,4,2,1,1,1])[0]
+                                         weights=[50,25,12,6,3,2,1,1,1])[0]
                     db.update_user_field(uid, 'aura', user.get('aura', 0) + aura)
                     send_msg(peer, f"🎁 Открыл кейс со всем!\n⚡ +{aura} ауры!")
             elif ctype == "service":
                 items = [
-                    {"name": "Снятие КД кликера 24ч", "func": lambda: db.update_user_field(uid, 'no_cd_until', time.time()+86400), "chance": 25},
-                    {"name": "Множитель клика х2 24ч", "func": lambda: db.update_user_field(uid, 'x2_until', time.time()+86400), "chance": 20},
-                    {"name": "Множитель игр х2 24ч", "func": lambda: db.update_user_field(uid, 'game_boost_until', time.time()+86400), "chance": 18},
-                    {"name": "Безлимит вывод 24ч", "func": lambda: db.update_user_field(uid, 'last_withdraw', 0), "chance": 15},
-                    {"name": "ELITE 7 дней", "func": lambda: db.update_user_field(uid, 'elite_until', max(user.get('elite_until',0), time.time())+7*86400), "chance": 10},
-                    {"name": "ELITE 14 дней", "func": lambda: db.update_user_field(uid, 'elite_until', max(user.get('elite_until',0), time.time())+14*86400), "chance": 6},
-                    {"name": "ELITE 21 день", "func": lambda: db.update_user_field(uid, 'elite_until', max(user.get('elite_until',0), time.time())+21*86400), "chance": 3},
-                    {"name": "ELITE 31 день", "func": lambda: db.update_user_field(uid, 'elite_until', max(user.get('elite_until',0), time.time())+31*86400), "chance": 2},
-                    {"name": "VIP пакет", "func": lambda: (db.update_user_field(uid, 'no_cd_until', time.time()+86400), db.update_user_field(uid, 'game_boost_until', time.time()+86400), db.update_user_field(uid, 'last_withdraw', 0), db.update_user_field(uid, 'elite_until', max(user.get('elite_until',0), time.time())+3*86400), db.update_user_field(uid, 'vip_until', time.time()+86400)), "chance": 1},
+                    {"name": "Безлимит вывод 24ч", "func": lambda: db.update_user_field(uid, 'last_withdraw', 0), "chance": 35},
+                    {"name": "Снятие КД кликера 24ч", "func": lambda: db.update_user_field(uid, 'no_cd_until', time.time()+86400), "chance": 20},
+                    {"name": "Множитель клика х2 24ч", "func": lambda: db.update_user_field(uid, 'x2_until', time.time()+86400), "chance": 15},
+                    {"name": "Множитель игр х2 24ч", "func": lambda: db.update_user_field(uid, 'game_boost_until', time.time()+86400), "chance": 12},
+                    {"name": "ELITE 7 дней", "func": lambda: db.update_user_field(uid, 'elite_until', max(user.get('elite_until',0), time.time())+7*86400), "chance": 8},
+                    {"name": "ELITE 14 дней", "func": lambda: db.update_user_field(uid, 'elite_until', max(user.get('elite_until',0), time.time())+14*86400), "chance": 5},
+                    {"name": "ELITE 21 день", "func": lambda: db.update_user_field(uid, 'elite_until', max(user.get('elite_until',0), time.time())+21*86400), "chance": 2},
+                    {"name": "ELITE 31 день", "func": lambda: db.update_user_field(uid, 'elite_until', max(user.get('elite_until',0), time.time())+31*86400), "chance": 1},
+                    {"name": "VIP пакет", "func": lambda: (db.update_user_field(uid, 'no_cd_until', time.time()+86400), db.update_user_field(uid, 'game_boost_until', time.time()+86400), db.update_user_field(uid, 'last_withdraw', 0), db.update_user_field(uid, 'elite_until', max(user.get('elite_until',0), time.time())+3*86400), db.update_user_field(uid, 'vip_until', time.time()+86400)), "chance": 2},
                 ]
                 names_list = [i["name"] for i in items]
                 weights_list = [i["chance"] for i in items]
