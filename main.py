@@ -2276,10 +2276,10 @@ for event in longpoll.listen():
             kb = VkKeyboard(one_time=False)
             kb.add_button("📦 Мои кейсы", color=VkKeyboardColor.PRIMARY, payload={"cmd": "mycases"})
             kb.add_line()
-            kb.add_button("🟡 Кейс с аурой (1мм)", color=VkKeyboardColor.POSITIVE, payload={"cmd": "buycase_aura"})
-            kb.add_button("🟢 Кейс с валютой (2мм)", color=VkKeyboardColor.POSITIVE, payload={"cmd": "buycase_money"})
+            kb.add_button("🟡 Кейс с аурой (2мм)", color=VkKeyboardColor.POSITIVE, payload={"cmd": "buycase_aura"})
+            kb.add_button("🟢 Кейс с валютой (3мм)", color=VkKeyboardColor.POSITIVE, payload={"cmd": "buycase_money"})
             kb.add_line()
-            kb.add_button("🔴 Кейс со всем (3мм)", color=VkKeyboardColor.NEGATIVE, payload={"cmd": "buycase_all"})
+            kb.add_button("🔴 Кейс со всем (4мм)", color=VkKeyboardColor.NEGATIVE, payload={"cmd": "buycase_all"})
             kb.add_button("🟣 Кейс с услугами (70мм)", color=VkKeyboardColor.NEGATIVE, payload={"cmd": "buycase_service"})
             send_msg(peer, "🎁 КЕЙСЫ\n\n🟡 Аура: 50-250 ауры\n🟢 Валюта: 500мк-3мм\n🔴 Всё: 1-4мм + 100-500 ауры\n🟣 Услуги: рандом из магазина + ELITE 7-31дн\n\nВыбери кейс для покупки:", keyboard=kb.get_keyboard())
             continue
@@ -2328,22 +2328,27 @@ for event in longpoll.listen():
             
             if ctype == "aura":
                 # От 50 до 250, чем выше тем меньше шанс
-                r = random.choices([50,75,100,125,150,175,200,225,250], weights=[30,22,16,12,8,5,4,2,1])[0]
+                r = random.choices([50,75,100,125,150,175,200,225,250], weights=[45,25,13,8,4,2,1,1,1])[0]
                 db.update_user_field(uid, 'aura', user.get('aura', 0) + r)
                 send_msg(peer, f"🎁 Открыл кейс с аурой!\n⚡ +{r} ауры!\nВсего ауры: {user.get('aura', 0) + r}")
             elif ctype == "money":
                 r = random.choices([500000000000, 800000000000, 1200000000000, 1700000000000, 2200000000000, 2800000000000, 3000000000000], 
-                                   weights=[28,22,17,13,10,6,4])[0]
+                                   weights=[40,25,15,9,6,3,2])[0]
                 db.add_balance(uid, r)
                 send_msg(peer, f"🎁 Открыл кейс с валютой!\n💰 +{num_to_str(r)}!")
             elif ctype == "all":
-                money = random.choices([1000000000000, 1500000000000, 2000000000000, 2500000000000, 3000000000000, 3500000000000, 4000000000000],
-                                       weights=[25,20,17,14,11,8,5])[0]
-                aura = random.choices([100,150,200,250,300,350,400,450,500],
-                                     weights=[25,20,17,14,10,7,4,2,1])[0]
-                db.add_balance(uid, money)
-                db.update_user_field(uid, 'aura', user.get('aura', 0) + aura)
-                send_msg(peer, f"🎁 Открыл кейс со всем!\n💰 +{num_to_str(money)}\n⚡ +{aura} ауры!")
+                # Выпадает что-то одно: либо валюта, либо аура
+                drop_type = random.choice(["money", "aura"])
+                if drop_type == "money":
+                    money = random.choices([1000000000000, 1500000000000, 2000000000000, 2500000000000, 3000000000000, 3500000000000, 4000000000000],
+                                           weights=[40,24,15,9,6,4,2])[0]
+                    db.add_balance(uid, money)
+                    send_msg(peer, f"🎁 Открыл кейс со всем!\n💰 +{num_to_str(money)}")
+                else:
+                    aura = random.choices([100,150,200,250,300,350,400,450,500],
+                                         weights=[45,24,14,8,4,2,1,1,1])[0]
+                    db.update_user_field(uid, 'aura', user.get('aura', 0) + aura)
+                    send_msg(peer, f"🎁 Открыл кейс со всем!\n⚡ +{aura} ауры!")
             elif ctype == "service":
                 items = [
                     {"name": "Снятие КД кликера 24ч", "func": lambda: db.update_user_field(uid, 'no_cd_until', time.time()+86400), "chance": 25},
@@ -2372,7 +2377,7 @@ for event in longpoll.listen():
                 p = json.loads(payload) if isinstance(payload, str) else payload
                 ctype = p.get("cmd", "").split("_", 1)[1]
             
-            prices = {"aura": 1000000000000, "money": 2000000000000, "all": 3000000000000, "service": 70000000000000}
+            prices = {"aura": 2000000000000, "money": 3000000000000, "all": 4000000000000, "service": 70000000000000}
             names = {"aura": "с аурой", "money": "с валютой", "all": "со всем", "service": "с услугами"}
             
             if ctype not in prices:
