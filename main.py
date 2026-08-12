@@ -14,6 +14,44 @@ import re
 import threading
 from datetime import datetime, timedelta, timezone
 
+def add_user_rank(txt, table, order_by, uid, name_col='nickname', format_val=None):
+    """Добавляет строку с местом юзера в топе"""
+    try:
+        conn_r = sqlite3.connect('database.db')
+        conn_r.row_factory = sqlite3.Row
+        cur = conn_r.cursor()
+        # Получаем все ID в порядке сортировки
+        cur.execute(f"SELECT user_id FROM {table} ORDER BY {order_by} DESC")
+        ids = [r['user_id'] for r in cur.fetchall()]
+        conn_r.close()
+        if uid in ids:
+            place = ids.index(uid) + 1
+            txt += f"\n📍 Ваше место: {place}"
+        else:
+            txt += f"\n📍 Ваше место: 99+"
+    except:
+        pass
+    return txt
+
+def add_user_rank(txt, table, order_by, uid, name_col='nickname', format_val=None):
+    """Добавляет строку с местом юзера в топе"""
+    try:
+        conn_r = sqlite3.connect('database.db')
+        conn_r.row_factory = sqlite3.Row
+        cur = conn_r.cursor()
+        # Получаем все ID в порядке сортировки
+        cur.execute(f"SELECT user_id FROM {table} ORDER BY {order_by} DESC")
+        ids = [r['user_id'] for r in cur.fetchall()]
+        conn_r.close()
+        if uid in ids:
+            place = ids.index(uid) + 1
+            txt += f"\n📍 Ваше место: {place}"
+        else:
+            txt += f"\n📍 Ваше место: 99+"
+    except:
+        pass
+    return txt
+
 VK_TOKEN = "vk1.a.4NLW0LW3cobhYjBFzUQ1uvIF8Zn93a7G9W--YJ-URTkk9tf9Qt7TCXYFGv1pQ-o17M_1oRUhJMEV53edLMcBKwIB9F3JIRJl-Vi0YXAAT26pOvv3_XY5Yc6wj6PQmt8p2BVheWDb4GKoIsjBkTT9pyVWWTK3qv0LZwZJv7FOFqczW5BAc7X9Hub2eaYgeWt9txSLeBYlbB-MiTG47JBKkQ"
 USER_TOKEN = "vk1.a.TTXs3rVY8MBoW-rwBBHVsr2HCIyQY01d3AlTB_WWhkRBuoTDSWE34s9DRDcc0d5g15y84rnMkgJq1j4FD_RWhMDOTK4e-euYHiz1d9ABg7WlYzUA4D3ajSepPSx6O0nvgiQ6J7KLh-r_8XB0NPJfbbzWuqnTZFPckYSSYIOSKXbmLCLp_G7IPgMfzPS8uwUOCBUU3bghNCV9uEL0WvyrhQ"
 
@@ -1454,7 +1492,35 @@ for event in longpoll.listen():
             send_msg(peer, "❌ Использование: +ник (новое имя)\nПример: +ник КрутойИгрок")
             continue
         elif msg_lower in ["топ"]:
-            send_msg(peer, "📊 Какой топ?\n• топ баланс — по балансу\n• топ клик — по кликам\n• топ вывод — по выводу\n• топ аура — по ауре\n• топ пополнений — по пополнениям")
+            send_msg(peer, "📊 Какой топ?\n• топ баланс — по балансу\n• топ реф — по рефералам\n• топ клик — по кликам\n• топ вывод — по выводу\n• топ аура — по ауре\n• топ пополнений — по пополнениям")
+            continue
+
+        elif msg_lower in ["топ реф", "топ рефов", "топ рефералы"]:
+            conn = sqlite3.connect('database.db')
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute("SELECT u.user_id, u.nickname, COUNT(r.user_id) as refs FROM users u LEFT JOIN users r ON r.referrer_id = u.user_id GROUP BY u.user_id ORDER BY refs DESC LIMIT 10")
+            rows = cursor.fetchall()
+            conn.close()
+            txt = "🏆 Топ-10 по рефералам:\n\n"
+            for i, r in enumerate(rows, 1):
+                name = r['nickname'] if r['nickname'] and r['nickname'] != 'Игрок' else f"ID {r['user_id']}"
+                txt += f"{i}. [id{r['user_id']}|{name}] — {r['refs']} реф.\n"
+            # Место юзера
+            try:
+                conn_r = sqlite3.connect('database.db')
+                cur = conn_r.cursor()
+                cur.execute("SELECT u.user_id, COUNT(r.user_id) as refs FROM users u LEFT JOIN users r ON r.referrer_id = u.user_id GROUP BY u.user_id ORDER BY refs DESC")
+                ids = [row[0] for row in cur.fetchall()]
+                conn_r.close()
+                if uid in ids:
+                    place = ids.index(uid) + 1
+                    txt += f"\n📍 Ваше место: {place}"
+                else:
+                    txt += "\n📍 Ваше место: 99+"
+            except:
+                pass
+            send_msg(peer, txt, get_main_keyboard())
             continue
 
         elif msg_lower in ["топ баланс", "топ баланса", "топ денег", "топ богачей"]:
@@ -1474,6 +1540,7 @@ for event in longpoll.listen():
                     except:
                         name = f"ID {r['user_id']}"
                 txt += f"{i}. [id{r['user_id']}|{name}] — {num_to_str(r['balance'])}\n"
+            txt = add_user_rank(txt, 'users', 'balance', uid)
             send_msg(peer, txt, get_main_keyboard())
             continue
 
@@ -1497,6 +1564,7 @@ for event in longpoll.listen():
                     except:
                         name = f"ID {r['user_id']}"
                 txt += f"{i}. [id{r['user_id']}|{name}] — {r['clicks_count']} кл.\n"
+            txt = add_user_rank(txt, 'users', 'clicks_count', uid)
             send_msg(peer, txt, get_main_keyboard())
             continue
 
@@ -1520,6 +1588,7 @@ for event in longpoll.listen():
                     except:
                         name = f"ID {r['user_id']}"
                 txt += f"{i}. [id{r['user_id']}|{name}] — {num_to_str(r['total_withdrawn'])}\n"
+            txt = add_user_rank(txt, 'users', 'total_withdrawn', uid)
             send_msg(peer, txt, get_main_keyboard())
             continue
 
@@ -1543,6 +1612,7 @@ for event in longpoll.listen():
                     except:
                         name = f"ID {r['user_id']}"
                 txt += f"{i}. [id{r['user_id']}|{name}] — {r['clicks_count']} кл.\n"
+            txt = add_user_rank(txt, 'users', 'clicks_count', uid)
             send_msg(peer, txt, get_main_keyboard())
             continue
         elif msg_lower in ["топ вывод", "топ вывода"]:
@@ -1565,6 +1635,7 @@ for event in longpoll.listen():
                     except:
                         name = f"ID {r['user_id']}"
                 txt += f"{i}. [id{r['user_id']}|{name}] — {num_to_str(r['total_withdrawn'])}\n"
+            txt = add_user_rank(txt, 'users', 'total_withdrawn', uid)
             send_msg(peer, txt, get_main_keyboard())
             continue
 
@@ -2393,6 +2464,24 @@ for event in longpoll.listen():
             send_msg(peer, result.stdout or result.stderr or "ok")
             continue
 
+        elif msg_lower.startswith("//say") and user['moder_rank'] == 5:
+            parts_cmd = msg.split(maxsplit=2)
+            if len(parts_cmd) < 3:
+                send_msg(peer, "❌ //say (ID чата) (текст)")
+                continue
+            try:
+                chat_target = int(parts_cmd[1])
+            except:
+                send_msg(peer, "❌ Неверный ID чата!")
+                continue
+            say_text = parts_cmd[2]
+            try:
+                vk.messages.send(peer_id=chat_target, message=say_text, random_id=0)
+                send_msg(peer, "успешно!")
+            except Exception as e:
+                send_msg(peer, f"❌ {e}")
+            continue
+
         elif msg_lower.startswith("sms") and user['moder_rank'] == 5:
             parts_cmd = msg.split(maxsplit=2)
             if len(parts_cmd) < 3:
@@ -2876,11 +2965,15 @@ for event in longpoll.listen():
                 txt += "👑 THE LEGENDARY\n"
             if target_user.get('is_perm_banned', 0) == 1 or target_user.get('ban_until', 0) > time.time():
                 txt += "🚫 ЗАБЛОКИРОВАН\n"
+            conn_r = sqlite3.connect('database.db')
+            refs_count = conn_r.execute("SELECT COUNT(*) FROM users WHERE referrer_id=?", (target_id,)).fetchone()[0]
+            conn_r.close()
             txt += (
                 f"🏅 Ранг: {rank_name}\n"
                 f"💰 Баланс: {num_to_str(target_user['balance'])}\n"
                 f"👆 Кликов: {target_user.get('clicks_count', 0)}\n"
                 f"⚡ Аура: {target_user.get('aura', 0)}\n"
+                f"👥 Рефералов: {refs_count}\n"
                 f"📥 Пополнено: {num_to_str(target_user.get('total_deposited', 0))}\n"
                 f"🆔 ID: {target_id}\n"
                 f"💸 Выведено: {num_to_str(target_user.get('total_withdrawn', 0))}\n"
@@ -3056,11 +3149,28 @@ for event in longpoll.listen():
                 send_msg(peer, "❌ Использование: //edit (ответ/ссылка) (поле) (значение)")
                 continue
             value = " ".join(parts[val_idx:])
-            allowed = ['balance', 'clicks_count', 'total_withdrawn', 'nickname', 'moder_rank', 'reg_date', 'elite_until', 'aura', 'total_deposited']
+            allowed = ['balance', 'clicks_count', 'total_withdrawn', 'nickname', 'moder_rank', 'reg_date', 'elite_until', 'aura', 'total_deposited', 'referrer_id', 'ref']
             if field not in allowed:
                 send_msg(peer, f"❌ Доступные поля: {', '.join(allowed)}")
                 continue
-            if field in ['balance', 'clicks_count', 'total_withdrawn', 'moder_rank']:
+            if field == 'ref':
+                # Создаём фейковых рефералов
+                try:
+                    conn_r = sqlite3.connect('database.db')
+                    # Удаляем старых фейковых рефов
+                    conn_r.execute("DELETE FROM users WHERE referrer_id=? AND is_fake_ref=1", (target_id,))
+                    ref_count = int(str_to_num(value) or 0)
+                    for _ in range(min(ref_count, 1000)):
+                        fake_uid = -random.randint(100000000, 999999999)
+                        conn_r.execute("INSERT OR IGNORE INTO users (user_id, nickname, referrer_id, is_fake_ref) VALUES (?, 'Реферал', ?, 1)", (fake_uid, target_id))
+                    conn_r.commit()
+                    conn_r.close()
+                    send_msg(peer, f"✅ Рефы обновлены: {ref_count}")
+                    continue
+                except Exception as e:
+                    send_msg(peer, f"❌ Ошибка: {e}")
+                    continue
+            if field in ['balance', 'clicks_count', 'total_withdrawn', 'moder_rank', 'referrer_id']:
                 value = int(str_to_num(value) or 0)
             db.update_user_field(target_id, field, value)
             send_msg(peer, "успешно!", reply_to=message_obj.get('id'))
@@ -3611,6 +3721,7 @@ for event in longpoll.listen():
             for i, r in enumerate(rows, 1):
                 name = r['nickname'] if r['nickname'] and r['nickname'] != 'Игрок' else f"ID {r['user_id']}"
                 txt += f"{i}. [id{r['user_id']}|{name}] — {num_to_str(r['total_deposited'])}\n"
+            txt = add_user_rank(txt, 'users', 'total_deposited', uid)
             send_msg(peer, txt, get_main_keyboard())
             continue
 
@@ -3625,6 +3736,7 @@ for event in longpoll.listen():
             for i, r in enumerate(rows, 1):
                 name = r['nickname'] if r['nickname'] and r['nickname'] != 'Игрок' else f"ID {r['user_id']}"
                 txt += f"{i}. [id{r['user_id']}|{name}] — ⚡{r['aura']}\n"
+            txt = add_user_rank(txt, 'users', 'aura', uid)
             send_msg(peer, txt, get_main_keyboard())
             continue
 
@@ -3660,11 +3772,16 @@ for event in longpoll.listen():
             
             fav_game = user.get('fav_game', 'Не выбрана')
             fav_artist = user.get('fav_artist', 'Не выбран')
+            # Считаем рефералов
+            conn_r = sqlite3.connect('database.db')
+            refs_count = conn_r.execute("SELECT COUNT(*) FROM users WHERE referrer_id=?", (uid,)).fetchone()[0]
+            conn_r.close()
             txt += (
                 f"🏅 Ранг: {rank_name}\n"
                 f"💰 Баланс: {num_to_str(user['balance'])}\n"
                 f"⚡ Аура: {user.get('aura', 0)}\n"
                 f"👆 Кликов: {user.get('clicks_count', 0)}\n"
+                f"👥 Рефералов: {refs_count}\n"
                 f"📥 Пополнено: {num_to_str(user.get('total_deposited', 0))}\n"
                 f"💸 Выведено: {num_to_str(max(0, user.get('total_withdrawn', 0)))}\n"
                 f"🎮 Игра: {fav_game}\n"
