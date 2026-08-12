@@ -2332,8 +2332,8 @@ for event in longpoll.listen():
                 db.update_user_field(uid, 'aura', user.get('aura', 0) + r)
                 send_msg(peer, f"🎁 Открыл кейс с аурой!\n⚡ +{r} ауры!\nВсего ауры: {user.get('aura', 0) + r}")
             elif ctype == "money":
-                r = random.choices([500000000000, 800000000000, 1200000000000, 1700000000000, 2200000000000, 2800000000000, 3000000000000], 
-                                   weights=[40,25,15,9,6,3,2])[0]
+                r = random.choices([1000000000000, 1200000000000, 1500000000000, 1800000000000, 2200000000000, 2500000000000, 3000000000000, 3500000000000, 4000000000000, 5000000000000], 
+                                   weights=[38,26,15,9,5,3,2,1,1,1])[0]
                 db.add_balance(uid, r)
                 send_msg(peer, f"🎁 Открыл кейс с валютой!\n💰 +{num_to_str(r)}!")
             elif ctype == "all":
@@ -2399,7 +2399,16 @@ for event in longpoll.listen():
             kb.add_line()
             kb.add_button("📦 Мои кейсы", color=VkKeyboardColor.PRIMARY, payload={"cmd": "mycases"})
             kb.add_button("⬅ Назад", color=VkKeyboardColor.SECONDARY, payload={"cmd": "назад"})
-            send_msg(peer, f"✅ Купил кейс {names[ctype]} за {num_to_str(price)}!\n💰 Баланс: {num_to_str(user['balance'] - price)}", keyboard=kb.get_keyboard())
+            # Показываем снова магазин кейсов
+            kb_cases = VkKeyboard(one_time=False)
+            kb_cases.add_button("📦 Мои кейсы", color=VkKeyboardColor.PRIMARY, payload={"cmd": "mycases"})
+            kb_cases.add_line()
+            kb_cases.add_button("🟡 Кейс с аурой (2мм)", color=VkKeyboardColor.POSITIVE, payload={"cmd": "buycase_aura"})
+            kb_cases.add_button("🟢 Кейс с валютой (3мм)", color=VkKeyboardColor.POSITIVE, payload={"cmd": "buycase_money"})
+            kb_cases.add_line()
+            kb_cases.add_button("🔴 Кейс со всем (4мм)", color=VkKeyboardColor.NEGATIVE, payload={"cmd": "buycase_all"})
+            kb_cases.add_button("🟣 Кейс с услугами (70мм)", color=VkKeyboardColor.NEGATIVE, payload={"cmd": "buycase_service"})
+            send_msg(peer, f"✅ Купил кейс {names[ctype]} за {num_to_str(price)}!\n💰 Баланс: {num_to_str(user['balance'] - price)}\n\nВыбери ещё кейс или открой:", keyboard=kb_cases.get_keyboard())
             continue
 
 
