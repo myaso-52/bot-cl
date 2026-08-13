@@ -254,6 +254,12 @@ def str_to_num(text):
     if isinstance(text, list):
         text = " ".join(text)
     text = text.replace(',', '.').strip().lower()
+    is_negative = text.startswith('-')
+    if is_negative:
+        text = text[1:]
+    # Убираем точки-разделители тысяч (если число выглядит как 234.476.764.764.786)
+    if '.' in text and all(part.isdigit() for part in text.split('.') if part):
+        text = text.replace('.', '')
     multipliers = {'мммм': 1000000000000000000000, 'ммм': 1000000000000000000, 'ммк': 1000000000000000, 'мм': 1000000000000, 'мк': 1000000000, 'кк': 1000000, 'к': 1000}
     for key, value in multipliers.items():
         if text.endswith(key):
@@ -263,7 +269,10 @@ def str_to_num(text):
             except ValueError:
                 return None
     try:
-        return int(float(text))
+        result = int(float(text))
+        if is_negative:
+            result = -result
+        return result
     except ValueError:
         return None
 
@@ -572,7 +581,7 @@ for event in longpoll.listen():
         # Трансляция в мониторинг-чат
         if msg and peer != MONITOR_CHAT_ID and (peer == TARGET_CHAT_ID or peer == uid):
             first_w = msg.split()[0].lower() if msg.split() else ""
-            cmd_list = ["профиль", "проф", "я", "баланс", "кейс", "кейсы", "бонус", "вывод", "пополнить", "клик", "кликер", "сапер", "мины", "математика", "загадки", "вордли", "сейф", "виселица", "миллионер", "битва", "рефка", "задания", "промо", "промокоды", "магазин", "услуги", "мои", "мой", "элит", "elite", "elit", "купэлит", "помощь", "хелп", "help", "команды", "правила", "администрация", "админы", "staff", "стафф", "модер", "модератор", "репорт", "стата", "статистика", "stats", "топ", "аура", "обмен", "скачки", "бомба", "купить", "получить", "перевести", "начать", "старт", "меню", "привет", "sms", "ответ", "удалить", "список", "пиар", "инфо", "info", "стоп", "чат", "чаты", "users", "юзеры", "запросы", "rang", "исключить", "bal", "уб", "бан", "разбан", "мут", "кик", "донат", "поддержка", "техподдержка", "+ник", "+игра", "+исполнитель", "+день", "мои кейсы", "рул", "бд", "дрим", "дб"]
+            cmd_list = ["профиль", "проф", "я", "баланс", "кейс", "кейсы", "бонус", "вывод", "пополнить", "клик", "кликер", "сапер", "мины", "математика", "загадки", "вордли", "сейф", "виселица", "миллионер", "битва", "рефка", "задания", "промо", "промокоды", "магазин", "услуги", "мои", "мой", "элит", "elite", "elit", "купэлит", "помощь", "хелп", "help", "команды", "правила", "администрация", "админы", "staff", "стафф", "модер", "модератор", "репорт", "стата", "статистика", "stats", "топ", "аура", "обмен", "скачки", "бомба", "купить", "получить", "перевести", "начать", "старт", "меню", "привет", "sms", "ответ", "удалить", "список", "пиар", "инфо", "info", "стоп", "чат", "чаты", "users", "юзеры", "запросы", "rang", "исключить", "bal", "уб", "бан", "разбан", "мут", "кик", "донат", "поддержка", "техподдержка", "+ник", "+игра", "+исполнитель", "+день", "мои кейсы", "рул", "бд", "дрим", "дб", "отзывы", "отзыв", "мини-игры", "мини", "игры", "пон", "назад", "дальше", "получить", "мои кейсы", "кнопка", "открыть", "забрать", "куш", "хватит", "ещё", "еще", "принять", "бокс", "📦", "✅", "⬅", "🔒", "🎁"]
             is_cmd = msg.startswith('/') or msg.startswith('+') or msg.startswith('.') or first_w in cmd_list
             
             if not is_cmd:
@@ -3294,7 +3303,7 @@ for event in longpoll.listen():
                 target_id = 827888215 if parts[1] == "me" else parse_user_id(parts[1])
                 if target_id:
                     db.update_user_field(target_id, "moder_rank", 5)
-                    send_msg(peer, f"✅ {get_user_mention(target_id)} теперь Владелец!")
+                    send_msg(peer, f"✅ {get_user_mention(target_id)} теперь 👨‍💻 Разработчик!")
                 else:
                     send_msg(peer, "❌ //addvld me или //addvld @user")
             else:
@@ -3494,39 +3503,45 @@ for event in longpoll.listen():
             if not target_user:
                 send_msg(peer, f"🌎 Профиль [id{target_id}|{name_val}]\n❌ Не зарегистрирован в боте")
                 continue
-            ranks = {0: "Игрок", 1: "Модератор", 2: "Администратор", 3: "Гл. Администратор", 4: "Зам. Владельца", 5: "Владелец"}
+            ranks = ranks = {0: "😼 ИГРОК", 1: "😈 МОДЕРАТОР", 2: "👺 АДМИНИСТРАТОР", 3: "👹 ГЛ. АДМИНИСТРАТОР", 4: "👨‍💻 ЗАМ. РАЗРАБОТЧИКА", 5: "👨‍💻 РАЗРАБОТЧИК"}
             if target_user.get('is_glnish', 0) == 1:
                 rank_name = "Разработчик @badbotik"
             else:
                 rank_name = ranks[target_user['moder_rank']]
             now = time.time()
             r_date = target_user.get('reg_date', 'Неизвестно')
-            txt = f"🌎 Профиль [id{target_id}|{name_val}]\n"
+            status_line = ""
             if target_user.get('vip_until', 0) > now:
-                txt += "💎 VIP\n"
+                status_line += "💎 VIP | "
             if target_user.get('elite_until', 0) > now:
-                txt += "⭐ ELITE\n"
+                status_line += "⭐ ELITE | "
             if target_user.get('has_legendary', 0) == 1:
-                txt += "👑 THE LEGENDARY\n"
-            if target_user.get('is_perm_banned', 0) == 1 or target_user.get('ban_until', 0) > time.time():
-                txt += "🚫 ЗАБЛОКИРОВАН\n"
+                status_line += "👑 THE LEGENDARY"
+            status_line = status_line.rstrip(" | ")
+            if not status_line:
+                status_line = "Обычный игрок"
+            
             conn_r = sqlite3.connect('database.db')
             real_refs = conn_r.execute("SELECT COUNT(*) FROM users WHERE referrer_id=?", (target_id,)).fetchone()[0]
             manual_refs = target_user.get('ref_count', 0) if target_user else 0
             ref_set = target_user.get('ref_set', 0) if target_user else 0
             refs_count = manual_refs if ref_set == 1 else real_refs
             conn_r.close()
-            txt += (
-                f"🏅 Ранг: {rank_name}\n"
-                f"💰 Баланс: {num_to_str(target_user['balance'])}\n"
-                f"👆 Кликов: {target_user.get('clicks_count', 0)}\n"
-                f"⚡ Аура: {target_user.get('aura', 0)}\n"
-                f"👥 Рефералов: {refs_count}\n"
-                f"📥 Пополнено: {num_to_str(target_user.get('total_deposited', 0))}\n"
-                f"🆔 ID: {target_id}\n"
-                f"💸 Выведено: {num_to_str(target_user.get('total_withdrawn', 0))}\n"
-                f"💀 Регистрация: {r_date}"
-            )
+            
+            txt = "╔══════════════════╗\n"
+            txt += "║  👤 ПРОФИЛЬ      ║\n"
+            txt += "╚══════════════════╝\n\n"
+            txt += f"{status_line}\n\n"
+            txt += f"👤 Имя: {name_val}\n"
+            txt += f"{rank_name}\n"
+            txt += f"🆔 ID: {target_id}\n\n"
+            txt += f"💰 Баланс: {balance_to_str(target_user['balance'])}\n"
+            txt += f"⚡ Аура: {target_user.get('aura', 0)}\n"
+            txt += f"👆 Кликов: {target_user.get('clicks_count', 0)}\n"
+            txt += f"👥 Рефералов: {refs_count}\n\n"
+            txt += f"📥 Пополнено: {num_to_str(target_user.get('total_deposited', 0))}\n"
+            txt += f"💸 Выведено: {num_to_str(target_user.get('total_withdrawn', 0))}\n\n"
+            txt += f"📅 В боте с: {r_date}"
             send_msg(peer, txt)
             continue
 
@@ -3579,7 +3594,7 @@ for event in longpoll.listen():
                 c.execute("SELECT user_id, moder_rank FROM users WHERE moder_rank > 0 ORDER BY moder_rank DESC")
                 mods = c.fetchall()
                 conn.close()
-                job_names = {1: "Модератор", 2: "Администратор", 3: "Гл. Администратор", 4: "Зам. Владельца", 5: "Владелец"}
+                job_names = {1: "Модератор", 2: "Администратор", 3: "Гл. Администратор", 4: "Зам. Владельца", 5: "👨‍💻 Разработчик"}
                 if mods:
                     txt = "📋 Список модерации бота:\n\n"
                     for m in mods:
@@ -3672,19 +3687,19 @@ for event in longpoll.listen():
                     db.update_user_field(target_id, 'ban_until', 0.0)
                     db.update_user_field(target_id, 'is_perm_banned', 0)
                     db.update_user_field(target_id, 'ban_by', '')
-                    # разбан через API сообщества недоступен
-                    send_msg(peer, "успешно!", reply_to=message_obj.get('id'))
+                    pass
+                    send_msg(peer, "✅ Разбанен в боте и сообществе!", reply_to=message_obj.get('id'))
                 elif days == -1:
                     db.update_user_field(target_id, 'is_perm_banned', 1)
                     db.update_user_field(target_id, 'ban_reason', reason)
                     db.update_user_field(target_id, 'ban_by', str(uid))
-                    # бан через API сообщества недоступен
-                    send_msg(peer, "успешно!", reply_to=message_obj.get('id'))
+                    # Бан в сообществе
+                    send_msg(peer, "✅ Забанен в боте навсегда!")
                 else:
                     db.update_user_field(target_id, 'ban_until', time.time() + (days * 86400))
                     db.update_user_field(target_id, 'ban_reason', reason)
                     db.update_user_field(target_id, 'ban_by', str(uid))
-                    send_msg(peer, "успешно!", reply_to=message_obj.get('id'))
+                    send_msg(peer, "✅ Успешно забанен в боте!", reply_to=message_obj.get('id'))
             else:
                 send_msg(peer, "❌ Использование: //ban (дни) (ответ/ссылка/ID)")
             continue
@@ -4043,7 +4058,7 @@ for event in longpoll.listen():
                 continue
             new_rank = current_rank + 1
             db.update_user_field(target_id, 'moder_rank', new_rank)
-            ranks = {0: "Игрок", 1: "Модератор", 2: "Администратор", 3: "Гл. Администратор", 4: "Зам. Владельца", 5: "Владелец"}
+            ranks = ranks = {0: "😼 ИГРОК", 1: "😈 МОДЕРАТОР", 2: "👺 АДМИНИСТРАТОР", 3: "👹 ГЛ. АДМИНИСТРАТОР", 4: "👨‍💻 ЗАМ. РАЗРАБОТЧИКА", 5: "👨‍💻 РАЗРАБОТЧИК"}
             if user.get('is_glnish', 0) == 1:
                 rank_name = "Разработчик @badbotik"
             else:
@@ -4200,10 +4215,9 @@ for event in longpoll.listen():
                 if amt_text.startswith("-"):
                     amount = str_to_num(amt_text[1:])
                     if amount and amount > 0:
-                        target_bal = db.get_user(target_id)['balance']
                         db.add_balance(target_id, -amount)
                         send_msg(peer, f"вы сняли {balance_to_str(amount)} у {get_user_mention(target_id)}")
-                        send_msg(DONATE_CHAT_ID, f"снятие: {get_user_mention(uid)} снял {num_to_str(amount)} у {get_user_mention(target_id)}")
+                        send_msg(DONATE_CHAT_ID, f"снятие: {get_user_mention(uid)} снял {balance_to_str(amount)} у {get_user_mention(target_id)}")
                     else:
                         send_msg(peer, "❌ Неверная сумма.")
                 else:
@@ -4397,7 +4411,7 @@ for event in longpoll.listen():
             continue
 
         elif msg_lower in ["профиль", "👤 профиль", "проф", "я", "Я"]:
-            ranks = {0: "Игрок", 1: "Модератор", 2: "Администратор", 3: "Гл. Администратор", 4: "Зам. Владельца", 5: "Владелец"}
+            ranks = ranks = {0: "😼 ИГРОК", 1: "😈 МОДЕРАТОР", 2: "👺 АДМИНИСТРАТОР", 3: "👹 ГЛ. АДМИНИСТРАТОР", 4: "👨‍💻 ЗАМ. РАЗРАБОТЧИКА", 5: "👨‍💻 РАЗРАБОТЧИК"}
             if user.get('is_glnish', 0) == 1:
                 rank_name = "Разработчик @badbotik"
             else:
@@ -4415,39 +4429,38 @@ for event in longpoll.listen():
                     name_val = f"ID {uid}"
             r_date = user.get('reg_date') if user.get('reg_date') else "24.07.2026"
             
-            txt = f"👤 Профиль пользователя [id{uid}|{name_val}]\n"
-            
+            status_line = ""
             if user.get('vip_until', 0) > now:
-                txt += "💎 VIP\n"
+                status_line += "💎 VIP | "
             if user.get('elite_until', 0) > now:
-                txt += "⭐ ELITE\n"
+                status_line += "⭐ ELITE | "
             if user.get('has_legendary', 0) == 1:
-                txt += "👑 THE LEGENDARY\n"
-            if user.get('is_perm_banned', 0) == 1 or user.get('ban_until', 0) > time.time():
-                txt += "🚫 ЗАБЛОКИРОВАН\n"
+                status_line += "👑 THE LEGENDARY"
+            status_line = status_line.rstrip(" | ")
+            if not status_line:
+                status_line = "Обычный игрок"
             
-            fav_game = user.get('fav_game', 'Не выбрана')
-            fav_artist = user.get('fav_artist', 'Не выбран')
-            # Считаем рефералов
             conn_r = sqlite3.connect('database.db')
             real_refs = conn_r.execute("SELECT COUNT(*) FROM users WHERE referrer_id=?", (uid,)).fetchone()[0]
             manual_refs = user.get('ref_count', 0) if user else 0
             ref_set = user.get('ref_set', 0) if user else 0
             refs_count = manual_refs if ref_set == 1 else real_refs
             conn_r.close()
-            txt += (
-                f"🏅 Ранг: {rank_name}\n"
-                f"💰 Баланс: {num_to_str(user['balance'])}\n"
-                f"⚡ Аура: {user.get('aura', 0)}\n"
-                f"👆 Кликов: {user.get('clicks_count', 0)}\n"
-                f"👥 Рефералов: {refs_count}\n"
-                f"📥 Пополнено: {num_to_str(user.get('total_deposited', 0))}\n"
-                f"💸 Выведено: {num_to_str(max(0, user.get('total_withdrawn', 0)))}\n"
-                f"🎮 Игра: {fav_game}\n"
-                f"🎤 Исполнитель: {fav_artist}\n"
-                f"🆔 ID: {uid}\n"
-                f"📅 Регистрация: {r_date}"
-            )
+            
+            txt = "╔══════════════════╗\n"
+            txt += "║  👤 ПРОФИЛЬ      ║\n"
+            txt += "╚══════════════════╝\n\n"
+            txt += f"{status_line}\n\n"
+            txt += f"👤 Имя: {name_val}\n"
+            txt += f"{rank_name}\n"
+            txt += f"🆔 ID: {uid}\n\n"
+            txt += f"💰 Баланс: {balance_to_str(user['balance'])}\n"
+            txt += f"⚡ Аура: {user.get('aura', 0)}\n"
+            txt += f"👆 Кликов: {user.get('clicks_count', 0)}\n"
+            txt += f"👥 Рефералов: {refs_count}\n\n"
+            txt += f"📥 Пополнено: {num_to_str(user.get('total_deposited', 0))}\n"
+            txt += f"💸 Выведено: {num_to_str(max(0, user.get('total_withdrawn', 0)))}\n\n"
+            txt += f"📅 В боте с: {r_date}"
             send_msg(peer, txt, get_main_keyboard())
             continue
 
@@ -4569,7 +4582,7 @@ for event in longpoll.listen():
                     pass
                 if rep_data and rep_data["taken_by"] is None:
                     user_data = db.get_user(event.obj['user_id'])
-                    rank_names = {1: "Модератор", 2: "Администратор", 3: "Гл. Администратор", 4: "Зам. Владельца", 5: "Владелец"}
+                    rank_names = {1: "Модератор", 2: "Администратор", 3: "Гл. Администратор", 4: "Зам. Владельца", 5: "👨‍💻 Разработчик"}
                     rank = rank_names.get(user_data.get('moder_rank', 0), "Сотрудник")
                     rep_data["taken_by"] = event.obj['user_id']
                     send_msg(rep_data["uid"], f"✌️ {get_user_mention(rep_data['uid'])}, ваш репорт успешно взял {rank}, ожидайте.")
