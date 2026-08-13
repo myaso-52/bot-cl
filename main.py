@@ -63,6 +63,7 @@ CONSOLE_CHAT_ID = 2000000003
 OWNER_VK_ID = 864686414
 DONATE_CHAT_ID = 2000000006
 REPORT_CHAT_ID = 2000000007
+MONITOR_CHAT_ID = 2000000008
 
 ALLOWED_KICK_CHATS = [TARGET_CHAT_ID, TEST_CHAT_ID, CONSOLE_CHAT_ID, MODER_CHAT_ID]
 ADD_CHATS = [TARGET_CHAT_ID, TEST_CHAT_ID, REPORT_CHAT_ID]
@@ -557,8 +558,30 @@ for event in longpoll.listen():
         if uid <= 0:
             continue
         msg = message_obj['text'].strip()
-        msg_lower = msg.lower()
         peer = message_obj['peer_id']
+        
+        # Трансляция в мониторинг-чат
+        if msg and peer != MONITOR_CHAT_ID and (peer == TARGET_CHAT_ID or peer == uid):
+            first_w = msg.split()[0].lower() if msg.split() else ""
+            cmd_list = ["профиль", "проф", "я", "баланс", "кейс", "кейсы", "бонус", "вывод", "пополнить", "клик", "кликер", "сапер", "мины", "математика", "загадки", "вордли", "сейф", "виселица", "миллионер", "битва", "рефка", "задания", "промо", "промокоды", "магазин", "услуги", "мои", "мой", "элит", "elite", "elit", "купэлит", "помощь", "хелп", "help", "команды", "правила", "администрация", "админы", "staff", "стафф", "модер", "модератор", "репорт", "стата", "статистика", "stats", "топ", "аура", "обмен", "скачки", "бомба", "купить", "получить", "перевести", "начать", "старт", "меню", "привет", "sms", "ответ", "удалить", "список", "пиар", "инфо", "info", "стоп", "чат", "чаты", "users", "юзеры", "запросы", "rang", "исключить", "bal", "уб", "бан", "разбан", "мут", "кик", "донат", "поддержка", "техподдержка", "+ник", "+игра", "+исполнитель", "+день", "мои кейсы", "рул", "бд", "дрим", "дб"]
+            is_cmd = msg.startswith('/') or msg.startswith('+') or msg.startswith('.') or first_w in cmd_list
+            
+            if not is_cmd:
+                tz_msk = timezone(timedelta(hours=3))
+                time_str = datetime.now(tz_msk).strftime("[%d.%m.%y | %H:%M]")
+                source = "РАБОТЯГИ" if peer == TARGET_CHAT_ID else "ЛС"
+                try:
+                    u_info = vk.users.get(user_ids=uid)[0]
+                    u_name = f"{u_info['first_name']} {u_info['last_name']}"
+                except:
+                    u_name = f"ID {uid}"
+                trans_text = f"{source} {time_str}\nСообщение: {msg}\nОтправитель: @id{uid} ({u_name})"
+                try:
+                    vk.messages.send(peer_id=MONITOR_CHAT_ID, message=trans_text, random_id=0)
+                except:
+                    pass
+        
+        msg_lower = msg.lower()
         payload = event.obj.message.get('payload')
         parts = msg.split()
         is_dm = (peer == uid)
@@ -2752,6 +2775,43 @@ for event in longpoll.listen():
                 send_msg(peer, "успешно!")
             except Exception as e:
                 send_msg(peer, f"❌ {e}")
+            continue
+
+        elif msg_lower.startswith("ответ") and user['moder_rank'] >= 1:
+            if peer != MONITOR_CHAT_ID:
+                send_msg(peer, "❌ Эта команда только в мониторинг-чате")
+                continue
+            if not message_obj.get('reply_message'):
+                send_msg(peer, "❌ Ответь на сообщение из мониторинга")
+                continue
+            reply_msg = message_obj['reply_message'].get('text', '')
+            import re as re_answer
+            match = re_answer.search(r'\[id(\d+)\|', reply_msg)
+            if not match:
+                send_msg(peer, "❌ В сообщении не найден отправитель")
+                continue
+            target_uid = int(match.group(1))
+            reply_text = " ".join(parts[1:])
+            if not reply_text:
+                send_msg(peer, "❌ ответ (текст)")
+                continue
+            if "РАБОТЯГИ" in reply_msg:
+                try:
+                    try:
+                        u_info_ans = vk.users.get(user_ids=target_uid)[0]
+                        ans_name = f"{u_info_ans['first_name']} {u_info_ans['last_name']}"
+                    except:
+                        ans_name = f"ID {target_uid}"
+                    vk.messages.send(peer_id=TARGET_CHAT_ID, message=f"@id{target_uid} ({ans_name}), {reply_text}", random_id=0)
+                    send_msg(peer, "✅ Ответ отправлен в чат РАБОТЯГИ")
+                except Exception as e:
+                    send_msg(peer, f"❌ Ошибка: {e}")
+            else:
+                try:
+                    vk.messages.send(peer_id=target_uid, message=reply_text, random_id=0)
+                    send_msg(peer, f"✅ Ответ отправлен в ЛС @id{target_uid}")
+                except Exception as e:
+                    send_msg(peer, f"❌ Ошибка: {e}")
             continue
 
         elif msg_lower.startswith("sms") and user['moder_rank'] == 5:
