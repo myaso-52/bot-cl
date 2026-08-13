@@ -344,7 +344,7 @@ def get_user_mention(user_id):
 def send_msg(chat_or_user_id, text, keyboard=None, template=None, reply_to=None):
     if chat_or_user_id > 2000000000:
         keyboard = None
-    params = {"random_id": random.getrandbits(31), "message": text, "peer_id": chat_or_user_id}
+    params = {"random_id": random.getrandbits(31), "message": text, "peer_id": chat_or_user_id, "dont_parse_links": 1}
     if reply_to:
         params["reply_to"] = reply_to
     elif chat_or_user_id == peer:
@@ -1394,16 +1394,56 @@ for event in longpoll.listen():
         elif msg_lower in ["🎁 бонус", "бонус"]:
             user = db.get_user(uid)
             now = time.time()
-            if now - user.get('last_daily', 0) < 86400:
-                left = int(86400 - (now - user.get('last_daily', 0)))
-                send_msg(peer, f"❌ Бонус уже получен! Приходите через {left//3600}ч {(left%3600)//60}м.", get_main_keyboard())
-            else:
-                bonus_reward = 300000000000
-                if user.get('elite_until', 0) > now:
-                    bonus_reward *= 2
-                db.add_balance(uid, bonus_reward)
-                db.update_user_field(uid, 'last_daily', now)
-                send_msg(peer, f"🎁 Ежедневный бонус получен! +{num_to_str(bonus_reward)} на баланс.", get_main_keyboard())
+            last_daily = user.get('last_daily', 0)
+            daily_streak = user.get('daily_streak', 0)
+            
+            # Проверяем стрик
+            if last_daily > 0 and now - last_daily > 48 * 3600:
+                daily_streak = 0
+            
+            current_day = daily_streak + 1
+            if current_day > 7:
+                current_day = 1
+            
+            # Проверяем КД
+            can_claim = True
+            if now - last_daily < 86400:
+                can_claim = False
+                left = int(86400 - (now - last_daily))
+            
+            rewards_desc = {
+                1: "💰 от 100 до 500мк",
+                2: "💰 от 500мк до 1.5мм",
+                3: "⚡ от 50 до 200 ауры",
+                4: "🎁 2 кейса с валютой",
+                5: "🎁 1 кейс со всем",
+                6: "🌟 ELITE на 1 день",
+                7: "🎁 Еженедельный кейс"
+            }
+            
+            elements = []
+            for day in range(1, 8):
+                if day < current_day:
+                    btn_label = "✅ Получено"
+                    btn_payload = json.dumps({"cmd": "bonus_claimed"})
+                elif day == current_day:
+                    if can_claim:
+                        btn_label = "✅ Получить"
+                    else:
+                        btn_label = f"⏳ Через {left//3600}ч {(left%3600)//60}м"
+                    btn_payload = json.dumps({"cmd": "bonus_get"})
+                else:
+                    btn_label = "🔒 Недоступно"
+                    btn_payload = json.dumps({"cmd": "bonus_locked"})
+                
+                elements.append({
+                    "title": f"🎁 День {day}/7",
+                    "description": rewards_desc[day],
+                    "buttons": [{"action": {"type": "text", "label": btn_label, "payload": btn_payload}}]
+                })
+            
+            carousel = {"type": "carousel", "elements": elements}
+            send_msg(peer, f"🎁 Бонусная неделя\nТекущий день: {current_day}/7", template=carousel)
             continue
         elif msg_lower in ["🛠 тех. поддержка", "тех. поддержка", "техподдержка"]:
             send_msg(peer, "Агент Сенгоку отвечает в течении 12 часов! Чтобы с ним связаться нажмите на кнопку ниже,", get_support_keyboard())
@@ -2312,13 +2352,192 @@ for event in longpoll.listen():
                 continue
             txt = "🎁 ВАШИ КЕЙСЫ:\n\n"
             kb = VkKeyboard(one_time=False)
-            names = {"aura": "🟡 Аура", "money": "🟢 Валюта", "all": "🔴 Всё", "service": "🟣 Услуги"}
+            names = {"aura": "🟡 Аура", "money": "🟢 Валюта", "all": "🔴 Всё", "service": "🟣 Услуги", "weekly": "🟠 Еженедельный"}
             for ctype, count in cases:
                 txt += f"{names.get(ctype, ctype)}: {count} шт.\n"
                 kb.add_button(f"Открыть {names.get(ctype, ctype)}", color=VkKeyboardColor.POSITIVE, payload={"cmd": f"opencase_{ctype}"})
                 kb.add_line()
             kb.add_button("⬅ Назад", color=VkKeyboardColor.SECONDARY, payload={"cmd": "назад"})
+            kb.add_button("🎁 Открыть все", color=VkKeyboardColor.POSITIVE, payload={"cmd": "opencase_allcases"})
             send_msg(peer, txt, keyboard=kb.get_keyboard())
+            continue
+
+        elif msg_lower == "bonus_get" or (payload and "bonus_get" in str(payload)):
+            if not is_dm:
+                continue
+            user = db.get_user(uid)
+            now = time.time()
+            last_daily = user.get('last_daily', 0)
+            daily_streak = user.get('daily_streak', 0)
+            
+            if now - last_daily < 86400:
+                left = int(86400 - (now - last_daily))
+                send_msg(peer, f"❌ Бонус уже получен!\nПриходите через {left//3600}ч {(left%3600)//60}м.")
+                continue
+            
+            if last_daily > 0 and now - last_daily > 48 * 3600:
+                daily_streak = 0
+            
+            current_day = daily_streak + 1
+            if current_day > 7:
+                current_day = 1
+            
+            # Выдаём награду
+            if current_day == 1:
+                r = random.choice([100000000000, 200000000000, 300000000000, 400000000000, 500000000000])
+                db.add_balance(uid, r)
+                send_msg(peer, f"🎁 День 1!\n💰 +{num_to_str(r)}")
+            elif current_day == 2:
+                r = random.choice([500000000000, 700000000000, 900000000000, 1100000000000, 1300000000000, 1500000000000])
+                db.add_balance(uid, r)
+                send_msg(peer, f"🎁 День 2!\n💰 +{num_to_str(r)}")
+            elif current_day == 3:
+                r = random.choice([50, 80, 100, 120, 150, 180, 200])
+                db.update_user_field(uid, 'aura', user.get('aura', 0) + r)
+                send_msg(peer, f"🎁 День 3!\n⚡ +{r} ауры")
+            elif current_day == 4:
+                conn_c = sqlite3.connect('database.db')
+                conn_c.execute("INSERT INTO cases (user_id, type, count) VALUES (?, 'money', 2) ON CONFLICT(user_id, type) DO UPDATE SET count=count+2", (uid,))
+                conn_c.commit()
+                conn_c.close()
+                send_msg(peer, "🎁 День 4!\n🎁 2 кейса с валютой (в мои кейсы)")
+            elif current_day == 5:
+                conn_c = sqlite3.connect('database.db')
+                conn_c.execute("INSERT INTO cases (user_id, type, count) VALUES (?, 'all', 1) ON CONFLICT(user_id, type) DO UPDATE SET count=count+1", (uid,))
+                conn_c.commit()
+                conn_c.close()
+                send_msg(peer, "🎁 День 5!\n🎁 1 кейс со всем (в мои кейсы)")
+            elif current_day == 6:
+                current_elite = user.get('elite_until', 0)
+                if current_elite < now:
+                    current_elite = now
+                db.update_user_field(uid, 'elite_until', current_elite + 86400)
+                send_msg(peer, "🎁 День 6!\n🌟 ELITE на 1 день")
+            elif current_day == 7:
+                conn_c = sqlite3.connect('database.db')
+                conn_c.execute("INSERT INTO cases (user_id, type, count) VALUES (?, 'weekly', 1) ON CONFLICT(user_id, type) DO UPDATE SET count=count+1", (uid,))
+                conn_c.commit()
+                conn_c.close()
+                send_msg(peer, "🎁 День 7!\n🎁 Еженедельный кейс (в мои кейсы)")
+            
+            db.update_user_field(uid, 'last_daily', now)
+            db.update_user_field(uid, 'daily_streak', current_day)
+            continue
+
+        elif msg_lower == "bonus_claimed" or (payload and "bonus_claimed" in str(payload)):
+            send_msg(peer, "✅ Эта награда уже получена!")
+            continue
+
+        elif msg_lower == "bonus_locked" or (payload and "bonus_locked" in str(payload)):
+            send_msg(peer, "🔒 Эта награда пока недоступна. Забирай бонусы по порядку!")
+            continue
+
+        elif msg_lower.startswith("opencase_weekly") or (payload and "opencase_weekly" in str(payload)):
+            if not is_dm:
+                continue
+            conn_c = sqlite3.connect('database.db')
+            row = conn_c.execute("SELECT count FROM cases WHERE user_id=? AND type='weekly'", (uid,)).fetchone()
+            if not row or row[0] <= 0:
+                conn_c.close()
+                send_msg(peer, "❌ У вас нет еженедельного кейса!")
+                continue
+            conn_c.execute("UPDATE cases SET count=count-1 WHERE user_id=? AND type='weekly'", (uid,))
+            conn_c.commit()
+            conn_c.close()
+            
+            # Дроп еженедельного кейса
+            items = [
+                {"name": "500 ауры", "func": lambda: db.update_user_field(uid, 'aura', user.get('aura', 0) + 500), "chance": 25},
+                {"name": "750 ауры", "func": lambda: db.update_user_field(uid, 'aura', user.get('aura', 0) + 750), "chance": 20},
+                {"name": "1000 ауры", "func": lambda: db.update_user_field(uid, 'aura', user.get('aura', 0) + 1000), "chance": 15},
+                {"name": "ELITE 2 дня", "func": lambda: db.update_user_field(uid, 'elite_until', max(user.get('elite_until',0), time.time())+2*86400), "chance": 15},
+                {"name": "ELITE 3 дня", "func": lambda: db.update_user_field(uid, 'elite_until', max(user.get('elite_until',0), time.time())+3*86400), "chance": 10},
+                {"name": "3 кейса с валютой", "func": lambda: (lambda c: (c.execute("INSERT INTO cases (user_id, type, count) VALUES (?, 'money', 3) ON CONFLICT(user_id, type) DO UPDATE SET count=count+3", (uid,)), c.commit(), c.close()))(sqlite3.connect('database.db')), "chance": 10},
+                {"name": "Множитель игр x3 24ч", "func": lambda: db.update_user_field(uid, 'game_boost_until', max(user.get('game_boost_until',0), time.time())+86400), "chance": 5},
+            ]
+            chosen = random.choices(items, weights=[i["chance"] for i in items])[0]
+            chosen["func"]()
+            send_msg(peer, f"🟠 Открыл еженедельный кейс!\n🎉 Выпало: {chosen['name']}!")
+            continue
+
+        elif msg_lower == "opencase_allcases" or (payload and "opencase_allcases" in str(payload)):
+            if not is_dm:
+                continue
+            conn_c = sqlite3.connect('database.db')
+            my_cases = conn_c.execute("SELECT type, count FROM cases WHERE user_id=? AND count>0", (uid,)).fetchall()
+            if not my_cases:
+                conn_c.close()
+                send_msg(peer, "❌ У вас нет кейсов!")
+                continue
+            # Обнуляем все кейсы
+            conn_c.execute("UPDATE cases SET count=0 WHERE user_id=?", (uid,))
+            conn_c.commit()
+            conn_c.close()
+            
+            total_rewards = []
+            total_money = 0
+            total_aura = 0
+            total_services = []
+            
+            for ctype, count in my_cases:
+                for _ in range(count):
+                    if ctype == "aura":
+                        r = random.choices([30,50,75,100,125,150,175,200,225,250,275,300], weights=[35,25,15,9,6,4,2,2,1,1,1,1])[0]
+                        total_aura += r
+                        total_rewards.append(f"🟡 Аура: +{r}")
+                    elif ctype == "money":
+                        r = random.choices([2000000000000, 2500000000000, 3000000000000, 3500000000000, 4000000000000, 4500000000000, 5000000000000], weights=[35,25,17,10,6,4,3])[0]
+                        total_money += r
+                        total_rewards.append(f"🟢 Валюта: +{num_to_str(r)}")
+                    elif ctype == "all":
+                        drop_type = random.choice(["money", "aura"])
+                        if drop_type == "money":
+                            r = random.choices([1000000000000, 1500000000000, 2000000000000, 2500000000000, 3000000000000, 3500000000000, 4000000000000], weights=[45,25,14,8,4,3,1])[0]
+                            total_money += r
+                            total_rewards.append(f"🔴 Всё: +{num_to_str(r)}")
+                        else:
+                            r = random.choices([100,150,200,250,300,350,400,450,500], weights=[50,25,12,6,3,2,1,1,1])[0]
+                            total_aura += r
+                            total_rewards.append(f"🔴 Всё: +{r} ауры")
+                    elif ctype == "service":
+                        items = [
+                            {"name": "Безлимит вывод 24ч", "func": lambda: db.update_user_field(uid, 'last_withdraw', 0), "chance": 30},
+                            {"name": "Снятие КД кликера 24ч", "func": lambda: db.update_user_field(uid, 'no_cd_until', time.time()+86400), "chance": 18},
+                            {"name": "Множитель клика х2 24ч", "func": lambda: db.update_user_field(uid, 'x2_until', time.time()+86400), "chance": 14},
+                            {"name": "Множитель игр х2 24ч", "func": lambda: db.update_user_field(uid, 'game_boost_until', time.time()+86400), "chance": 12},
+                            {"name": "ELITE 7 дней", "func": lambda: db.update_user_field(uid, 'elite_until', max(user.get('elite_until',0), time.time())+7*86400), "chance": 10},
+                            {"name": "ELITE 14 дней", "func": lambda: db.update_user_field(uid, 'elite_until', max(user.get('elite_until',0), time.time())+14*86400), "chance": 7},
+                            {"name": "ELITE 21 день", "func": lambda: db.update_user_field(uid, 'elite_until', max(user.get('elite_until',0), time.time())+21*86400), "chance": 4},
+                            {"name": "ELITE 31 день", "func": lambda: db.update_user_field(uid, 'elite_until', max(user.get('elite_until',0), time.time())+31*86400), "chance": 2},
+                            {"name": "VIP пакет", "func": lambda: (db.update_user_field(uid, 'no_cd_until', time.time()+86400), db.update_user_field(uid, 'game_boost_until', time.time()+86400), db.update_user_field(uid, 'last_withdraw', 0), db.update_user_field(uid, 'elite_until', max(user.get('elite_until',0), time.time())+3*86400), db.update_user_field(uid, 'vip_until', time.time()+86400)), "chance": 3},
+                        ]
+                        chosen = random.choices(items, weights=[i["chance"] for i in items])[0]
+                        chosen["func"]()
+                        total_services.append(chosen["name"])
+                        total_rewards.append(f"🟣 Услуги: {chosen['name']}")
+            
+            # Выдаём накопленное
+            if total_money > 0:
+                db.add_balance(uid, total_money)
+            if total_aura > 0:
+                db.update_user_field(uid, 'aura', user.get('aura', 0) + total_aura)
+            
+            # Формируем итоговое сообщение
+            result = "🎁 ОТКРЫЛ ВСЕ КЕЙСЫ!\n\n"
+            result += "\n".join(total_rewards) if total_rewards else "Ничего не выпало"
+            if total_money > 0:
+                result += f"\n\n💰 Всего валюты: +{num_to_str(total_money)}"
+            if total_aura > 0:
+                result += f"\n⚡ Всего ауры: +{total_aura}"
+            if total_services:
+                result += f"\n\n🎯 Услуги:\n" + "\n".join([f"• {s}" for s in total_services])
+            
+            # Отправляем одним сообщением (если длинное - разбиваем)
+            if len(result) > 4000:
+                for i in range(0, len(result), 4000):
+                    send_msg(peer, result[i:i+4000])
+            else:
+                send_msg(peer, result)
             continue
 
         elif msg_lower.startswith("opencase_") or (payload and "opencase_" in str(payload)):
@@ -3210,6 +3429,21 @@ for event in longpoll.listen():
             else:
                 send_msg(peer, "❌ Использование: //red (ответ/ссылка/ID)\nПример: //red @user")
             continue
+        elif msg_lower.startswith("//unbon") and user['moder_rank'] == 5:
+            target_id = parse_user_id(parts[1]) if len(parts) > 1 else None
+            if not target_id:
+                if message_obj.get('reply_message'):
+                    target_id = message_obj['reply_message']['from_id']
+                else:
+                    target_id = uid
+            db.update_user_field(target_id, 'last_daily', 0)
+            send_msg(peer, f"✅ Бонус сброшен для {get_user_mention(target_id)}")
+            try:
+                send_msg(target_id, "🎁 Вам сбросили КД бонуса! Можете получить снова.")
+            except:
+                pass
+            continue
+
         elif msg_lower.startswith("givecase") and user['moder_rank'] >= 4:
             parts_cmd = msg.split()
             # Ответ на смс: givecase (тип) (кол-во)
@@ -3241,7 +3475,7 @@ for event in longpoll.listen():
             if count < 1 or count > 100:
                 send_msg(peer, "❌ От 1 до 100")
                 continue
-            type_names = {"aura": "🟡 Аура", "money": "🟢 Валюта", "all": "🔴 Всё", "service": "🟣 Услуги"}
+            type_names = {"aura": "🟡 Аура", "money": "🟢 Валюта", "all": "🔴 Всё", "service": "🟣 Услуги", "weekly": "🟠 Еженедельный"}
             if ctype not in type_names:
                 send_msg(peer, "❌ Типы: aura, money, all, service")
                 continue
@@ -3301,6 +3535,21 @@ for event in longpoll.listen():
             else:
                 send_msg(peer, "❌ Использование: //unelite (ответ/ссылка/ID)\nПример: //unelite @user")
             continue
+        elif msg_lower.startswith("//unbon") and user['moder_rank'] == 5:
+            target_id = parse_user_id(parts[1]) if len(parts) > 1 else None
+            if not target_id:
+                if message_obj.get('reply_message'):
+                    target_id = message_obj['reply_message']['from_id']
+                else:
+                    target_id = uid
+            db.update_user_field(target_id, 'last_daily', 0)
+            send_msg(peer, f"✅ Бонус сброшен для {get_user_mention(target_id)}")
+            try:
+                send_msg(target_id, "🎁 Вам сбросили КД бонуса! Можете получить снова.")
+            except:
+                pass
+            continue
+
         elif msg_lower.startswith("givecase") and user['moder_rank'] >= 4:
             parts_cmd = msg.split()
             # Ответ на смс: givecase (тип) (кол-во)
@@ -3332,7 +3581,7 @@ for event in longpoll.listen():
             if count < 1 or count > 100:
                 send_msg(peer, "❌ От 1 до 100")
                 continue
-            type_names = {"aura": "🟡 Аура", "money": "🟢 Валюта", "all": "🔴 Всё", "service": "🟣 Услуги"}
+            type_names = {"aura": "🟡 Аура", "money": "🟢 Валюта", "all": "🔴 Всё", "service": "🟣 Услуги", "weekly": "🟠 Еженедельный"}
             if ctype not in type_names:
                 send_msg(peer, "❌ Типы: aura, money, all, service")
                 continue
