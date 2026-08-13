@@ -73,6 +73,12 @@ vk = vk_session.get_api()
 longpoll = VkBotLongPoll(vk_session, GROUP_ID)
 
 db.init_db()
+try:
+    conn_rev = sqlite3.connect('database.db')
+    conn_rev.execute("CREATE TABLE IF NOT EXISTS reviews (user_id INTEGER PRIMARY KEY, text TEXT, stars INTEGER DEFAULT 5)")
+    conn_rev.commit()
+    conn_rev.close()
+except: pass
 # Таблица кейсов
 try:
     conn_cases = sqlite3.connect('database.db')
@@ -1105,6 +1111,24 @@ for event in longpoll.listen():
             continue
 
         state = user_states.get(uid)
+        if state and state.get("action") == "waiting_stars":
+            try:
+                stars = int(msg.strip())
+            except:
+                send_msg(peer, "❌ Введите число от 0 до 5")
+                continue
+            if stars < 0 or stars > 5:
+                send_msg(peer, "❌ От 0 до 5")
+                continue
+            review_text = state.get("review_text", "")
+            conn_r = sqlite3.connect('database.db')
+            conn_r.execute("INSERT INTO reviews (user_id, text, stars) VALUES (?, ?, ?)", (uid, review_text, stars))
+            conn_r.commit()
+            conn_r.close()
+            db.add_balance(uid, 500000000000)
+            user_states.pop(uid, None)
+            send_msg(peer, f"✅ Отзыв оставлен! +500мк на баланс\n\n📋 Посмотреть все: отзывы")
+            continue
         # waiting_guess удалено
 
         if state and state.get("action") in ["waiting_riddle_answer", "waiting_math_answer"]:
@@ -1823,6 +1847,63 @@ for event in longpoll.listen():
             else:
                 send_msg(peer, "❌ У вас нет активной ELITE подписки.", get_main_keyboard())
             continue
+        elif msg_lower.startswith("отзыв ") and len(parts) > 1:
+            if len(parts) > 2 and parts[1] == "изменить":
+                review_text = " ".join(parts[2:])
+                if not review_text:
+                    send_msg(peer, "❌ отзыв изменить (новый текст)")
+                    continue
+                if len(review_text) > 100:
+                    send_msg(peer, "❌ Максимум 100 символов!")
+                    continue
+                conn_r = sqlite3.connect('database.db')
+                existing = conn_r.execute("SELECT text FROM reviews WHERE user_id=?", (uid,)).fetchone()
+                if not existing:
+                    send_msg(peer, "❌ Вы ещё не оставляли отзыв")
+                    conn_r.close()
+                    continue
+                conn_r.execute("UPDATE reviews SET text=? WHERE user_id=?", (review_text, uid))
+                conn_r.commit()
+                conn_r.close()
+                send_msg(peer, "✅ Отзыв изменён!")
+                continue
+            else:
+                review_text = " ".join(parts[1:])
+                if len(review_text) > 100:
+                    send_msg(peer, "❌ Максимум 100 символов!")
+                    continue
+                conn_r = sqlite3.connect('database.db')
+                existing = conn_r.execute("SELECT text FROM reviews WHERE user_id=?", (uid,)).fetchone()
+                if existing:
+                    send_msg(peer, "❌ Вы уже оставили отзыв!\nИзменить: отзыв изменить (новый текст)")
+                    conn_r.close()
+                    continue
+                # Спрашиваем оценку
+                user_states[uid] = {"action": "waiting_stars", "review_text": review_text}
+                conn_r.close()
+                send_msg(peer, "⭐ Сколько звёзд хотите поставить? (от 0 до 5)")
+                continue
+
+        elif msg_lower in ["отзывы", "отзыв"]:
+            conn_r = sqlite3.connect('database.db')
+            reviews = conn_r.execute("SELECT user_id, text, stars FROM reviews ORDER BY rowid DESC LIMIT 10").fetchall()
+            conn_r.close()
+            if not reviews:
+                send_msg(peer, "📋 Отзывы:\n\nПока нет отзывов. Оставь первый: отзыв (текст)")
+                continue
+            txt = "📋 ОТЗЫВЫ:\n\n"
+            for i, r in enumerate(reviews, 1):
+                try:
+                    u = vk.users.get(user_ids=r[0])[0]
+                    name = f"{u['first_name']} {u['last_name']}"
+                except:
+                    name = f"ID {r[0]}"
+                stars_str = "⭐" * r[2]
+                txt += f"#{i} | {stars_str} {r[2]}/5 | {r[1]} | [id{r[0]}|{name}]\n\n"
+            txt += "\n📝 Оставить отзыв: отзыв (текст)\n✏️ Изменить: отзыв изменить (новый текст)"
+            send_msg(peer, txt)
+            continue
+
         elif msg_lower in ["репорт", "Репорт"]:
             send_msg(peer, "📢 Репорт\n\nИспользование: репорт (ответ на смс) (причина)\nПример: репорт оскорбление\n\nОтветьте на сообщение нарушителя и укажите причину!")
             continue
@@ -2054,6 +2135,24 @@ for event in longpoll.listen():
             continue
         elif msg_lower == "🔄 я перевел!":
             state = user_states.get(uid)
+        if state and state.get("action") == "waiting_stars":
+            try:
+                stars = int(msg.strip())
+            except:
+                send_msg(peer, "❌ Введите число от 0 до 5")
+                continue
+            if stars < 0 or stars > 5:
+                send_msg(peer, "❌ От 0 до 5")
+                continue
+            review_text = state.get("review_text", "")
+            conn_r = sqlite3.connect('database.db')
+            conn_r.execute("INSERT INTO reviews (user_id, text, stars) VALUES (?, ?, ?)", (uid, review_text, stars))
+            conn_r.commit()
+            conn_r.close()
+            db.add_balance(uid, 500000000000)
+            user_states.pop(uid, None)
+            send_msg(peer, f"✅ Отзыв оставлен! +500мк на баланс\n\n📋 Посмотреть все: отзывы")
+            continue
             if state and state.get("action") == "waiting_deposit_click":
                 amount_str = state["amount_str"]
                 amount = str_to_num(amount_str)
@@ -3435,6 +3534,33 @@ for event in longpoll.listen():
             else:
                 send_msg(peer, "❌ Использование: //baninfo (ответ/ссылка/ID)\nПример: //baninfo @user")
             continue
+        elif msg_lower.startswith("//otzdel") and user['moder_rank'] >= 3:
+            if len(parts) < 2:
+                send_msg(peer, "❌ //otzdel (номер отзыва)")
+                continue
+            try:
+                rev_num = int(parts[1])
+            except:
+                send_msg(peer, "❌ Номер числом")
+                continue
+            conn_r = sqlite3.connect('database.db')
+            reviews = conn_r.execute("SELECT user_id FROM reviews ORDER BY rowid DESC LIMIT 10").fetchall()
+            if rev_num < 1 or rev_num > len(reviews):
+                send_msg(peer, f"❌ Отзыв #{rev_num} не найден")
+                conn_r.close()
+                continue
+            target_rev_uid = reviews[rev_num - 1][0]
+            conn_r.execute("DELETE FROM reviews WHERE user_id=?", (target_rev_uid,))
+            conn_r.commit()
+            conn_r.close()
+            db.add_balance(target_rev_uid, -500000000000)
+            send_msg(peer, f"✅ Отзыв #{rev_num} удалён, -500мк у автора")
+            try:
+                send_msg(target_rev_uid, "❌ Ваш отзыв был удалён администрацией. Бонус 500мк снят.")
+            except:
+                pass
+            continue
+
         elif msg_lower.startswith("//ban") and user['moder_rank'] >= 3:
             is_reply = bool(message_obj.get('reply_message') or (message_obj.get('fwd_messages')))
             try:
@@ -4230,6 +4356,24 @@ for event in longpoll.listen():
             continue
 
         state = user_states.get(uid)
+        if state and state.get("action") == "waiting_stars":
+            try:
+                stars = int(msg.strip())
+            except:
+                send_msg(peer, "❌ Введите число от 0 до 5")
+                continue
+            if stars < 0 or stars > 5:
+                send_msg(peer, "❌ От 0 до 5")
+                continue
+            review_text = state.get("review_text", "")
+            conn_r = sqlite3.connect('database.db')
+            conn_r.execute("INSERT INTO reviews (user_id, text, stars) VALUES (?, ?, ?)", (uid, review_text, stars))
+            conn_r.commit()
+            conn_r.close()
+            db.add_balance(uid, 500000000000)
+            user_states.pop(uid, None)
+            send_msg(peer, f"✅ Отзыв оставлен! +500мк на баланс\n\n📋 Посмотреть все: отзывы")
+            continue
         if state and state.get("action") == "waiting_elite_days":
             try:
                 days = int(msg)
