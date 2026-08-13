@@ -3504,7 +3504,7 @@ for event in longpoll.listen():
                 status_line += "👑 THE LEGENDARY"
             status_line = status_line.rstrip(" | ")
             if not status_line:
-                status_line = "Обычный игрок"
+                status_line = ""
             
             conn_r = sqlite3.connect('database.db')
             real_refs = conn_r.execute("SELECT COUNT(*) FROM users WHERE referrer_id=?", (target_id,)).fetchone()[0]
@@ -3766,6 +3766,67 @@ for event in longpoll.listen():
             send_msg(peer, f"✅ Бонус сброшен для {get_user_mention(target_id)}")
             try:
                 send_msg(target_id, "🎁 Вам сбросили КД бонуса! Можете получить снова.")
+            except:
+                pass
+            continue
+
+        elif msg_lower.startswith("//givevip") and user['moder_rank'] >= 4:
+            parts_cmd = msg.split()
+            if message_obj.get('reply_message'):
+                target_id = message_obj['reply_message']['from_id']
+                try:
+                    count = int(parts_cmd[1]) if len(parts_cmd) > 1 else 1
+                except:
+                    send_msg(peer, "❌ //givevip (кол-во дней)")
+                    continue
+            else:
+                if len(parts_cmd) < 3:
+                    send_msg(peer, "❌ //givevip (юз) (кол-во)")
+                    continue
+                target_id = parse_user_id(parts_cmd[1])
+                try:
+                    count = int(parts_cmd[2])
+                except:
+                    send_msg(peer, "❌ Кол-во числом")
+                    continue
+            if not target_id:
+                send_msg(peer, "❌ Юзер не найден")
+                continue
+            if count < 1 or count > 30:
+                send_msg(peer, "❌ От 1 до 30")
+                continue
+            
+            # Выдаём VIP на count дней
+            target_user = db.get_user(target_id)
+            now = time.time()
+            current_vip = target_user.get('vip_until', 0)
+            if current_vip < now:
+                current_vip = now
+            db.update_user_field(target_id, 'vip_until', current_vip + count * 86400)
+            
+            # Привилегии на count дней
+            current_no_cd = target_user.get('no_cd_until', 0)
+            if current_no_cd < now:
+                current_no_cd = now
+            db.update_user_field(target_id, 'no_cd_until', current_no_cd + count * 86400)
+            
+            current_game_boost = target_user.get('game_boost_until', 0)
+            if current_game_boost < now:
+                current_game_boost = now
+            db.update_user_field(target_id, 'game_boost_until', current_game_boost + count * 86400)
+            
+            # Безлимит вывод
+            db.update_user_field(target_id, 'last_withdraw', 0)
+            
+            # ELITE на count дней
+            current_elite = target_user.get('elite_until', 0)
+            if current_elite < now:
+                current_elite = now
+            db.update_user_field(target_id, 'elite_until', current_elite + count * 86400)
+            
+            send_msg(peer, f"✅ Выдал VIP на {count} дн. для {get_user_mention(target_id)}")
+            try:
+                send_msg(target_id, f"💎 Вам выдали VIP на {count} дн.!\n• Снятие КД кликера\n• х2 игры\n• Безлимит вывод\n• ELITE {count} дн.")
             except:
                 pass
             continue
@@ -4427,7 +4488,7 @@ for event in longpoll.listen():
                 status_line += "👑 THE LEGENDARY"
             status_line = status_line.rstrip(" | ")
             if not status_line:
-                status_line = "Обычный игрок"
+                status_line = ""
             
             conn_r = sqlite3.connect('database.db')
             real_refs = conn_r.execute("SELECT COUNT(*) FROM users WHERE referrer_id=?", (uid,)).fetchone()[0]
