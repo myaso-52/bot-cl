@@ -1445,8 +1445,10 @@ for event in longpoll.listen():
             carousel = {"type": "carousel", "elements": elements}
             send_msg(peer, f"🎁 Бонусная неделя\nТекущий день: {current_day}/7", template=carousel)
             continue
-        elif msg_lower in ["🛠 тех. поддержка", "тех. поддержка", "техподдержка"]:
-            send_msg(peer, "Агент Сенгоку отвечает в течении 12 часов! Чтобы с ним связаться нажмите на кнопку ниже,", get_support_keyboard())
+        elif msg_lower in ["🛠 тех. поддержка", "тех. поддержка", "техподдержка", "поддержка"]:
+            kb_sup = VkKeyboard(inline=True)
+            kb_sup.add_openlink_button("📩 Написать", link="https://vk.me/francescopapa")
+            send_msg(peer, "📩 По жалобам, вопросам и т.д. писать сюда: @francescopapa (Агент Сенгоку)", keyboard=kb_sup.get_keyboard())
             continue
         elif msg_lower in ["вывод", "💸 вывод"]:
             send_msg(peer, "💸 Вывод средств\n\n💰 Мин. сумма: 1мм\n📝 вывод (сумма)\nПример: вывод 1мм\n\n💡 Средства выводятся в @badbotik")
