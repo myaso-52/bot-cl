@@ -581,7 +581,7 @@ for event in longpoll.listen():
         # Трансляция в мониторинг-чат
         if msg and peer != MONITOR_CHAT_ID and (peer == TARGET_CHAT_ID or peer == uid):
             first_w = msg.split()[0].lower() if msg.split() else ""
-            cmd_list = ["профиль", "проф", "я", "баланс", "кейс", "кейсы", "бонус", "вывод", "пополнить", "клик", "кликер", "сапер", "мины", "математика", "загадки", "вордли", "сейф", "виселица", "миллионер", "битва", "рефка", "задания", "промо", "промокоды", "магазин", "услуги", "мои", "мой", "элит", "elite", "elit", "купэлит", "помощь", "хелп", "help", "команды", "правила", "администрация", "админы", "staff", "стафф", "модер", "модератор", "репорт", "стата", "статистика", "stats", "топ", "аура", "обмен", "скачки", "бомба", "купить", "получить", "перевести", "начать", "старт", "меню", "привет", "sms", "ответ", "удалить", "список", "пиар", "инфо", "info", "стоп", "чат", "чаты", "users", "юзеры", "запросы", "rang", "исключить", "bal", "уб", "бан", "разбан", "мут", "кик", "донат", "поддержка", "техподдержка", "+ник", "+игра", "+исполнитель", "+день", "мои кейсы", "рул", "бд", "дрим", "дб", "отзывы", "отзыв", "мини-игры", "мини", "игры", "пон", "назад", "дальше", "получить", "мои кейсы", "кнопка", "открыть", "забрать", "куш", "хватит", "ещё", "еще", "принять", "бокс", "📦", "✅", "⬅", "🔒", "🎁"]
+            cmd_list = ["профиль", "проф", "я", "баланс", "кейс", "кейсы", "бонус", "вывод", "пополнить", "клик", "кликер", "сапер", "мины", "математика", "загадки", "вордли", "сейф", "виселица", "миллионер", "битва", "рефка", "задания", "промо", "промокоды", "магазин", "услуги", "мои", "мой", "элит", "elite", "elit", "купэлит", "помощь", "хелп", "help", "команды", "правила", "администрация", "админы", "staff", "стафф", "модер", "модератор", "репорт", "стата", "статистика", "stats", "топ", "аура", "обмен", "скачки", "бомба", "купить", "получить", "перевести", "начать", "старт", "меню", "привет", "sms", "ответ", "удалить", "список", "пиар", "инфо", "info", "стоп", "чат", "чаты", "users", "юзеры", "запросы", "rang", "исключить", "bal", "уб", "бан", "разбан", "мут", "кик", "донат", "поддержка", "техподдержка", "+ник", "+игра", "+исполнитель", "+день", "мои кейсы", "рул", "бд", "дрим", "дб", "отзывы", "отзыв", "мини-игры", "мини", "игры", "пон", "назад", "дальше", "получить", "мои кейсы", "кнопка", "открыть", "забрать", "куш", "хватит", "ещё", "еще", "принять", "бокс", "📦", "✅", "⬅", "🔒", "🎁", "🟡", "🟢", "🔴", "🟣", "кейс", "кейсы", "купить", "buycase", "opencase", "мои", "мой", "услуги", "открыть все"]
             is_cmd = msg.startswith('/') or msg.startswith('+') or msg.startswith('.') or first_w in cmd_list
             
             if not is_cmd:
@@ -707,23 +707,8 @@ for event in longpoll.listen():
             continue
         if user:
             # Сохраняем имя из ВК при каждом сообщении если ник "Игрок"
-            if user.get('nickname') == 'Игрок' or not user.get('nickname'):
-                try:
-                    name_from_msg = f"{message_obj.get('first_name', '')} {message_obj.get('last_name', '')}"
-                    if name_from_msg.strip():
-                        db.update_user_field(uid, 'nickname', name_from_msg)
-                        user['nickname'] = name_from_msg
-                        USER_NAMES_CACHE[uid] = name_from_msg
-                except:
-                    pass
-            try:
-                vk_user = vk.users.get(user_ids=uid)
-                name = f"{vk_user[0]['first_name']} {vk_user[0]['last_name']}"
-                db.update_user_field(uid, 'nickname', name)
-                user['nickname'] = name
-                USER_NAMES_CACHE[uid] = name
-            except:
-                pass
+            pass
+            pass
         if not user:
             continue
         # Счётчик сообщений для задания "чат"
@@ -3455,12 +3440,12 @@ for event in longpoll.listen():
                     try:
                         u = vk.users.get(user_ids=r[0])[0]
                         name = f"{u['first_name']} {u['last_name']}"
-                        if clickable:
-                            names.append(f"[id{r[0]}|{name}]")
-                        else:
-                            names.append(name)
                     except:
-                        names.append(f"ID {r[0]}")
+                        name = f"ID {r[0]}"
+                    if clickable:
+                        names.append(f"[id{r[0]}|{name}]")
+                    else:
+                        names.append(name)
                 return ", ".join(names) if names else "нет"
             
             txt = "⚡ Разработчики: " + get_names(devs, True, exclude_agent=True) + "\n\n"
@@ -3532,10 +3517,10 @@ for event in longpoll.listen():
             txt += "║  👤 ПРОФИЛЬ      ║\n"
             txt += "╚══════════════════╝\n\n"
             txt += f"{status_line}\n"
-            if target_user.get('is_perm_banned', 0) == 1 or target_user.get('ban_until', 0) > time.time():
+            if user.get('is_perm_banned', 0) == 1 or user.get('ban_until', 0) > time.time():
                 txt += "🚫 ЗАБЛОКИРОВАН\n"
             txt += "\n"
-            txt += f"👤 Имя: {name_val}\n"
+            txt += f"👤 Имя: [id{uid}|{name_val}]\n"
             txt += f"{rank_name}\n"
             txt += f"🆔 ID: {target_id}\n\n"
             txt += f"💰 Баланс: {balance_to_str(target_user['balance'])}\n"
@@ -4414,7 +4399,8 @@ for event in longpoll.listen():
             continue
 
         elif msg_lower in ["профиль", "👤 профиль", "проф", "я", "Я"]:
-            ranks = ranks = {0: "😼 ИГРОК", 1: "😈 МОДЕРАТОР", 2: "👺 АДМИНИСТРАТОР", 3: "👹 ГЛ. АДМИНИСТРАТОР", 4: "👨‍💻 ЗАМ. РАЗРАБОТЧИКА", 5: "👨‍💻 РАЗРАБОТЧИК"}
+            user = db.get_user(uid)
+            ranks = {0: "😼 ИГРОК", 1: "😈 МОДЕРАТОР", 2: "👺 АДМИНИСТРАТОР", 3: "👹 ГЛ. АДМИНИСТРАТОР", 4: "👨‍💻 ЗАМ. РАЗРАБОТЧИКА", 5: "👨‍💻 РАЗРАБОТЧИК"}
             if user.get('is_glnish', 0) == 1:
                 rank_name = "Разработчик @badbotik"
             else:
@@ -4454,10 +4440,10 @@ for event in longpoll.listen():
             txt += "║  👤 ПРОФИЛЬ      ║\n"
             txt += "╚══════════════════╝\n\n"
             txt += f"{status_line}\n"
-            if target_user.get('is_perm_banned', 0) == 1 or target_user.get('ban_until', 0) > time.time():
+            if user.get('is_perm_banned', 0) == 1 or user.get('ban_until', 0) > time.time():
                 txt += "🚫 ЗАБЛОКИРОВАН\n"
             txt += "\n"
-            txt += f"👤 Имя: {name_val}\n"
+            txt += f"👤 Имя: [id{uid}|{name_val}]\n"
             txt += f"{rank_name}\n"
             txt += f"🆔 ID: {uid}\n\n"
             txt += f"💰 Баланс: {balance_to_str(user['balance'])}\n"
