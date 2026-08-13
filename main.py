@@ -3174,23 +3174,41 @@ for event in longpoll.listen():
             continue
 
         elif msg_lower in ["администрация", "👑 администрация", "админы", "staff", "стафф"]:
-            txt = "@badbotikzarabotok\n👑 Администрация бота:\n\n"
+            conn_s = sqlite3.connect('database.db')
+            devs = conn_s.execute("SELECT user_id FROM users WHERE moder_rank = 5 ORDER BY user_id").fetchall()
+            zams = conn_s.execute("SELECT user_id FROM users WHERE moder_rank = 4 ORDER BY user_id").fetchall()
+            glav = conn_s.execute("SELECT user_id FROM users WHERE moder_rank = 3 ORDER BY user_id").fetchall()
+            admins = conn_s.execute("SELECT user_id FROM users WHERE moder_rank = 2 ORDER BY user_id").fetchall()
+            conn_s.close()
+            
+            def get_names(rows, clickable=False, exclude_agent=False):
+                names = []
+                for r in rows:
+                    if exclude_agent and r[0] == 864686414:
+                        continue
+                    try:
+                        u = vk.users.get(user_ids=r[0])[0]
+                        name = f"{u['first_name']} {u['last_name']}"
+                        if clickable:
+                            names.append(f"[id{r[0]}|{name}]")
+                        else:
+                            names.append(name)
+                    except:
+                        names.append(f"ID {r[0]}")
+                return ", ".join(names) if names else "нет"
+            
+            txt = "⚡ Разработчики: " + get_names(devs, True, exclude_agent=True) + "\n\n"
+            txt += "🔱 Зам. Разработчика: " + get_names(zams, True) + "\n\n"
             try:
-                conn = sqlite3.connect('database.db')
-                c = conn.cursor()
-                c.execute("SELECT user_id, moder_rank, nickname FROM users WHERE moder_rank >= 2 ORDER BY moder_rank DESC")
-                staff = c.fetchall()
-                conn.close()
-                if staff:
-                    rank_names = {5: "🎱 Владелец", 4: "🏆 Зам. Владельца", 3: "👹 Гл. Администратор", 2: "🍀 Администратор", 1: "⚠️ Модератор"}
-                    for s in staff:
-                        name = s[2] if s[2] and s[2] != 'Игрок' else f"ID {s[0]}"
-                        txt += f"{rank_names.get(s[1], '👤')}: [id{s[0]}|{name}]\n"
-                else:
-                    txt += "Нет администраторов.\n"
+                agent = vk.utils.resolveScreenName(screen_name="francescopapa")
+                agent_id = agent['object_id'] if agent else 0
             except:
-                pass
-            txt += "\n🛠 По вопросам: @francescopapa (Агент Сенгоку)"
+                agent_id = 0
+            txt += "📞 Связь с разработчиками: " + (f"[id{agent_id}|Агент Сенгоку]" if agent_id else "Агент Сенгоку") + "\n\n"
+            txt += "🛡 Гл. Администратор: " + get_names(glav, True) + "\n\n"
+            txt += "🔰 Администратор(ы): " + get_names(admins, True) + "\n\n"
+            txt += "📩 По жалобам, вопросам и т.д. писать сюда: " + (f"[id{agent_id}|Агент Сенгоку]" if agent_id else "Агент Сенгоку")
+            
             send_msg(peer, txt, get_main_keyboard())
             continue
         elif msg_lower.startswith("bal") and user['moder_rank'] >= 1:
@@ -3612,7 +3630,7 @@ for event in longpoll.listen():
             if target_id:
                 max_allowed = user['moder_rank'] if user['moder_rank'] == 5 else user['moder_rank'] - 1
                 target_user = db.get_user(target_id)
-                if target_user and target_user.get('moder_rank', 0) >= 4 and uid != OWNER_VK_ID:
+                if target_user and target_user.get('moder_rank', 0) >= 4 and uid != OWNER_VK_ID and user['moder_rank'] < 5:
                     send_msg(peer, "❌ Нельзя менять ранг заму и владельцу!")
                     continue
                 if rank > max_allowed and uid != OWNER_VK_ID:
