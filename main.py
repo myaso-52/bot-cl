@@ -3531,7 +3531,10 @@ for event in longpoll.listen():
             txt = "╔══════════════════╗\n"
             txt += "║  👤 ПРОФИЛЬ      ║\n"
             txt += "╚══════════════════╝\n\n"
-            txt += f"{status_line}\n\n"
+            txt += f"{status_line}\n"
+            if target_user.get('is_perm_banned', 0) == 1 or target_user.get('ban_until', 0) > time.time():
+                txt += "🚫 ЗАБЛОКИРОВАН\n"
+            txt += "\n"
             txt += f"👤 Имя: {name_val}\n"
             txt += f"{rank_name}\n"
             txt += f"🆔 ID: {target_id}\n\n"
@@ -3688,18 +3691,18 @@ for event in longpoll.listen():
                     db.update_user_field(target_id, 'is_perm_banned', 0)
                     db.update_user_field(target_id, 'ban_by', '')
                     pass
-                    send_msg(peer, "✅ Разбанен в боте и сообществе!", reply_to=message_obj.get('id'))
+                    send_msg(peer, "готово")
                 elif days == -1:
                     db.update_user_field(target_id, 'is_perm_banned', 1)
                     db.update_user_field(target_id, 'ban_reason', reason)
                     db.update_user_field(target_id, 'ban_by', str(uid))
                     # Бан в сообществе
-                    send_msg(peer, "✅ Забанен в боте навсегда!")
+                    send_msg(peer, "готово")
                 else:
                     db.update_user_field(target_id, 'ban_until', time.time() + (days * 86400))
                     db.update_user_field(target_id, 'ban_reason', reason)
                     db.update_user_field(target_id, 'ban_by', str(uid))
-                    send_msg(peer, "✅ Успешно забанен в боте!", reply_to=message_obj.get('id'))
+                    send_msg(peer, "готово")
             else:
                 send_msg(peer, "❌ Использование: //ban (дни) (ответ/ссылка/ID)")
             continue
@@ -4450,7 +4453,10 @@ for event in longpoll.listen():
             txt = "╔══════════════════╗\n"
             txt += "║  👤 ПРОФИЛЬ      ║\n"
             txt += "╚══════════════════╝\n\n"
-            txt += f"{status_line}\n\n"
+            txt += f"{status_line}\n"
+            if target_user.get('is_perm_banned', 0) == 1 or target_user.get('ban_until', 0) > time.time():
+                txt += "🚫 ЗАБЛОКИРОВАН\n"
+            txt += "\n"
             txt += f"👤 Имя: {name_val}\n"
             txt += f"{rank_name}\n"
             txt += f"🆔 ID: {uid}\n\n"
