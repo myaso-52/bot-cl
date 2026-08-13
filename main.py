@@ -1448,11 +1448,11 @@ for event in longpoll.listen():
         elif msg_lower in ["🛠 тех. поддержка", "тех. поддержка", "техподдержка"]:
             send_msg(peer, "Агент Сенгоку отвечает в течении 12 часов! Чтобы с ним связаться нажмите на кнопку ниже,", get_support_keyboard())
             continue
-        elif msg_lower == "вывод":
+        elif msg_lower in ["вывод", "💸 вывод"]:
             send_msg(peer, "💸 Вывод средств\n\n💰 Мин. сумма: 1мм\n📝 вывод (сумма)\nПример: вывод 1мм\n\n💡 Средства выводятся в @badbotik")
             continue
 
-        elif msg_lower.startswith("вывод") and len(parts) > 1:
+        elif (msg_lower.startswith("вывод") or msg_lower.startswith("💸 вывод")) and len(parts) > 1:
             amount = str_to_num(parts[1:])
             if not amount or amount <= 0:
                 send_msg(peer, "❌ Укажите корректную сумму для вывода. Пример: вывод 1мм")
