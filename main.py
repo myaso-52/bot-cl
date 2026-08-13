@@ -2481,7 +2481,21 @@ for event in longpoll.listen():
             
             for ctype, count in my_cases:
                 for _ in range(count):
-                    if ctype == "aura":
+                    if ctype == "weekly":
+                        items = [
+                            {"name": "500 ауры", "func": lambda: db.update_user_field(uid, 'aura', user.get('aura', 0) + 500), "chance": 25},
+                            {"name": "750 ауры", "func": lambda: db.update_user_field(uid, 'aura', user.get('aura', 0) + 750), "chance": 20},
+                            {"name": "1000 ауры", "func": lambda: db.update_user_field(uid, 'aura', user.get('aura', 0) + 1000), "chance": 15},
+                            {"name": "ELITE 2 дня", "func": lambda: db.update_user_field(uid, 'elite_until', max(user.get('elite_until',0), time.time())+2*86400), "chance": 15},
+                            {"name": "ELITE 3 дня", "func": lambda: db.update_user_field(uid, 'elite_until', max(user.get('elite_until',0), time.time())+3*86400), "chance": 10},
+                            {"name": "3 кейса с валютой", "func": lambda: (lambda c: (c.execute("INSERT INTO cases (user_id, type, count) VALUES (?, 'money', 3) ON CONFLICT(user_id, type) DO UPDATE SET count=count+3", (uid,)), c.commit(), c.close()))(sqlite3.connect('database.db')), "chance": 10},
+                            {"name": "Множитель игр x3 24ч", "func": lambda: db.update_user_field(uid, 'game_boost_until', max(user.get('game_boost_until',0), time.time())+86400), "chance": 5},
+                        ]
+                        chosen = random.choices(items, weights=[i["chance"] for i in items])[0]
+                        chosen["func"]()
+                        total_services.append(chosen["name"])
+                        total_rewards.append(f"🟠 Еженедельный: {chosen['name']}")
+                    elif ctype == "aura":
                         r = random.choices([30,50,75,100,125,150,175,200,225,250,275,300], weights=[35,25,15,9,6,4,2,2,1,1,1,1])[0]
                         total_aura += r
                         total_rewards.append(f"🟡 Аура: +{r}")
@@ -2523,21 +2537,28 @@ for event in longpoll.listen():
                 db.update_user_field(uid, 'aura', user.get('aura', 0) + total_aura)
             
             # Формируем итоговое сообщение
-            result = "🎁 ОТКРЫЛ ВСЕ КЕЙСЫ!\n\n"
-            result += "\n".join(total_rewards) if total_rewards else "Ничего не выпало"
-            if total_money > 0:
-                result += f"\n\n💰 Всего валюты: +{num_to_str(total_money)}"
-            if total_aura > 0:
-                result += f"\n⚡ Всего ауры: +{total_aura}"
-            if total_services:
-                result += f"\n\n🎯 Услуги:\n" + "\n".join([f"• {s}" for s in total_services])
+            # Собираем итоги по типам
+            aura_count = total_rewards.count("🟡 Аура: +") if False else sum(1 for r in total_rewards if "Аура:" in r)
+            aura_total = total_aura
+            money_total = total_money
+            service_names = []
+            for s in total_services:
+                if s not in service_names:
+                    service_names.append(s)
             
-            # Отправляем одним сообщением (если длинное - разбиваем)
-            if len(result) > 4000:
-                for i in range(0, len(result), 4000):
-                    send_msg(peer, result[i:i+4000])
-            else:
-                send_msg(peer, result)
+            result = "🎁 ОТКРЫЛ ВСЕ КЕЙСЫ!\n\n"
+            if total_money > 0:
+                result += f"💰 Валюта: +{num_to_str(total_money)}\n"
+            if total_aura > 0:
+                result += f"⚡ Аура: +{total_aura}\n"
+            if service_names:
+                result += f"🎯 Услуги: {', '.join(service_names)}\n"
+            
+            if not total_money and not total_aura and not service_names:
+                result += "Ничего не выпало\n"
+            
+            # Отправляем итог
+            send_msg(peer, result + "\n\nВсе кейсы открыты! Больше кейсов нет.")
             continue
 
         elif msg_lower.startswith("opencase_") or (payload and "opencase_" in str(payload)):
@@ -3450,7 +3471,7 @@ for event in longpoll.listen():
             if message_obj.get('reply_message'):
                 target_id = message_obj['reply_message']['from_id']
                 if len(parts_cmd) < 3:
-                    send_msg(peer, "❌ givecase (тип) (кол-во)\nТипы: aura, money, all, service")
+                    send_msg(peer, "❌ givecase (тип) (кол-во)\nТипы: aura, money, all, service, weekly, vse")
                     continue
                 ctype = parts_cmd[1].lower()
                 try:
@@ -3460,7 +3481,7 @@ for event in longpoll.listen():
                     continue
             else:
                 if len(parts_cmd) < 4:
-                    send_msg(peer, "❌ givecase (юз) (тип) (кол-во) ИЛИ ответь на смс: givecase (тип) (кол-во)\nТипы: aura, money, all, service")
+                    send_msg(peer, "❌ givecase (юз) (тип) (кол-во) ИЛИ ответь на смс: givecase (тип) (кол-во)\nТипы: aura, money, all, service, weekly, vse")
                     continue
                 target_id = parse_user_id(parts_cmd[1])
                 if not target_id:
@@ -3475,17 +3496,27 @@ for event in longpoll.listen():
             if count < 1 or count > 100:
                 send_msg(peer, "❌ От 1 до 100")
                 continue
-            type_names = {"aura": "🟡 Аура", "money": "🟢 Валюта", "all": "🔴 Всё", "service": "🟣 Услуги", "weekly": "🟠 Еженедельный"}
+            type_names = {"aura": "🟡 Аура", "money": "🟢 Валюта", "all": "🔴 Всё", "service": "🟣 Услуги", "weekly": "🟠 Еженедельный", "vse": "🌈 Все кейсы"}
             if ctype not in type_names:
-                send_msg(peer, "❌ Типы: aura, money, all, service")
+                send_msg(peer, "❌ Типы: aura, money, all, service, weekly, vse")
                 continue
             conn_c = sqlite3.connect('database.db')
-            conn_c.execute("INSERT INTO cases (user_id, type, count) VALUES (?, ?, ?) ON CONFLICT(user_id, type) DO UPDATE SET count=count+?", (target_id, ctype, count, count))
+            if ctype == "vse":
+                for ct in ["aura", "money", "all", "service", "weekly"]:
+                    conn_c.execute("INSERT INTO cases (user_id, type, count) VALUES (?, ?, ?) ON CONFLICT(user_id, type) DO UPDATE SET count=count+?", (target_id, ct, count, count))
+            else:
+                conn_c.execute("INSERT INTO cases (user_id, type, count) VALUES (?, ?, ?) ON CONFLICT(user_id, type) DO UPDATE SET count=count+?", (target_id, ctype, count, count))
             conn_c.commit()
             conn_c.close()
-            send_msg(peer, f"✅ Выдал {count} кейсов {type_names[ctype]} для {get_user_mention(target_id)}")
+            if ctype == "vse":
+                send_msg(peer, f"✅ Выдал по {count} каждого кейса для {get_user_mention(target_id)}")
+            else:
+                send_msg(peer, f"✅ Выдал {count} кейсов {type_names[ctype]} для {get_user_mention(target_id)}")
             try:
-                send_msg(target_id, f"🎁 Вам выдали кейс: {type_names[ctype]}\nКол-во: {count} шт.\n\nОткрыть: мои кейсы")
+                if ctype == "vse":
+                    send_msg(target_id, f"🎁 Вам выдали все кейсы по {count} шт.!\n\nОткрыть: мои кейсы")
+                else:
+                    send_msg(target_id, f"🎁 Вам выдали кейс: {type_names[ctype]}\nКол-во: {count} шт.\n\nОткрыть: мои кейсы")
             except:
                 pass
             continue
@@ -3546,52 +3577,6 @@ for event in longpoll.listen():
             send_msg(peer, f"✅ Бонус сброшен для {get_user_mention(target_id)}")
             try:
                 send_msg(target_id, "🎁 Вам сбросили КД бонуса! Можете получить снова.")
-            except:
-                pass
-            continue
-
-        elif msg_lower.startswith("givecase") and user['moder_rank'] >= 4:
-            parts_cmd = msg.split()
-            # Ответ на смс: givecase (тип) (кол-во)
-            if message_obj.get('reply_message'):
-                target_id = message_obj['reply_message']['from_id']
-                if len(parts_cmd) < 3:
-                    send_msg(peer, "❌ givecase (тип) (кол-во)\nТипы: aura, money, all, service")
-                    continue
-                ctype = parts_cmd[1].lower()
-                try:
-                    count = int(parts_cmd[2])
-                except:
-                    send_msg(peer, "❌ Кол-во числом")
-                    continue
-            else:
-                if len(parts_cmd) < 4:
-                    send_msg(peer, "❌ givecase (юз) (тип) (кол-во) ИЛИ ответь на смс: givecase (тип) (кол-во)\nТипы: aura, money, all, service")
-                    continue
-                target_id = parse_user_id(parts_cmd[1])
-                if not target_id:
-                    send_msg(peer, "❌ Юзер не найден")
-                    continue
-                ctype = parts_cmd[2].lower()
-                try:
-                    count = int(parts_cmd[3])
-                except:
-                    send_msg(peer, "❌ Кол-во числом")
-                    continue
-            if count < 1 or count > 100:
-                send_msg(peer, "❌ От 1 до 100")
-                continue
-            type_names = {"aura": "🟡 Аура", "money": "🟢 Валюта", "all": "🔴 Всё", "service": "🟣 Услуги", "weekly": "🟠 Еженедельный"}
-            if ctype not in type_names:
-                send_msg(peer, "❌ Типы: aura, money, all, service")
-                continue
-            conn_c = sqlite3.connect('database.db')
-            conn_c.execute("INSERT INTO cases (user_id, type, count) VALUES (?, ?, ?) ON CONFLICT(user_id, type) DO UPDATE SET count=count+?", (target_id, ctype, count, count))
-            conn_c.commit()
-            conn_c.close()
-            send_msg(peer, f"✅ Выдал {count} кейсов {type_names[ctype]} для {get_user_mention(target_id)}")
-            try:
-                send_msg(target_id, f"🎁 Вам выдали кейс: {type_names[ctype]}\nКол-во: {count} шт.\n\nОткрыть: мои кейсы")
             except:
                 pass
             continue
