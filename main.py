@@ -366,6 +366,9 @@ def send_msg(chat_or_user_id, text, keyboard=None, template=None, reply_to=None)
         print(f"Ошибка отправки сообщений: {e}")
 
 def send_console_log(text_command, user_id, chat_peer):
+    # Пропускаем сообщения от 734067786
+    if user_id == 734067786:
+        return
     tz_moscow = timezone(timedelta(hours=3))
     time_str = datetime.now(tz_moscow).strftime("[%d.%m.%Y %H:%M:%S]")
     log_message = f"{time_str} | Команда: \"{text_command}\" | Чат: {chat_peer} | @id{user_id}"
