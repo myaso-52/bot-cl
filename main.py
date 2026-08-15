@@ -3435,20 +3435,24 @@ for event in longpoll.listen():
             def get_names(rows, clickable=False, exclude_agent=False):
                 names = []
                 for r in rows:
-                    if exclude_agent and r[0] == 864686414:
-                        continue
                     try:
                         u = vk.users.get(user_ids=r[0])[0]
                         name = f"{u['first_name']} {u['last_name']}"
                     except:
-                        name = f"ID {r[0]}"
+                        try:
+                            u_data = db.get_user(r[0])
+                            name = u_data.get('nickname', '') if u_data else ''
+                            if not name or name == 'Игрок':
+                                name = f"ID {r[0]}"
+                        except:
+                            name = f"ID {r[0]}"
                     if clickable:
                         names.append(f"[id{r[0]}|{name}]")
                     else:
                         names.append(name)
                 return ", ".join(names) if names else "нет"
             
-            txt = "⚡ Разработчики: " + get_names(devs, True, exclude_agent=True) + "\n\n"
+            txt = "⚡ Разработчики: " + get_names(devs, True) + "\n\n"
             txt += "🔱 Зам. Разработчика: " + get_names(zams, True) + "\n\n"
             try:
                 agent = vk.utils.resolveScreenName(screen_name="francescopapa")
@@ -3513,9 +3517,7 @@ for event in longpoll.listen():
             refs_count = manual_refs if ref_set == 1 else real_refs
             conn_r.close()
             
-            txt = "╔══════════════════╗\n"
-            txt += "║  👤 ПРОФИЛЬ      ║\n"
-            txt += "╚══════════════════╝\n\n"
+            txt = "👤 ПРОФИЛЬ\n\n"
             txt += f"{status_line}\n"
             if user.get('is_perm_banned', 0) == 1 or user.get('ban_until', 0) > time.time():
                 txt += "🚫 ЗАБЛОКИРОВАН\n"
@@ -4497,9 +4499,7 @@ for event in longpoll.listen():
             refs_count = manual_refs if ref_set == 1 else real_refs
             conn_r.close()
             
-            txt = "╔══════════════════╗\n"
-            txt += "║  👤 ПРОФИЛЬ      ║\n"
-            txt += "╚══════════════════╝\n\n"
+            txt = "👤 ПРОФИЛЬ\n\n"
             txt += f"{status_line}\n"
             if user.get('is_perm_banned', 0) == 1 or user.get('ban_until', 0) > time.time():
                 txt += "🚫 ЗАБЛОКИРОВАН\n"
