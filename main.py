@@ -1152,11 +1152,17 @@ for event in longpoll.listen():
                     ref_id = int(parts[-1])
                     if ref_id != uid and user.get('referrer_id', 0) == 0:
                         db.update_user_field(uid, 'referrer_id', ref_id)
+                        # Даём 500мк новому за переход
+                        db.add_balance(uid, 500000000000)
+                        send_msg(peer, "🎁 Вы перешли по реферальной ссылке! +500мк!")
+                        
                         ref_user = db.get_user(ref_id)
                         if ref_user:
-                            db.add_balance(ref_id, 500000000000)
+                            # Реферер получает 1мм или 2мм с ELITE
+                            ref_reward = 2000000000000 if ref_user.get('elite_until', 0) > time.time() else 1000000000000
+                            db.add_balance(ref_id, ref_reward)
                             try:
-                                send_msg(ref_id, f"🎁 Новый реферал! +500 мк на баланс!")
+                                send_msg(ref_id, f"🎁 Новый реферал! +{num_to_str(ref_reward)} на баланс!")
                             except:
                                 pass
                 except:
@@ -1176,12 +1182,12 @@ for event in longpoll.listen():
                 dots = '. ' * left
                 send_msg(peer, f"⏳ Кликер будет доступен через {left} сек")
                 continue
-            if user.get('elite_until', 0) > now:
+            if user.get('elite_until', 0) > now or user.get('x2_until', 0) > now:
                 required_cd = 0.05
-                reward = 20000000000
+                reward = 30000000000
             else:
                 required_cd = 0.05 if user.get('no_cd_until', 0) > now else 4.0
-                reward = 30000000000 if user.get('x2_until', 0) > now else 15000000000
+                reward = 15000000000
             if (now - user.get('last_click', 0)) < required_cd:
                 continue
             db.update_user_field(uid, 'last_click', now)
@@ -1759,7 +1765,8 @@ for event in longpoll.listen():
             continue
 
         elif msg_lower in ["рефка", "🔗 рефка"]:
-            send_msg(peer, f"🔗 Реферальная ссылка:\n\nhttps://vk.me/club240438650?ref={uid}\n\n🎁 За друга: 500 мк!", get_main_keyboard())
+            ref_reward = 2000000000000 if user.get('elite_until', 0) > time.time() else 1000000000000
+            send_msg(peer, f"🔗 Реферальная ссылка:\n\nhttps://vk.me/club240438650?ref={uid}\n\n🎁 Другу за переход: 500мк\n🎁 Тебе за друга: {num_to_str(ref_reward)}", get_main_keyboard())
             continue
         elif msg_lower in ["услуги", "мои услуги"]:
             user = db.get_user(uid)
@@ -1850,7 +1857,7 @@ for event in longpoll.listen():
             send_msg(peer, txt)
             continue
         elif msg_lower in ["элит", "elite", "elit", "элит привилегии"]:
-            send_msg(peer, "🌟 ELITE привилегии:\n\n✅ Ежедневный бонус x2\n✅ 6 алмазов в сапёре\n✅ Защита от снятия денег при проигрыше\n✅ +10 сек в Бомбе\n✅ Вывод раз в 1 час\n✅ Значок 🌟 ELITE в профиле\n\nСтоимость: 5 мм/день\nКупить: купэлит (дни)", get_main_keyboard())
+            send_msg(peer, "🌟 ELITE привилегии:\n\n✅ Ежедневный бонус x2\n✅ 6 алмазов в сапёре\n✅ Защита от снятия денег при проигрыше\n✅ x2 выигрыш в мини-играх\n✅ x2 реферальная награда\n✅ Вывод раз в 1 час\n✅ Значок 🌟 ELITE в профиле\n\nСтоимость: 5 мм/день\nКупить: купэлит (дни)", get_main_keyboard())
             continue
         elif msg_lower in ["мой elite", "мой элит", "мой elit"]:
             user = db.get_user(uid)
@@ -2388,7 +2395,7 @@ for event in longpoll.listen():
                 "ник": "✏️ Ник — напиши '+ник (имя)' чтобы сменить имя в профиле.",
                 "профиль": "👤 Профиль — напиши 'профиль' или 'я'.",
                 "кликер": "📱 Кликер — напиши 'клик' и получай +15мк. КД 4 сек.",
-                "реферал": "🔗 Рефералы — приглашай друзей, получай +500мк. Напиши 'рефка'.",
+                "реферал": "🔗 Рефералы — приглашай друзей, получай 1мм (2мм с ELITE). Напиши 'рефка'.",
                 "топ": "📊 Топы: 'топ клик' — по кликам, 'топ вывод' — по выводу.",
                 "магазин": "🛍 Магазин — снятие КД, множители x2, ELITE. Напиши 'магазин'.",
                 "правила": "📜 Правила: напиши 'правила'.",
