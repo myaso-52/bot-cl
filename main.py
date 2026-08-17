@@ -2468,14 +2468,15 @@ for event in longpoll.listen():
                 send_msg(peer, "❌ Кейсы только в ЛС!")
                 continue
             kb = VkKeyboard(one_time=False)
-            kb.add_button("📦 Мои кейсы", color=VkKeyboardColor.PRIMARY, payload={"cmd": "mycases"})
-            kb.add_line()
             kb.add_button("🟡 Кейс с аурой (2мм)", color=VkKeyboardColor.POSITIVE, payload={"cmd": "buycase_aura"})
             kb.add_button("🟢 Кейс с валютой (3мм)", color=VkKeyboardColor.POSITIVE, payload={"cmd": "buycase_money"})
             kb.add_line()
             kb.add_button("🔴 Кейс со всем (4мм)", color=VkKeyboardColor.NEGATIVE, payload={"cmd": "buycase_all"})
             kb.add_button("🟣 Кейс с услугами (70мм)", color=VkKeyboardColor.NEGATIVE, payload={"cmd": "buycase_service"})
-            send_msg(peer, "🎁 КЕЙСЫ\n\n🟡 Аура: 30-300 ауры\n🟢 Валюта: 2мм-5мм\n🔴 Всё: 1-4мм или 100-500 ауры\n🟣 Услуги: рандом из магазина + ELITE 7-31дн\n\nВыбери кейс для покупки:", keyboard=kb.get_keyboard())
+            kb.add_line()
+            kb.add_button("⬅ Назад", color=VkKeyboardColor.SECONDARY, payload={"cmd": "назад"})
+            kb.add_button("📦 Мои кейсы", color=VkKeyboardColor.PRIMARY, payload={"cmd": "mycases"})
+            send_msg(peer, "🎁 КЕЙСЫ\n\n🟡 Аура: 30-300 ауры\n🟢 Валюта: 2мм-5мм\n🔴 Всё: 1-4мм или 100-500 ауры\n🟣 Услуги: рандом из магазина + ELITE 7-31дн\n\n💰 ЦЕНЫ:\n🟡 Аура — 2мм\n🟢 Валюта — 3мм\n🔴 Всё — 4мм\n🟣 Услуги — 70мм\n\nВыбери кейс для покупки:", keyboard=kb.get_keyboard())
             continue
 
         elif msg_lower in ["мои кейсы", "mycases", "📦 мои кейсы"]:
