@@ -2227,7 +2227,7 @@ for event in longpoll.listen():
             send_msg(peer, "🪐 Возвращаю в главное меню:", get_main_keyboard())
             continue
         elif msg_lower.startswith("промо ") and len(parts) > 1:
-            promo_name = parts[1]
+            promo_name = parts[1].lower()
             if promo_name in promo_codes:
                 promo = promo_codes[promo_name]
                 if len(promo["used"]) >= promo["activations"]:
@@ -4053,9 +4053,17 @@ for event in longpoll.listen():
             if len(parts_cmd) < 2:
                 send_msg(peer, "❌ Использование: delpromo (название)\nПример: delpromo тест")
                 continue
-            promo_name = parts_cmd[1]
+            promo_name = parts_cmd[1].lower()
             if promo_name in promo_codes:
                 del promo_codes[promo_name]
+                try:
+                    conn_promo = sqlite3.connect('database.db')
+                    conn_promo.execute("DELETE FROM promos_save WHERE code = ?", (promo_name,))
+                    conn_promo.execute("DELETE FROM promo_used_save WHERE code = ?", (promo_name,))
+                    conn_promo.commit()
+                    conn_promo.close()
+                except:
+                    pass
                 send_msg(peer, f"✅ Промокод {promo_name} успешно удалён!")
             else:
                 send_msg(peer, f"❌ Промокод {promo_name} не найден!")
@@ -4068,7 +4076,7 @@ for event in longpoll.listen():
             if len(parts_cmd) < 4:
                 send_msg(peer, "❌ Использование: //newpromo (название) (активаций) (сумма)\n- delpromo (название) — удалить промокод")
                 continue
-            promo_name = parts_cmd[1]
+            promo_name = parts_cmd[1].lower()
             try:
                 activations = int(parts_cmd[2])
             except:
