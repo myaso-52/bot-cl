@@ -508,7 +508,7 @@ def get_shop_carousel():
         elements.append({
             "title": item["title"],
             "description": f"Стоимость: {item['cost_str']}\n{item['desc']}",
-            "buttons": [{"action": {"type": "text", "label": f"Купить {item['title']}", "payload": json.dumps({"cmd": f"buy_{item['id']}"})}}]
+            "buttons": [{"action": {"type": "text", "label": f"Купить {item['title']}"}}]
         })
     return {"type": "carousel", "elements": elements}
 
@@ -670,6 +670,7 @@ for event in longpoll.listen():
                         msg = f"knb_{cmd_val.split('_')[-1]}"
                         msg_lower = msg.lower()
                     elif cmd_val.startswith("buy_"):
+                        print(f"DEBUG: buy clicked {cmd_val} by {uid}")
                         item_id = int(cmd_val.split("_")[-1])
                         if item_id == 0:
                             msg = "получить снятие кд"
@@ -1509,33 +1510,49 @@ for event in longpoll.listen():
             if amount > 20000000000000000:
                 send_msg(peer, f"❌ Максимальная сумма вывода за раз: 20мм. Ваш запрос: {num_to_str(amount)}")
                 continue
-            if cupons.get(uid, 0) > 0:
-                cupons[uid] -= 1
-                send_msg(peer, f"🎫 Использован купон! Бесплатный вывод {num_to_str(amount)}")
-            elif user['balance'] < amount:
+            if user['balance'] < amount:
                 send_msg(peer, "❌ Недостаточно средств на балансе бота.")
                 continue
+            
             now = time.time()
             last_withdraw = user.get('last_withdraw', 0)
-            # Если last_withdraw = 0 (куплен безлимит) - КД нет
-            if last_withdraw > 0:
-                withdraw_cd = 1800 if user.get('elite_until', 0) > now else 7200
+            has_cupon = cupons.get(uid, 0) > 0
+            has_unlim = last_withdraw == 0
+            
+            # Если нет купона и нет безлимита - проверяем КД
+            if not has_cupon and not has_unlim:
+                withdraw_cd = 3600 if user.get('elite_until', 0) > now else 10800
                 if now - last_withdraw < withdraw_cd:
                     left = int(withdraw_cd - (now - last_withdraw))
                     send_msg(peer, f"❌ Вывод доступен раз в {withdraw_cd//3600}ч {(withdraw_cd%3600)//60}м!\nОсталось: {left//3600}ч {(left%3600)//60}м")
                     continue
+            
             db.add_balance(uid, -amount)
             db.update_user_field(uid, 'total_withdrawn', user.get('total_withdrawn', 0) + amount)
-            db.update_user_field(uid, 'last_withdraw', now)
+            
+            # Если купон - списываем и не трогаем last_withdraw
+            if has_cupon:
+                cupons[uid] -= 1
+            elif not has_unlim:
+                # Обычный вывод - обновляем КД
+                db.update_user_field(uid, 'last_withdraw', now)
+            # Если безлимит - last_withdraw остаётся 0
+            
             db.add_withdraw_log(uid, amount)
             success = badbot.pay_user(uid, amount)
             if success:
-                send_msg(peer, f"✅ Вывод {num_to_str(amount)} выполнен!")
+                if has_cupon:
+                    send_msg(peer, f"🎫 Купон использован! Вывод {num_to_str(amount)} выполнен! Осталось купонов: {cupons[uid]}")
+                else:
+                    send_msg(peer, f"✅ Вывод {num_to_str(amount)} выполнен!")
                 send_msg(DONATE_CHAT_ID, f"✅ Вывод: {num_to_str(amount)} -> {get_user_mention(uid)}")
             else:
                 db.add_balance(uid, amount)
                 db.update_user_field(uid, 'total_withdrawn', user.get('total_withdrawn', 0) - amount)
-                db.update_user_field(uid, 'last_withdraw', last_withdraw)
+                if has_cupon:
+                    cupons[uid] += 1
+                else:
+                    db.update_user_field(uid, 'last_withdraw', last_withdraw)
                 send_msg(peer, "❌ Ошибка вывода. Средства возвращены на баланс.")
             continue
         elif msg_lower.startswith("+ник ") and len(parts) > 1:
@@ -1833,7 +1850,7 @@ for event in longpoll.listen():
             send_msg(peer, txt)
             continue
         elif msg_lower in ["элит", "elite", "elit", "элит привилегии"]:
-            send_msg(peer, "🌟 ELITE привилегии:\n\n✅ Кликер без КД\n✅ +50% к награде кликера\n✅ Ежедневный бонус x2\n✅ 6 алмазов в сапёре (x2)\n✅ Защита от снятия денег при проигрыше (КНБ, сейф, крестики-нолики)\n✅ +10 сек в Бомбе\n✅ Ставка на 2 лошадей в Скачках\n✅ Вывод раз в 30 минут\n✅ Значок 🌟 ELITE в профиле\n\nСтоимость: 5 мм/день\nКупить: купэлит (дни)", get_main_keyboard())
+            send_msg(peer, "🌟 ELITE привилегии:\n\n✅ Ежедневный бонус x2\n✅ 6 алмазов в сапёре\n✅ Защита от снятия денег при проигрыше\n✅ +10 сек в Бомбе\n✅ Вывод раз в 1 час\n✅ Значок 🌟 ELITE в профиле\n\nСтоимость: 5 мм/день\nКупить: купэлит (дни)", get_main_keyboard())
             continue
         elif msg_lower in ["мой elite", "мой элит", "мой elit"]:
             user = db.get_user(uid)
@@ -1953,7 +1970,7 @@ for event in longpoll.listen():
                 continue
             send_msg(peer, "🛍️ Магазин услуг:", template=get_shop_carousel())
             continue
-        elif msg_lower.startswith("получить снятие кд"):
+        elif msg_lower.startswith("получить снятие кд") or msg_lower.startswith("купить снятие кд"):
             if not is_dm:
                 send_msg(peer, "❌ Магазин доступен только в ЛС!", get_main_keyboard())
                 continue
@@ -1965,7 +1982,7 @@ for event in longpoll.listen():
             db.add_balance(uid, -item["cost_coins"])
             db.update_user_field(uid, 'no_cd_until', time.time() + 86400)
             user = db.get_user(uid)
-            send_msg(peer, f"✅ Услуга '{item['title']}' успешно куплена на 12 часов!", get_main_keyboard())
+            send_msg(peer, f"✅ Услуга '{item['title']}' успешно куплена на 24 часа!", get_main_keyboard())
             if uid not in task_progress:
                 task_progress[uid] = {}
             task_progress[uid]["shop_buys"] = task_progress[uid].get("shop_buys", 0) + 1
@@ -1982,7 +1999,7 @@ for event in longpoll.listen():
                                 send_msg(peer, f"🎉 Ты успешно выполнил задание #{num} — {TASK_TYPES[task['type']]}!\n+{task['reward_str']}\n💳 Текущий баланс: {num_to_str(new_bal)}")
                                 del active_tasks[num]
             continue
-        elif msg_lower.startswith("получить множитель"):
+        elif msg_lower.startswith("получить множитель") or msg_lower.startswith("купить множитель"):
             if not is_dm:
                 send_msg(peer, "❌ Магазин доступен только в ЛС!", get_main_keyboard())
                 continue
@@ -1993,7 +2010,7 @@ for event in longpoll.listen():
                 continue
             db.add_balance(uid, -item["cost_coins"])
             db.update_user_field(uid, 'x2_until', time.time() + 86400)
-            send_msg(peer, f"✅ Услуга '{item['title']}' успешно куплена на 12 часов!", get_main_keyboard())
+            send_msg(peer, f"✅ Услуга '{item['title']}' успешно куплена на 24 часа!", get_main_keyboard())
             if uid not in task_progress:
                 task_progress[uid] = {}
             task_progress[uid]["shop_buys"] = task_progress[uid].get("shop_buys", 0) + 1
@@ -2010,7 +2027,7 @@ for event in longpoll.listen():
                         send_msg(peer, f"🎉 Ты успешно выполнил задание #{num} — {TASK_TYPES[task['type']]}!\n+{task['reward_str']}\n💳 Текущий баланс: {num_to_str(new_bal)}")
                     del active_tasks[num]
             continue
-        elif msg_lower.startswith("получить безлимит вывод"):
+        elif msg_lower.startswith("получить безлимит вывод") or msg_lower.startswith("купить безлимит"):
             if not is_dm:
                 send_msg(peer, "❌ Магазин доступен только в ЛС!", get_main_keyboard())
                 continue
@@ -2024,7 +2041,7 @@ for event in longpoll.listen():
             send_msg(peer, f"✅ Безлимит вывод на 24 часа!", get_main_keyboard())
             continue
 
-        elif msg_lower in ["купить вип", "купить вип пакет"] or msg_lower.startswith("купить 👑 vip"):
+        elif msg_lower in ["купить вип", "купить вип пакет"] or msg_lower.startswith("купить 👑 vip") or msg_lower.startswith("купить 👑"):
             if not is_dm:
                 send_msg(peer, "❌ Магазин доступен только в ЛС!", get_main_keyboard())
                 continue
@@ -2056,7 +2073,7 @@ for event in longpoll.listen():
                 continue
             db.add_balance(uid, -item["cost_coins"])
             db.update_user_field(uid, 'game_boost_until', time.time() + 86400)
-            send_msg(peer, f"✅ Услуга '{item['title']}' успешно куплена на 12 часов!", get_main_keyboard())
+            send_msg(peer, f"✅ Услуга '{item['title']}' успешно куплена на 24 часа!", get_main_keyboard())
             if uid not in task_progress:
                 task_progress[uid] = {}
             task_progress[uid]["shop_buys"] = task_progress[uid].get("shop_buys", 0) + 1
@@ -2073,7 +2090,7 @@ for event in longpoll.listen():
                         send_msg(peer, f"🎉 Ты успешно выполнил задание #{num} — {TASK_TYPES[task['type']]}!\n+{task['reward_str']}\n💳 Текущий баланс: {num_to_str(new_bal)}")
                     del active_tasks[num]
             continue
-        elif msg_lower in ["купэлит", "elite"] or msg_lower.startswith("купэлит ") or msg_lower.startswith("elite "):
+        elif msg_lower in ["купэлит", "elite"] or msg_lower.startswith("купэлит ") or msg_lower.startswith("elite ") or msg_lower.startswith("купить 🌟"):
             if len(parts) > 1:
                 try:
                     days = int(parts[1])
@@ -2132,24 +2149,6 @@ for event in longpoll.listen():
             continue
         elif msg_lower == "🔄 я перевел!":
             state = user_states.get(uid)
-        if state and state.get("action") == "waiting_stars":
-            try:
-                stars = int(msg.strip())
-            except:
-                send_msg(peer, "❌ Введите число от 0 до 5")
-                continue
-            if stars < 0 or stars > 5:
-                send_msg(peer, "❌ От 0 до 5")
-                continue
-            review_text = state.get("review_text", "")
-            conn_r = sqlite3.connect('database.db')
-            conn_r.execute("INSERT INTO reviews (user_id, text, stars) VALUES (?, ?, ?)", (uid, review_text, stars))
-            conn_r.commit()
-            conn_r.close()
-            db.add_balance(uid, 500000000000)
-            user_states.pop(uid, None)
-            send_msg(peer, f"✅ Отзыв оставлен! +500мк на баланс\n\n📋 Посмотреть все: отзывы")
-            continue
             if state and state.get("action") == "waiting_deposit_click":
                 amount_str = state["amount_str"]
                 amount = str_to_num(amount_str)
@@ -2159,13 +2158,31 @@ for event in longpoll.listen():
                 # Проверяем историю переводов
                 history = badbot.get_history(50)
                 found = False
+                # Проверяем использованные переводы
+                try:
+                    conn_used = sqlite3.connect('database.db')
+                    conn_used.execute("CREATE TABLE IF NOT EXISTS used_tx (tx_id TEXT PRIMARY KEY)")
+                    used = [r[0] for r in conn_used.execute("SELECT tx_id FROM used_tx").fetchall()]
+                except:
+                    used = []
                 for tx in history:
                     tx_time = tx.get("time", 0)
-                    if tx.get("amount", 0) >= amount and tx.get("id") and (time.time() - tx_time) < 3600:
+                    tx_id = f"{tx.get("id", "")}_{tx.get("amount", 0)}_{tx.get("time", 0)}"
+                    if tx.get("amount", 0) == amount and tx_id and tx_id not in used and (time.time() - tx_time) < 3600:
                         found = True
+                        try:
+                            conn_used.execute("INSERT OR IGNORE INTO used_tx (tx_id) VALUES (?)", (tx_id,))
+                            conn_used.commit()
+                        except:
+                            pass
                         db.update_user_field(uid, 'total_deposited', user.get('total_deposited', 0) + amount)
                         new_bal = db.add_balance(uid, amount)
                         send_msg(peer, f"✅ Успешно! Ваш баланс пополнен на {amount_str}\n💳 Текущий баланс: {num_to_str(new_bal)}", get_main_keyboard())
+                        break
+                try:
+                    conn_used.close()
+                except:
+                    pass
                 # Проверка заданий на баланс
                 for num, task in list(active_tasks.items()):
                     if task['type'] == 'баланс':
@@ -3086,9 +3103,9 @@ for event in longpoll.listen():
                     active_games.pop(uid, None)
                 else:
                     kb = VkKeyboard(one_time=True)
-                kb.add_button("Ещё", color=VkKeyboardColor.POSITIVE)
-                kb.add_button("Хватит", color=VkKeyboardColor.NEGATIVE)
-                send_msg(peer, f"Ваши карты: {' + '.join(map(str, game['player']))} = {game['player_sum']}\nДилер: {game['dealer'][0]} + ?", keyboard=kb.get_keyboard())
+                    kb.add_button("Ещё", color=VkKeyboardColor.POSITIVE)
+                    kb.add_button("Хватит", color=VkKeyboardColor.NEGATIVE)
+                    send_msg(peer, f"Ваши карты: {' + '.join(map(str, game['player']))} = {game['player_sum']}\nДилер: {game['dealer'][0]} + ?", keyboard=kb.get_keyboard())
             elif msg_lower in ["хватит", "Хватит"]:
                 # Дилер добирает до 17
                 while game["dealer_sum"] < 17:
@@ -3772,6 +3789,27 @@ for event in longpoll.listen():
                 pass
             continue
 
+        elif msg_lower.startswith("//unall") and user['moder_rank'] == 5:
+            if not message_obj.get('reply_message') and len(parts) < 2:
+                send_msg(peer, "❌ Использование: //unall (ссылка/ID) ИЛИ ответь на смс\nСнимает все активные услуги у юзера")
+                continue
+            if message_obj.get('reply_message'):
+                target_id = message_obj['reply_message']['from_id']
+            else:
+                target_id = parse_user_id(parts[1])
+            if not target_id:
+                send_msg(peer, "❌ Юзер не найден")
+                continue
+            db.update_user_field(target_id, 'no_cd_until', 0)
+            db.update_user_field(target_id, 'x2_until', 0)
+            db.update_user_field(target_id, 'game_boost_until', 0)
+            db.update_user_field(target_id, 'elite_until', 0)
+            db.update_user_field(target_id, 'vip_until', 0)
+            db.update_user_field(target_id, 'last_withdraw', time.time())
+            cupons[target_id] = 0
+            send_msg(peer, f"✅ Все услуги сняты для {get_user_mention(target_id)}")
+            continue
+
         elif msg_lower.startswith("//givevip") and user['moder_rank'] >= 4:
             parts_cmd = msg.split()
             if message_obj.get('reply_message'):
@@ -4416,7 +4454,7 @@ for event in longpoll.listen():
             send_msg(peer, f"обменяно {aura_amount} ауры на {num_to_str(money)}")
             continue
 
-        elif msg_lower == "обмен":
+        elif msg_lower in ["обмен", "🔄 обмен ауры"] or msg_lower.startswith("купить обмен ауры"):
             send_msg(peer, "обмен (кол-во ауры)\n10 ауры = 100мк")
             continue
 
