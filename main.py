@@ -73,7 +73,12 @@ vk_session = vk_api.VkApi(token=VK_TOKEN)
 vk = vk_session.get_api()
 longpoll = VkBotLongPoll(vk_session, GROUP_ID)
 
-AI_CLIENT = OpenAI(api_key="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", base_url="https://api.groq.com/openai/v1")
+try:
+    with open("ai_key.txt", "r") as f:
+        AI_KEY = f.read().strip()
+except:
+    AI_KEY = ""
+AI_CLIENT = OpenAI(api_key=AI_KEY, base_url="https://api.groq.com/openai/v1")
 
 def ai_answer(question):
     try:
