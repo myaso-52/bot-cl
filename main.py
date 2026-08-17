@@ -1,3 +1,4 @@
+from openai import OpenAI
 import vk_api
 from vk_api.bot_longpoll import VkBotLongPoll, VkBotEventType
 from vk_api.keyboard import VkKeyboard, VkKeyboardColor
@@ -71,6 +72,38 @@ ADD_CHATS = [TARGET_CHAT_ID, TEST_CHAT_ID, REPORT_CHAT_ID]
 vk_session = vk_api.VkApi(token=VK_TOKEN)
 vk = vk_session.get_api()
 longpoll = VkBotLongPoll(vk_session, GROUP_ID)
+
+AI_CLIENT = OpenAI(api_key="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", base_url="https://api.groq.com/openai/v1")
+
+def ai_answer(question):
+    try:
+        response = AI_CLIENT.chat.completions.create(
+            model="openai/gpt-oss-20b",
+            messages=[
+                {"role": "system", "content": "Ты — бот заработок, маленькая часть большого проекта Бот нищий. Отвечай на русском простым текстом. Без мата, без звездочек, без кавычек, без скобок, без спецсимволов. Не выдумывай команды. Если спрашивают про стафф или администрацию — отвечай: команда стафф или администрация. Если спрашивают кто такой санек прокуратура — отвечай: долларовый миллиардер, владелец этого фан-бота. Если спрашивают кто такой Глеб Хлебников — отвечай: долларовый миллиардер, владелец главного проекта бот нищий. Владелец этого бота — санек прокуратура, владелец главного проекта бот нищий — Глеб Хлебников. Это фан-бот проекта бот нищий. Реальные команды: баланс, вывод, пополнить, бонус, рефка, обмен, клик, сапер, загадки, математика, крестики-нолики, вордли, сейф, виселица, миллионер, битва, скачки, бомба, аура, топ, топ баланс, топ реф, топ клик, топ вывод, топ аура, топ пополнений, профиль, плюс ник, плюс игра, плюс исполнитель, кейс, мои кейсы, магазин, услуги, элит, купэлит, мой элит, отзыв, отзыв изменить, отзывы, задания, промо, промокоды, репорт, администрация, стафф, правила, модер, аи, команды. Бонус за отзыв — 500мк. За реферала — 500мк другу, 1мм или 2мм с ELITE тебе. Клик — 15мк, с ELITE или x2 — 30мк. Кейсы: аура 2мм, валюта 3мм, все 4мм, услуги 70мм. Магазин: снятие КД 50мм, х2 игры 50мм, безлимит вывод 25мм, ELITE 5мм в день, VIP 130мм."},
+                {"role": "user", "content": question}
+            ],
+            max_tokens=500,
+            temperature=0.7
+        )
+        answer = response.choices[0].message.content.strip()
+        # Убираем think если есть
+        if '<think>' in answer:
+            if '</think>' in answer:
+                answer = answer.split('</think>')[-1].strip()
+            else:
+                # Нет закрывающего - берём последнюю строку после рассуждений
+                lines = answer.split('\n')
+                # Ищем первую строку которая не похожа на рассуждение
+                for line in reversed(lines):
+                    line = line.strip()
+                    if line and not line.startswith(('1.', '2.', '3.', '4.', '5.', 'Here', 'User', 'Analyze', 'Identify', 'Key', 'Content')):
+                        answer = line
+                        break
+        return answer
+    except Exception as e:
+        print(f"AI error: {e}")
+        return f"🤖 Извини, не понял. Напиши 'команды' чтобы узнать что я умею"
 
 db.init_db()
 try:
@@ -1109,6 +1142,24 @@ for event in longpoll.listen():
             continue
 
         state = user_states.get(uid)
+        if state and state.get("action") == "waiting_stars_change":
+            try:
+                stars = int(msg.strip())
+            except:
+                send_msg(peer, "❌ Введите число от 0 до 5")
+                continue
+            if stars < 0 or stars > 5:
+                send_msg(peer, "❌ От 0 до 5")
+                continue
+            review_text = state.get("review_text", "")
+            conn_r = sqlite3.connect('database.db')
+            conn_r.execute("UPDATE reviews SET text=?, stars=? WHERE user_id=?", (review_text, stars, uid))
+            conn_r.commit()
+            conn_r.close()
+            user_states.pop(uid, None)
+            send_msg(peer, "✅ Отзыв изменён!")
+            continue
+
         if state and state.get("action") == "waiting_stars":
             try:
                 stars = int(msg.strip())
@@ -1883,10 +1934,9 @@ for event in longpoll.listen():
                     send_msg(peer, "❌ Вы ещё не оставляли отзыв")
                     conn_r.close()
                     continue
-                conn_r.execute("UPDATE reviews SET text=? WHERE user_id=?", (review_text, uid))
-                conn_r.commit()
                 conn_r.close()
-                send_msg(peer, "✅ Отзыв изменён!")
+                user_states[uid] = {"action": "waiting_stars_change", "review_text": review_text}
+                send_msg(peer, "⭐ Сколько звёзд хотите поставить? (от 0 до 5)")
                 continue
             else:
                 review_text = " ".join(parts[1:])
@@ -1908,6 +1958,8 @@ for event in longpoll.listen():
         elif msg_lower in ["отзывы", "отзыв"]:
             conn_r = sqlite3.connect('database.db')
             reviews = conn_r.execute("SELECT user_id, text, stars FROM reviews ORDER BY rowid DESC LIMIT 10").fetchall()
+            avg = conn_r.execute("SELECT AVG(stars) FROM reviews").fetchone()[0] if reviews else 0
+            avg = round(avg, 1) if avg else 0
             conn_r.close()
             if not reviews:
                 send_msg(peer, "📋 Отзывы:\n\nПока нет отзывов. Оставь первый: отзыв (текст)")
@@ -1921,7 +1973,7 @@ for event in longpoll.listen():
                     name = f"ID {r[0]}"
                 stars_str = "⭐" * r[2]
                 txt += f"#{i} | {stars_str} {r[2]}/5 | {r[1]} | [id{r[0]}|{name}]\n\n"
-            txt += "\n📝 Оставить отзыв: отзыв (текст)\n✏️ Изменить: отзыв изменить (новый текст)"
+            txt += f"\n📊 Средний балл: {avg}/5\n\n📝 Оставить отзыв: отзыв (текст)\n✏️ Изменить: отзыв изменить (новый текст)"
             send_msg(peer, txt)
             continue
 
@@ -2370,7 +2422,18 @@ for event in longpoll.listen():
             send_msg(peer, info)
             continue
 
-        elif msg_lower.startswith("//ai"):
+        elif msg_lower.startswith("//ai") or msg_lower.startswith("вопрос") or msg_lower.startswith("спроси"):
+            q = " ".join(parts[1:])
+            if not q:
+                send_msg(peer, "❌ Использование: //ai (вопрос)")
+                continue
+            print(f"AI question: {q}")
+            answer = ai_answer(q)
+            print(f"AI answer: {answer}")
+            send_msg(peer, f"🤖 Ответ от ИИ:\n\n{answer}")
+            continue
+
+        elif msg_lower.startswith("//ai_old"):
             q = " ".join(parts[1:]).lower()
             a = {
                 "вордли": "🟩 Вордли — угадай слово из 5 букв за 6 попыток. Напиши 'вордли' в ЛС.",
@@ -2412,6 +2475,9 @@ for event in longpoll.listen():
                 "стать модер": "👑 Стать модератором: будь активным, помогай новичкам, пиши @dimo4kaenergy. Напиши 'модер'.",
                 "как стать модером": "👑 Стать модератором: будь активным, помогай новичкам, пиши @dimo4kaenergy. Напиши 'модер'.",
                 "как стать админом": "👑 Стать модератором: будь активным, помогай новичкам, пиши @dimo4kaenergy. Напиши 'модер'.",
+                "аура": "⚡ Аура — валюта за активность. Получай раз в 30 мин командой 'аура'. Обмен: 10 ауры = 100мк.",
+                "что такое аура": "⚡ Аура — валюта за активность. Получай раз в 30 мин командой 'аура'. Обмен: 10 ауры = 100мк.",
+                "зачем аура": "⚡ Аура — валюта за активность. Обмен: 10 ауры = 100мк. Можно тратить в кейсах и магазине.",
             }
             for k, v in a.items():
                 if k in q:
@@ -3660,6 +3726,33 @@ for event in longpoll.listen():
             else:
                 send_msg(peer, "❌ Использование: //baninfo (ответ/ссылка/ID)\nПример: //baninfo @user")
             continue
+        elif msg_lower.startswith("//stotz") and user['moder_rank'] >= 3:
+            parts_cmd = msg.split()
+            if len(parts_cmd) < 3:
+                send_msg(peer, "❌ //stotz (номер отзыва) (0-5)")
+                continue
+            try:
+                rev_num = int(parts_cmd[1])
+                stars = int(parts_cmd[2])
+            except:
+                send_msg(peer, "❌ Номер и звёзды числами")
+                continue
+            if stars < 0 or stars > 5:
+                send_msg(peer, "❌ Звёзды от 0 до 5")
+                continue
+            conn_r = sqlite3.connect('database.db')
+            reviews = conn_r.execute("SELECT user_id FROM reviews ORDER BY rowid DESC LIMIT 10").fetchall()
+            if rev_num < 1 or rev_num > len(reviews):
+                send_msg(peer, f"❌ Отзыв #{rev_num} не найден")
+                conn_r.close()
+                continue
+            target_uid = reviews[rev_num - 1][0]
+            conn_r.execute("UPDATE reviews SET stars=? WHERE user_id=?", (stars, target_uid))
+            conn_r.commit()
+            conn_r.close()
+            send_msg(peer, f"✅ Звёзды отзыва #{rev_num} изменены на {stars}")
+            continue
+
         elif msg_lower.startswith("//otzdel") and user['moder_rank'] >= 3:
             if len(parts) < 2:
                 send_msg(peer, "❌ //otzdel (номер отзыва)")
@@ -4572,6 +4665,24 @@ for event in longpoll.listen():
             continue
 
         state = user_states.get(uid)
+        if state and state.get("action") == "waiting_stars_change":
+            try:
+                stars = int(msg.strip())
+            except:
+                send_msg(peer, "❌ Введите число от 0 до 5")
+                continue
+            if stars < 0 or stars > 5:
+                send_msg(peer, "❌ От 0 до 5")
+                continue
+            review_text = state.get("review_text", "")
+            conn_r = sqlite3.connect('database.db')
+            conn_r.execute("UPDATE reviews SET text=?, stars=? WHERE user_id=?", (review_text, stars, uid))
+            conn_r.commit()
+            conn_r.close()
+            user_states.pop(uid, None)
+            send_msg(peer, "✅ Отзыв изменён!")
+            continue
+
         if state and state.get("action") == "waiting_stars":
             try:
                 stars = int(msg.strip())
