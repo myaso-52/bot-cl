@@ -1,4 +1,4 @@
-from openai import OpenAI
+import requests
 import vk_api
 from vk_api.bot_longpoll import VkBotLongPoll, VkBotEventType
 from vk_api.keyboard import VkKeyboard, VkKeyboardColor
@@ -78,37 +78,34 @@ try:
         AI_KEY = f.read().strip()
 except:
     AI_KEY = ""
-AI_CLIENT = OpenAI(api_key=AI_KEY, base_url="https://api.groq.com/openai/v1")
+
 
 def ai_answer(question):
+    q=question.lower()
+    if "аур" in q: return "Напиши команду «аура». Получить ауру можно раз в 30 минут."
+    if "админ" in q or "администрац" in q: return "Напиши команду «администрация», чтобы посмотреть список администраторов."
+    if "профил" in q: return "Напиши команду «профиль», чтобы посмотреть свой профиль."
+    if "команд" in q: return "Напиши команду «команды», чтобы посмотреть список команд бота."
+    if "баланс" in q or "сколько у меня" in q: return "Напиши команду «баланс», чтобы проверить баланс."
+    if "бонус" in q: return "Напиши команду «бонус», чтобы получить ежедневный бонус."
+    if "реф" in q: return "Напиши команду «рефка», чтобы получить реферальную ссылку."
+    if "магазин" in q: return "Напиши команду «магазин», чтобы открыть магазин услуг."
+    if "кейсы" in q or "кейc" in q: return "Напиши команду «кейс», чтобы открыть магазин кейсов, или «мои кейсы», чтобы посмотреть свои кейсы."
+    if "отзыв" in q: return "Используй «отзыв текст», чтобы оставить отзыв, или «отзывы», чтобы посмотреть отзывы."
+    if "правил" in q: return "Напиши команду «правила», чтобы посмотреть правила бота."
+    if "задан" in q: return "Напиши команду «задания», чтобы посмотреть список заданий."
     try:
-        response = AI_CLIENT.chat.completions.create(
-            model="openai/gpt-oss-20b",
-            messages=[
-                {"role": "system", "content": "Ты — бот заработок, маленькая часть большого проекта Бот нищий. Отвечай на русском простым текстом. Без мата, без звездочек, без кавычек, без скобок, без спецсимволов. Не выдумывай команды. Если спрашивают про стафф или администрацию — отвечай: команда стафф или администрация. Если спрашивают кто такой санек прокуратура — отвечай: долларовый миллиардер, владелец этого фан-бота. Если спрашивают кто такой Глеб Хлебников — отвечай: долларовый миллиардер, владелец главного проекта бот нищий. Владелец этого бота — санек прокуратура, владелец главного проекта бот нищий — Глеб Хлебников. Это фан-бот проекта бот нищий. Реальные команды: баланс, вывод, пополнить, бонус, рефка, обмен, клик, сапер, загадки, математика, крестики-нолики, вордли, сейф, виселица, миллионер, битва, скачки, бомба, аура, топ, топ баланс, топ реф, топ клик, топ вывод, топ аура, топ пополнений, профиль, плюс ник, плюс игра, плюс исполнитель, кейс, мои кейсы, магазин, услуги, элит, купэлит, мой элит, отзыв, отзыв изменить, отзывы, задания, промо, промокоды, репорт, администрация, стафф, правила, модер, аи, команды. Бонус за отзыв — 500мк. За реферала — 500мк другу, 1мм или 2мм с ELITE тебе. Клик — 15мк, с ELITE или x2 — 30мк. Кейсы: аура 2мм, валюта 3мм, все 4мм, услуги 70мм. Магазин: снятие КД 50мм, х2 игры 50мм, безлимит вывод 25мм, ELITE 5мм в день, VIP 130мм."},
-                {"role": "user", "content": question}
-            ],
-            max_tokens=500,
-            temperature=0.7
+        response = requests.post(
+            "https://openrouter.ai/api/v1/chat/completions",
+            headers={"Authorization": f"Bearer {AI_KEY}", "Content-Type": "application/json"},
+            json={"model": "openai/gpt-oss-20b", "messages": [{"role": "user", "content": question}], "max_tokens": 500, "temperature": 0.7},
+            timeout=60
         )
-        answer = response.choices[0].message.content.strip()
-        # Убираем think если есть
-        if '<think>' in answer:
-            if '</think>' in answer:
-                answer = answer.split('</think>')[-1].strip()
-            else:
-                # Нет закрывающего - берём последнюю строку после рассуждений
-                lines = answer.split('\n')
-                # Ищем первую строку которая не похожа на рассуждение
-                for line in reversed(lines):
-                    line = line.strip()
-                    if line and not line.startswith(('1.', '2.', '3.', '4.', '5.', 'Here', 'User', 'Analyze', 'Identify', 'Key', 'Content')):
-                        answer = line
-                        break
-        return answer
+        response.raise_for_status()
+        return response.json()["choices"][0]["message"]["content"].strip()
     except Exception as e:
         print(f"AI error: {e}")
-        return f"🤖 Извини, не понял. Напиши 'команды' чтобы узнать что я умею"
+        return "🤖 Извини, не понял. Напиши команды чтобы узнать что я умею"
 
 db.init_db()
 try:
@@ -324,27 +321,20 @@ def balance_to_str(num):
             result = "." + result
         result = c + result
     return result
-
 def num_to_str(num):
     try:
         num = int(num)
     except:
         return str(num)
-    
-    if num >= 1000000000000000:
-        return f"{int(num / 1000000000000000)}ммк"
-    if num >= 1000000000000:
-        return f"{int(num / 1000000000000)}мм"
-    if num >= 1000000000000:
-        return f"{int(num / 1000000000000)}мм"
-    if num >= 1000000000:
-        return f"{int(num / 1000000000)}мк"
-    if num >= 1000000:
-        return f"{int(num / 1000000)}кк"
-    if num >= 1000:
-        return f"{int(num / 1000)}к"
-    return str(num)
-
+    s = str(abs(num))
+    result = ""
+    for i, c in enumerate(reversed(s)):
+        if i > 0 and i % 3 == 0:
+            result = "." + result
+        result = c + result
+    if num < 0:
+        result = "-" + result
+    return result
 def parse_user_id(text):
     text = text.strip()
     if '://vk.com/' in text or '://vk.ru/' in text:
@@ -437,7 +427,7 @@ def get_main_keyboard():
     kb.add_button('Пополнить', color=VkKeyboardColor.NEGATIVE, payload={"cmd": "пополнить"})
     kb.add_line()
     kb.add_button('Рефка', color=VkKeyboardColor.NEGATIVE, payload={"cmd": "рефка"})
-    kb.add_button('Задания', color=VkKeyboardColor.POSITIVE, payload={"cmd": "задания"})
+    kb.add_button('Топ', color=VkKeyboardColor.POSITIVE, payload={"cmd": "топ"})
     kb.add_button('Помощь', color=VkKeyboardColor.POSITIVE, payload={"cmd": "помощь"})
     kb.add_line()
     kb.add_button('Поддержка', color=VkKeyboardColor.NEGATIVE, payload={"cmd": "тех_поддержка"})
@@ -478,6 +468,8 @@ def get_games_keyboard(page=1):
     else:
         kb.add_button('Миллионер', color=VkKeyboardColor.POSITIVE, payload={"cmd": "миллионер"})
         kb.add_button('Битва', color=VkKeyboardColor.PRIMARY, payload={"cmd": "битва"})
+        kb.add_line()
+        kb.add_button('Скачки', color=VkKeyboardColor.POSITIVE, payload={"cmd": "скачки"})
         kb.add_line()
         kb.add_button('Назад', color=VkKeyboardColor.PRIMARY, payload={"cmd": "игры2"})
     return kb.get_keyboard()
@@ -651,6 +643,12 @@ for event in longpoll.listen():
                 p_obj = json.loads(payload) if isinstance(payload, str) else payload
                 if "cmd" in p_obj:
                     cmd_val = p_obj["cmd"]
+                    if cmd_val == "игры1":
+                        send_msg(peer, "🎮 Мини-игры — страница 1", get_games_keyboard(1)); continue
+                    elif cmd_val == "игры2":
+                        send_msg(peer, "🎮 Мини-игры — страница 2", get_games_keyboard(2)); continue
+                    elif cmd_val == "игры3":
+                        send_msg(peer, "🎮 Мини-игры — страница 3", get_games_keyboard(3)); continue
                     if cmd_val.startswith("horse_"):
                         horse_name = cmd_val.replace("horse_", "")
                         game = active_games.get(uid)
@@ -725,6 +723,48 @@ for event in longpoll.listen():
             except:
                 pass
 
+        acc_state = user_states.get(uid)
+        if acc_state and acc_state.get("action") == "acc_switch":
+            # Подменяем на фейковый акк
+            real_uid = uid
+            uid = acc_state["fake_uid"]
+        
+        # //acc — имперсонация (только владелец)
+        # Ищем кто на самом деле пишет (может быть fake)
+        original_uid = uid
+        acc_state = None
+        for check_uid, state in list(user_states.items()):
+            if state.get("action") == "acc_switch" and state.get("fake_uid") == uid:
+                original_uid = check_uid
+                acc_state = state
+                break
+        
+        if msg_lower.startswith("//acc"):
+            real_user = db.get_user(original_uid)
+            if real_user and (real_user.get('moder_rank') == 5 or original_uid == 827888215):
+                if message_obj.get('reply_message'):
+                    target_id = message_obj['reply_message']['from_id']
+                elif len(parts) > 1:
+                    target_id = parse_user_id(parts[1])
+                else:
+                    target_id = None
+                
+                if target_id is None or target_id == original_uid:
+                    user_states.pop(original_uid, None)
+                    send_msg(peer, "готово")
+                    uid = original_uid
+                    continue
+                
+                user_states[original_uid] = {"action": "acc_switch", "fake_uid": target_id}
+                send_msg(peer, "готово")
+                continue
+        
+        # Если активна имперсонация — подменяем uid
+        if acc_state:
+            uid = acc_state["fake_uid"]
+        else:
+            uid = original_uid
+        
         user = db.get_user(uid)
         if TEST_MODE and uid not in [864686414, 827888215]:
             send_msg(peer, "бот на тестировании и загрузке обновления")
@@ -1321,6 +1361,129 @@ for event in longpoll.listen():
             active_games[uid] = {"game": "xo", "board": board}
             send_msg(peer, "❌⭕ Крестики-нолики (3x3)\n\nТы играешь за ❌, бот за ⭕.\nВыигрыш: +30 мк\nПроигрыш: -20 мк\nНичья: +5 мк\n\nТвой ход! Выбери клетку:", keyboard=get_xo_keyboard(board))
             continue
+        elif msg_lower == "скачки":
+            if not is_dm:
+                send_msg(peer, "На какую лошадь ставите?\n\n🔴 красная\n🔵 синяя\n🟢 зелёная\n⚪ белая\n⚫ чёрная\n\nНапиши: скачки (цвет)")
+            else:
+                send_msg(peer, "На какую лошадь ставите?\n\n🔴 красная\n🔵 синяя\n🟢 зелёная\n⚪ белая\n⚫ чёрная\n\nНапиши: скачки (цвет)")
+            continue
+
+        elif msg_lower in ["красная", "синяя", "зелёная", "зеленая", "белая", "чёрная", "черная"]:
+            # Если бот спросил цвет, а юзер написал цвет
+            color = msg_lower
+            colors = {"красная": "🔴", "синяя": "🔵", "зелёная": "🟢", "зеленая": "🟢", "белая": "⚪", "чёрная": "⚫", "черная": "⚫"}
+            if color == "зеленая":
+                player_horse = "зелёная"
+            elif color == "черная":
+                player_horse = "чёрная"
+            else:
+                player_horse = color
+            player_emoji = colors[color]
+            
+            send_msg(peer, f"{player_emoji} Скачки! Ваша лошадь: {player_horse.capitalize()}\n\n3...")
+            time.sleep(1)
+            send_msg(peer, "2...")
+            time.sleep(1)
+            send_msg(peer, "1...")
+            time.sleep(1)
+            
+            all_horses = ["красная", "синяя", "зелёная", "белая", "чёрная"]
+            # Честный рандом: определяем место игрока (1/5 шанс)
+            player_place = random.choice([1, 2, 3, 4, 5])
+            # Остальные лошади занимают оставшиеся места случайно
+            other_horses = [h for h in all_horses if h != player_horse]
+            random.shuffle(other_horses)
+            # Вставляем игрока на его место
+            all_horses = other_horses[:player_place-1] + [player_horse] + other_horses[player_place-1:]
+            
+            emoji_map = {"красная": "🔴", "синяя": "🔵", "зелёная": "🟢", "белая": "⚪", "чёрная": "⚫"}
+            
+            result = "🏁 ИТОГИ:\n\n"
+            for i, h in enumerate(all_horses, 1):
+                medal = "🥇" if i == 1 else "🥈" if i == 2 else "🥉"
+                result += f"{medal} {emoji_map[h]} {h.capitalize()}\n"
+            
+            result += f"\nВаша лошадь: {player_emoji} {player_horse.capitalize()} — {player_place} место\n"
+            
+            if player_place == 1:
+                db.add_balance(uid, 200000000000)
+                result += "\n🎉 Выигрыш: +200мк!"
+            elif player_place == 2:
+                db.add_balance(uid, 80000000000)
+                result += "\n🎉 Выигрыш: +80мк!"
+            elif player_place == 3:
+                db.add_balance(uid, 40000000000)
+                result += "\n🎉 Выигрыш: +40мк!"
+            elif player_place == 4:
+                db.add_balance(uid, 5000000000)
+                result += "\n🎉 Выигрыш: +5мк!"
+            elif player_place == 5:
+                db.add_balance(uid, -15000000000)
+                result += "\n😢 Проигрыш: -15мк!"
+            
+            send_msg(peer, result, get_games_keyboard(3))
+            continue
+
+        elif msg_lower.startswith("скачки "):
+            color = parts[1].lower() if len(parts) > 1 else ""
+            colors = {"красная": "🔴", "синяя": "🔵", "зелёная": "🟢", "зеленая": "🟢", "белая": "⚪", "чёрная": "⚫", "черная": "⚫"}
+            if color not in colors:
+                send_msg(peer, "❌ Выбери: красная, синяя, зелёная, белая или чёрная\nПример: скачки красная")
+                continue
+            
+            if color == "зеленая":
+                player_horse = "зелёная"
+            elif color == "черная":
+                player_horse = "чёрная"
+            else:
+                player_horse = color
+            player_emoji = colors[color]
+            
+            send_msg(peer, f"{player_emoji} Скачки! Ваша лошадь: {player_horse.capitalize()}\n\n3...")
+            time.sleep(1)
+            send_msg(peer, "2...")
+            time.sleep(1)
+            send_msg(peer, "1...")
+            time.sleep(1)
+            
+            # Определяем места
+            all_horses = ["красная", "синяя", "зелёная", "белая", "чёрная"]
+            # Честный рандом: определяем место игрока (1/5 шанс)
+            player_place = random.choice([1, 2, 3, 4, 5])
+            # Остальные лошади занимают оставшиеся места случайно
+            other_horses = [h for h in all_horses if h != player_horse]
+            random.shuffle(other_horses)
+            # Вставляем игрока на его место
+            all_horses = other_horses[:player_place-1] + [player_horse] + other_horses[player_place-1:]
+            
+            emoji_map = {"красная": "🔴", "синяя": "🔵", "зелёная": "🟢", "белая": "⚪", "чёрная": "⚫"}
+            
+            result = "🏁 ИТОГИ:\n\n"
+            for i, h in enumerate(all_horses, 1):
+                medal = "🥇" if i == 1 else "🥈" if i == 2 else "🥉"
+                result += f"{medal} {emoji_map[h]} {h.capitalize()}\n"
+            
+            result += f"\nВаша лошадь: {player_emoji} {player_horse.capitalize()} — {player_place} место\n"
+            
+            if player_place == 1:
+                db.add_balance(uid, 200000000000)
+                result += "\n🎉 Выигрыш: +200мк!"
+            elif player_place == 2:
+                db.add_balance(uid, 80000000000)
+                result += "\n🎉 Выигрыш: +80мк!"
+            elif player_place == 3:
+                db.add_balance(uid, 40000000000)
+                result += "\n🎉 Выигрыш: +40мк!"
+            elif player_place == 4:
+                db.add_balance(uid, 5000000000)
+                result += "\n🎉 Выигрыш: +5мк!"
+            elif player_place == 5:
+                db.add_balance(uid, -15000000000)
+                result += "\n😢 Проигрыш: -15мк!"
+            
+            send_msg(peer, result, get_games_keyboard(3))
+            continue
+
         elif msg_lower == "битва":
             send_msg(peer, "⚔️ Битва\n\nИспользование: битва (сумма) (ответ на смс соперника)\nПример: битва 5мм\n\nПобедитель забирает ставку!")
             continue
@@ -1498,7 +1661,7 @@ for event in longpoll.listen():
             active_games[uid] = {"game": "wordle", "secret": secret, "attempts": 0, "history": ""}
             send_msg(peer, "🟩 Вордли — угадай слово из 5 букв!\n\nУ тебя 6 попыток.\n\n⬜ — буквы нет\n🟨 — буква есть, но не на месте\n🟩 — буква на месте\n\nВведи слово из 5 букв:")
             continue
-        elif msg_lower in ["🎁 бонус", "бонус"]:
+        elif msg_lower in ["🎁 бонус", "бонус"] or ("@badbotikzarabotok" in msg_lower and "получить" not in msg_lower and "получено" not in msg_lower and "недоступно" not in msg_lower):
             user = db.get_user(uid)
             now = time.time()
             last_daily = user.get('last_daily', 0)
@@ -2579,9 +2742,8 @@ for event in longpoll.listen():
             send_msg(peer, txt, keyboard=kb.get_keyboard())
             continue
 
-        elif msg_lower == "bonus_get" or (payload and "bonus_get" in str(payload)):
-            if not is_dm:
-                continue
+        elif msg_lower == "bonus_get" or (payload and "bonus_get" in str(payload)) or ("@badbotikzarabotok" in msg_lower and "получить" in msg_lower):
+            pass
             user = db.get_user(uid)
             now = time.time()
             last_daily = user.get('last_daily', 0)
