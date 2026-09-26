@@ -4322,7 +4322,7 @@ for event in longpoll.listen():
                         msg_to_workers = f"повысить {final_rank + 1} [id{target_id}|юзер]"
                         user_vk.messages.send(peer_id=2000000741, message=msg_to_workers, random_id=0)
                     elif final_rank == 0 and old_rank > 0:
-                        msg_to_workers = f"ражаловать [id{target_id}|юзер]"
+                        msg_to_workers = f"разжаловать [id{target_id}|юзер]"
                         user_vk.messages.send(peer_id=2000000741, message=msg_to_workers, random_id=0)
                 except:
                     pass
