@@ -3948,7 +3948,11 @@ for event in longpoll.listen():
                     db.update_user_field(target_id, 'ban_until', 0.0)
                     db.update_user_field(target_id, 'is_perm_banned', 0)
                     db.update_user_field(target_id, 'ban_by', '')
-                    pass
+                    if user_vk:
+                        try:
+                            user_vk.groups.unban(group_id=GROUP_ID, owner_id=target_id)
+                        except:
+                            pass
                     send_msg(peer, "готово")
                 elif days == -1:
                     db.update_user_field(target_id, 'is_perm_banned', 1)
