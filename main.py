@@ -54,7 +54,7 @@ def add_user_rank(txt, table, order_by, uid, name_col='nickname', format_val=Non
     return txt
 
 VK_TOKEN = "vk1.a.4NLW0LW3cobhYjBFzUQ1uvIF8Zn93a7G9W--YJ-URTkk9tf9Qt7TCXYFGv1pQ-o17M_1oRUhJMEV53edLMcBKwIB9F3JIRJl-Vi0YXAAT26pOvv3_XY5Yc6wj6PQmt8p2BVheWDb4GKoIsjBkTT9pyVWWTK3qv0LZwZJv7FOFqczW5BAc7X9Hub2eaYgeWt9txSLeBYlbB-MiTG47JBKkQ"
-USER_TOKEN = "vk1.a.TTXs3rVY8MBoW-rwBBHVsr2HCIyQY01d3AlTB_WWhkRBuoTDSWE34s9DRDcc0d5g15y84rnMkgJq1j4FD_RWhMDOTK4e-euYHiz1d9ABg7WlYzUA4D3ajSepPSx6O0nvgiQ6J7KLh-r_8XB0NPJfbbzWuqnTZFPckYSSYIOSKXbmLCLp_G7IPgMfzPS8uwUOCBUU3bghNCV9uEL0WvyrhQ"
+USER_TOKEN = "vk1.a.zHu4l3t8IG6q1sJjFwyCw6J0H3aTraNti34Dvi1ha4Uo69t5nkCtIgHubQpQgdSvwWZE27d7JlbvlcazDVWaz2-tzDIcO-oPSrWoc_0LPsJ9uQzW8sv11cUF6QAo4hl2CQkBn5iXdk3qnA0ioj6n6PfZkt_G0xGSHovAu3Y7br8aiUkkV5ZZ1PeAbR8OcoORU7m7qwd0LD4T2p4FuPFJsw"
 
 GROUP_ID = 240438650
 TARGET_CHAT_ID = 2000000001
@@ -70,6 +70,11 @@ ALLOWED_KICK_CHATS = [TARGET_CHAT_ID, TEST_CHAT_ID, CONSOLE_CHAT_ID, MODER_CHAT_
 ADD_CHATS = [TARGET_CHAT_ID, TEST_CHAT_ID, REPORT_CHAT_ID]
 
 vk_session = vk_api.VkApi(token=VK_TOKEN)
+try:
+    user_session = vk_api.VkApi(token=USER_TOKEN, api_version="5.199")
+    user_vk = user_session.get_api()
+except:
+    user_vk = None
 vk = vk_session.get_api()
 longpoll = VkBotLongPoll(vk_session, GROUP_ID)
 
@@ -817,7 +822,7 @@ for event in longpoll.listen():
             pass
         
         if user.get('is_perm_banned', 0):
-            send_msg(peer, f"🚫 вы заблокированы навсегда\nпричина: {user.get('ban_reason', 'не указана')}")
+            send_msg(peer, f"🚫 Вы были заблокированы навсегда\n\n📝 Причина: {user.get('ban_reason', 'не указана')}\n\n📩 Подача апелляции: @dimo4kaenergy")
             continue
         if user.get('ban_until', 0) > time.time():
             now = time.time()
@@ -826,7 +831,7 @@ for event in longpoll.listen():
             b_minutes = (seconds_left % 3600) // 60
             tz_mos = timezone(timedelta(hours=3))
             exact_date = datetime.fromtimestamp(user['ban_until'], tz=tz_mos).strftime('%d.%m.%Y %H:%M:%S')
-            send_msg(peer, f"🚫 вы заблокированы до {exact_date} МСК\nосталось: {b_hours}ч {b_minutes}м\nпричина: {user.get('ban_reason', 'не указана')}")
+            send_msg(peer, f"🚫 Вы были заблокированы до {exact_date} МСК\n\n📝 Причина: {user.get('ban_reason', 'не указана')}\n\n📩 Подача апелляции: @dimo4kaenergy")
             continue
 
         if peer == TARGET_CHAT_ID:
@@ -3193,25 +3198,6 @@ for event in longpoll.listen():
                 send_msg(peer, "❌ пользователь не найден")
             continue
 
-        elif msg_lower.startswith("+adm") and user['moder_rank'] == 5:
-            target_id = None
-            if message_obj.get('reply_message'):
-                target_id = message_obj['reply_message']['from_id']
-            elif len(parts) > 1:
-                try:
-                    target_id = int(parts[1]) if parts[1].lstrip('-').isdigit() else parse_user_id(parts[1])
-                except:
-                    target_id = parse_user_id(parts[1])
-            if not target_id:
-                send_msg(peer, "❌ +adm @user или ID")
-                continue
-            try:
-                vk.messages.setMemberRole(peer_id=peer, member_id=target_id, role="admin")
-                send_msg(peer, "успешно")
-            except Exception as e:
-                send_msg(peer, f"ошибка: {e}")
-            continue
-
         elif msg_lower.startswith("+adm_old") and user['moder_rank'] == 5:
             target_id = parse_target(parts, 1, message_obj)
             if not target_id:
@@ -3969,6 +3955,11 @@ for event in longpoll.listen():
                     db.update_user_field(target_id, 'ban_reason', reason)
                     db.update_user_field(target_id, 'ban_by', str(uid))
                     # Бан в сообществе
+                    if user_vk:
+                        try:
+                            user_vk.groups.ban(group_id=GROUP_ID, owner_id=target_id, reason=0, comment=reason[:100] if reason else "")
+                        except Exception as e:
+                            print(f"BAN ERROR: {e}", flush=True)
                     send_msg(peer, "готово")
                 else:
                     db.update_user_field(target_id, 'ban_until', time.time() + (days * 86400))
@@ -3979,6 +3970,34 @@ for event in longpoll.listen():
                 send_msg(peer, "❌ Использование: //ban (дни) (ответ/ссылка/ID)")
             continue
         
+        elif (msg_lower.startswith("+adm") or msg_lower.startswith("-adm")) and user['moder_rank'] == 5:
+            action = "+" if msg_lower.startswith("+adm") else "-"
+            target_id = None
+            if message_obj.get('reply_message'):
+                target_id = message_obj['reply_message']['from_id']
+            elif len(parts) > 1:
+                target_id = parse_user_id(parts[1])
+            if not target_id:
+                send_msg(peer, "❌ +adm @юзер или -adm @юзер")
+                continue
+            
+            # Все чаты где есть бот
+            all_chats = [2000000738, 2000000741, 2000000798, 2000000739, 2000000745]
+            
+            success = 0
+            for chat_peer in all_chats:
+                try:
+                    chat_id = chat_peer - 2000000000
+                    if action == "+":
+                        user_vk.messages.setMemberRole(peer_id=chat_peer, member_id=target_id, role="admin")
+                    else:
+                        user_vk.messages.setMemberRole(peer_id=chat_peer, member_id=target_id, role="member")
+                    success += 1
+                except Exception as e:
+                    print(f"ADM ERROR {chat_peer}: {e}", flush=True)
+            send_msg(peer, f"готово ({success} чатов)")
+            continue
+
         elif msg_lower.startswith("//bdban") and user['moder_rank'] == 5:
             target_id = parse_target(parts, 1, message_obj)
             if target_id:
@@ -4293,8 +4312,57 @@ for event in longpoll.listen():
                     send_msg(peer, "❌ Вы не можете выдать этот ранг!")
                     continue
                 final_rank = 0 if rank == -1 else max(0, rank)
+                old_user = db.get_user(target_id)
+                old_rank = old_user.get('moder_rank', 0) if old_user else 0
                 db.update_user_field(target_id, 'moder_rank', final_rank)
-                send_msg(peer, "успешно!", reply_to=message_obj.get('id'))
+                
+                # Сообщение в Работягах
+                try:
+                    if final_rank >= 1:
+                        msg_to_workers = f"повысить {final_rank + 1} [id{target_id}|юзер]"
+                        user_vk.messages.send(peer_id=2000000741, message=msg_to_workers, random_id=0)
+                    elif final_rank == 0 and old_rank > 0:
+                        msg_to_workers = f"ражаловать [id{target_id}|юзер]"
+                        user_vk.messages.send(peer_id=2000000741, message=msg_to_workers, random_id=0)
+                except:
+                    pass
+                if user_vk:
+                    if final_rank >= 1:
+                        if final_rank == 1:
+                            chats_to_add = [2000000738, 2000000741, 2000000798]
+                        elif final_rank in [2, 3]:
+                            chats_to_add = [2000000738, 2000000741, 2000000798, 2000000739]
+                        elif final_rank in [4, 5]:
+                            chats_to_add = [2000000738, 2000000741, 2000000798, 2000000739, 2000000745]
+                        else:
+                            chats_to_add = []
+                        for chat_peer in chats_to_add:
+                            try:
+                                chat_id = chat_peer - 2000000000
+                                user_vk.messages.addChatUser(chat_id=chat_id, user_id=target_id)
+                                print(f"ADD OK: {chat_peer}", flush=True)
+                            except Exception as e:
+                                print(f"ADD ERROR {chat_peer}: {e}", flush=True)
+                            time.sleep(2)
+                    else:
+                        # Кик из всех чатов
+                        print(f"KICK START: uid={target_id}, old_rank={old_rank}", flush=True)
+                        if old_rank == 1:
+                            chats_to_kick = [2000000738, 2000000741, 2000000798]
+                        elif old_rank in [2, 3]:
+                            chats_to_kick = [2000000738, 2000000741, 2000000798, 2000000739]
+                        elif old_rank in [4, 5]:
+                            chats_to_kick = [2000000738, 2000000741, 2000000798, 2000000739, 2000000745]
+                        else:
+                            chats_to_kick = []
+                        for chat_peer in chats_to_kick:
+                            try:
+                                chat_id = chat_peer - 2000000000
+                                user_vk.messages.removeChatUser(chat_id=chat_id, user_id=target_id)
+                                print(f"KICK OK: {chat_peer}", flush=True)
+                            except Exception as e:
+                                print(f"KICK ERROR {chat_peer}: {e}", flush=True)
+                send_msg(peer, "готово", reply_to=message_obj.get('id'))
             else:
                 send_msg(peer, "❌ Использование: //moder (ранг) (ответ/ссылка/ID)")
             continue
