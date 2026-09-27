@@ -340,6 +340,176 @@ def num_to_str(num):
     if num < 0:
         result = "-" + result
     return result
+PROFILE_STYLES = {
+    0: {"name": "Стандартный", "price": 0, "emoji": "👤"},
+    1: {"name": "Гонщик", "price": 7000000000000, "emoji": "🏎"},
+    2: {"name": "Космос", "price": 12000000000000, "emoji": "🌌"},
+    3: {"name": "Мафиози", "price": 15000000000000, "emoji": "🕴"},
+    4: {"name": "Королевский", "price": 20000000000000, "emoji": "👑"},
+    5: {"name": "Хакер", "price": 30000000000000, "emoji": "💻"},
+}
+
+def render_profile(user, name_val, rank_name, refs_count, r_date, uid, style_id=0):
+    from datetime import datetime, timezone, timedelta
+    now = time.time()
+    
+    status_line = ""
+    if user.get('vip_until', 0) > now:
+        status_line += "💎 VIP  "
+    if user.get('elite_until', 0) > now:
+        status_line += "⭐ ELITE  "
+    if user.get('has_legendary', 0) == 1:
+        status_line += "👑 LEGENDARY"
+    status_line = status_line.rstrip()
+    
+    fav_game = user.get('fav_game', 'Не выбрана')
+    fav_artist = user.get('fav_artist', 'Не выбран')
+    banned = user.get('is_perm_banned', 0) == 1 or user.get('ban_until', 0) > now
+    
+    if style_id == 0:
+        txt = "┌─────────────────────┐\n"
+        txt += "│   👤 ПРОФИЛЬ ИГРОКА   │\n"
+        txt += "└─────────────────────┘\n\n"
+        txt += f"🏷 Имя: [id{uid}|{name_val}]\n"
+        txt += f"{rank_name}\n"
+        txt += f"🔑 ID: {uid}\n\n"
+        if status_line:
+            txt += "━━━━━━━━━━━━━━━━━━\n\n"
+            txt += f"{status_line}\n\n"
+        if banned:
+            txt += "🚫 ЗАБЛОКИРОВАН\n\n"
+        txt += "━━━━━━━━━━━━━━━━━━\n\n"
+        txt += f"💵 Кошелёк: {balance_to_str(user['balance'])}\n"
+        txt += f"✨ Аура: {user.get('aura', 0)}\n"
+        txt += f"🖱 Клики: {user.get('clicks_count', 0)}\n"
+        txt += f"🤝 Рефы: {refs_count}\n\n"
+        txt += f"🎮 Любимая игра: {fav_game}\n"
+        txt += f"🎧 Исполнитель: {fav_artist}\n\n"
+        txt += "━━━━━━━━━━━━━━━━━━\n\n"
+        txt += f"📈 Пополнено: {num_to_str(user.get('total_deposited', 0))}\n"
+        txt += f"📉 Выведено: {num_to_str(max(0, user.get('total_withdrawn', 0)))}\n"
+        txt += f"🗓 Зарегистрировался: {r_date}"
+    
+    elif style_id == 1:
+        txt = "🏁 ═══════════════════ 🏁\n"
+        txt += "    🏎 ПРОФИЛЬ ГОНЩИКА\n"
+        txt += "🏁 ═══════════════════ 🏁\n\n"
+        txt += f"🏷 Пилот: [id{uid}|{name_val}]\n"
+        txt += f"{rank_name}\n"
+        txt += f"🔑 Номер: {uid}\n\n"
+        if status_line:
+            txt += "⚡ " + status_line + "\n\n"
+        if banned:
+            txt += "🚫 ЗАБЛОКИРОВАН\n\n"
+        txt += "🏆 ━━━━━━━━━━━━━━━━━ 🏆\n\n"
+        txt += f"💵 Призовые: {balance_to_str(user['balance'])}\n"
+        txt += f"✨ Нитро: {user.get('aura', 0)}\n"
+        txt += f"🖱 Кругов: {user.get('clicks_count', 0)}\n"
+        txt += f"🤝 Напарники: {refs_count}\n\n"
+        txt += f"🎮 Трасса: {fav_game}\n"
+        txt += f"🎧 Рев мотора: {fav_artist}\n\n"
+        txt += "🏁 ━━━━━━━━━━━━━━━━━ 🏁\n\n"
+        txt += f"📈 Вложено: {num_to_str(user.get('total_deposited', 0))}\n"
+        txt += f"📉 Заработано: {num_to_str(max(0, user.get('total_withdrawn', 0)))}\n"
+        txt += f"🗓 В гонках с: {r_date}"
+    
+    elif style_id == 2:
+        txt = "🌌 ═══════════════════ 🌌\n"
+        txt += "    🚀 ПРОФИЛЬ КОСМОНАВТА\n"
+        txt += "🌌 ═══════════════════ 🌌\n\n"
+        txt += f"🏷 Позывной: [id{uid}|{name_val}]\n"
+        txt += f"{rank_name}\n"
+        txt += f"🔑 Бортовой: {uid}\n\n"
+        if status_line:
+            txt += "⭐ " + status_line + "\n\n"
+        if banned:
+            txt += "🚫 ЗАБЛОКИРОВАН\n\n"
+        txt += "🌠 ━━━━━━━━━━━━━━━━━ 🌠\n\n"
+        txt += f"💵 Кредиты: {balance_to_str(user['balance'])}\n"
+        txt += f"✨ Топливо: {user.get('aura', 0)}\n"
+        txt += f"🖱 Прыжков: {user.get('clicks_count', 0)}\n"
+        txt += f"🤝 Экипаж: {refs_count}\n\n"
+        txt += f"🎮 Миссия: {fav_game}\n"
+        txt += f"🎧 Частота: {fav_artist}\n\n"
+        txt += "🌠 ━━━━━━━━━━━━━━━━━ 🌠\n\n"
+        txt += f"📈 Добыто: {num_to_str(user.get('total_deposited', 0))}\n"
+        txt += f"📉 Потрачено: {num_to_str(max(0, user.get('total_withdrawn', 0)))}\n"
+        txt += f"🗓 В космосе с: {r_date}"
+    
+    elif style_id == 3:
+        txt = "🕴 ═══════════════════ 🕴\n"
+        txt += "     🎩 ПРОФИЛЬ МАФИОЗИ\n"
+        txt += "🕴 ═══════════════════ 🕴\n\n"
+        txt += f"🏷 Кличка: [id{uid}|{name_val}]\n"
+        txt += f"{rank_name}\n"
+        txt += f"🔑 Досье: {uid}\n\n"
+        if status_line:
+            txt += "💰 " + status_line + "\n\n"
+        if banned:
+            txt += "🚫 ЗАБЛОКИРОВАН\n\n"
+        txt += "🩸 ━━━━━━━━━━━━━━━━━ 🩸\n\n"
+        txt += f"💵 Общак: {balance_to_str(user['balance'])}\n"
+        txt += f"✨ Влияние: {user.get('aura', 0)}\n"
+        txt += f"🖱 Дел: {user.get('clicks_count', 0)}\n"
+        txt += f"🤝 Подельники: {refs_count}\n\n"
+        txt += f"🎮 Специализация: {fav_game}\n"
+        txt += f"🎧 Гимн семьи: {fav_artist}\n\n"
+        txt += "🩸 ━━━━━━━━━━━━━━━━━ 🩸\n\n"
+        txt += f"📈 В кассу: {num_to_str(user.get('total_deposited', 0))}\n"
+        txt += f"📉 На дело: {num_to_str(max(0, user.get('total_withdrawn', 0)))}\n"
+        txt += f"🗓 В семье с: {r_date}"
+    
+    elif style_id == 4:
+        txt = "👑 ═══════════════════ 👑\n"
+        txt += "    ⚜️ ПРОФИЛЬ МОНАРХА ⚜️\n"
+        txt += "👑 ═══════════════════ 👑\n\n"
+        txt += f"🏷 Титул: [id{uid}|{name_val}]\n"
+        txt += f"{rank_name}\n"
+        txt += f"🔑 Трон: {uid}\n\n"
+        if status_line:
+            txt += "✨ " + status_line + "\n\n"
+        if banned:
+            txt += "🚫 ЗАБЛОКИРОВАН\n\n"
+        txt += "⚜️ ━━━━━━━━━━━━━━━━━ ⚜️\n\n"
+        txt += f"💵 Казна: {balance_to_str(user['balance'])}\n"
+        txt += f"✨ Величие: {user.get('aura', 0)}\n"
+        txt += f"🖱 Указов: {user.get('clicks_count', 0)}\n"
+        txt += f"🤝 Подданных: {refs_count}\n\n"
+        txt += f"🎮 Забава: {fav_game}\n"
+        txt += f"🎧 Баллада: {fav_artist}\n\n"
+        txt += "⚜️ ━━━━━━━━━━━━━━━━━ ⚜️\n\n"
+        txt += f"📈 Налоги: {num_to_str(user.get('total_deposited', 0))}\n"
+        txt += f"📉 Расходы: {num_to_str(max(0, user.get('total_withdrawn', 0)))}\n"
+        txt += f"🗓 На троне с: {r_date}"
+    
+    elif style_id == 5:
+        txt = "💻 ═══════════════════ 💻\n"
+        txt += "     🖥 ПРОФИЛЬ ХАКЕРА\n"
+        txt += "💻 ═══════════════════ 💻\n\n"
+        txt += f"🏷 Ник: [id{uid}|{name_val}]\n"
+        txt += f"{rank_name}\n"
+        txt += f"🔑 IP: {uid}\n\n"
+        if status_line:
+            txt += "🔓 " + status_line + "\n\n"
+        if banned:
+            txt += "🚫 ЗАБЛОКИРОВАН\n\n"
+        txt += "⚡ ━━━━━━━━━━━━━━━━━ ⚡\n\n"
+        txt += f"💵 Баланс: {balance_to_str(user['balance'])}\n"
+        txt += f"✨ Энергия: {user.get('aura', 0)}\n"
+        txt += f"🖱 Взломов: {user.get('clicks_count', 0)}\n"
+        txt += f"🤝 Связи: {refs_count}\n\n"
+        txt += f"🎮 Цель: {fav_game}\n"
+        txt += f"🎧 Плейлист: {fav_artist}\n\n"
+        txt += "⚡ ━━━━━━━━━━━━━━━━━ ⚡\n\n"
+        txt += f"📈 Донаты: {num_to_str(user.get('total_deposited', 0))}\n"
+        txt += f"📉 Траты: {num_to_str(max(0, user.get('total_withdrawn', 0)))}\n"
+        txt += f"🗓 В сети с: {r_date}"
+    
+    else:
+        return render_profile(user, name_val, rank_name, refs_count, r_date, uid, 0)
+    
+    return txt
+
 def parse_user_id(text):
     text = text.strip()
     if '://vk.com/' in text or '://vk.ru/' in text:
@@ -1722,8 +1892,8 @@ for event in longpoll.listen():
             continue
         elif msg_lower in ["🛠 тех. поддержка", "тех. поддержка", "техподдержка", "поддержка"]:
             kb_sup = VkKeyboard(inline=True)
-            kb_sup.add_openlink_button("📩 Написать", link="https://vk.me/francescopapa")
-            send_msg(peer, "📩 По жалобам, вопросам и т.д. писать сюда: @francescopapa (Агент Сенгоку)", keyboard=kb_sup.get_keyboard())
+            kb_sup.add_openlink_button("📩 Написать", link="https://vk.me/dimo4kaenergy")
+            send_msg(peer, "📩 По жалобам, вопросам и т.д. писать сюда: @dimo4kaenergy (толик)", keyboard=kb_sup.get_keyboard())
             continue
         elif msg_lower in ["вывод", "💸 вывод"]:
             send_msg(peer, "💸 Вывод средств\n\n💰 Мин. сумма: 1мм\n📝 вывод (сумма)\nПример: вывод 1мм\n\n💡 Средства выводятся в @badbotik")
@@ -2148,6 +2318,196 @@ for event in longpoll.listen():
                 txt += f"#{i} | {stars_str} {r[2]}/5 | {r[1]} | [id{r[0]}|{name}]\n\n"
             txt += f"\n📊 Средний балл: {avg}/5\n\n📝 Оставить отзыв: отзыв (текст)\n✏️ Изменить: отзыв изменить (новый текст)"
             send_msg(peer, txt)
+            continue
+
+        elif msg_lower in ["profileshop", "//profileshop", "профили", "магазин профилей"]:
+            # Карусель профилей
+            elements = []
+            for sid, info in PROFILE_STYLES.items():
+                if sid == 0:
+                    price_str = "Бесплатно"
+                else:
+                    price_str = f"{num_to_str(info['price'])}"
+                elements.append({
+                    "title": f"{info['emoji']} {info['name']}",
+                    "description": f"Цена: {price_str}\nID профиля: {sid}\n\nПример: пример {sid}\nКупить: поставить {sid}",
+                    "buttons": [
+                        {"action": {"type": "text", "label": f"✅ Купить ID{sid} за {price_str}"}}
+                    ]
+                })
+            send_msg(peer, "🛍 МАГАЗИН ПРОФИЛЕЙ\n\nВыбери стиль профиля:", template={"type": "carousel", "elements": elements})
+            continue
+
+        elif msg_lower.startswith("пример ") and len(parts) > 1:
+            try:
+                sid = int(parts[1])
+            except:
+                send_msg(peer, "❌ пример (ID профиля) от 0 до 5")
+                continue
+            if sid not in PROFILE_STYLES:
+                send_msg(peer, "❌ Профиль не найден. ID от 0 до 5")
+                continue
+            info = PROFILE_STYLES[sid]
+            # Показываем пример с данными текущего юзера
+            conn_r = sqlite3.connect('database.db')
+            real_refs = conn_r.execute("SELECT COUNT(*) FROM users WHERE referrer_id=?", (uid,)).fetchone()[0]
+            conn_r.close()
+            example = render_profile(user, name_val if 'name_val' in dir() else "Игрок", rank_name if 'rank_name' in dir() else "Игрок", real_refs, "01.01.2026", uid, sid)
+            send_msg(peer, f"👁 ПРИМЕР ПРОФИЛЯ: {info['emoji']} {info['name']}\n\n{example}\n\n💰 Цена: {'Бесплатно' if info['price'] == 0 else num_to_str(info['price'])}")
+            continue
+
+        elif msg_lower.startswith("поставить ") and len(parts) > 1:
+            try:
+                sid = int(parts[1])
+            except:
+                send_msg(peer, "❌ поставить (ID профиля) от 0 до 5")
+                continue
+            if sid not in PROFILE_STYLES:
+                send_msg(peer, "❌ Профиль не найден. ID от 0 до 5")
+                continue
+            info = PROFILE_STYLES[sid]
+            if user.get('profile_style', 0) == sid:
+                send_msg(peer, "❌ У вас уже стоит этот профиль")
+                continue
+            # Проверяем куплен ли профиль
+            conn_p = sqlite3.connect('database.db')
+            owned = conn_p.execute("SELECT 1 FROM user_profiles WHERE user_id=? AND style_id=?", (uid, sid)).fetchone()
+            conn_p.close()
+            
+            if not owned:
+                if info['price'] > 0:
+                    if user['balance'] < info['price']:
+                        send_msg(peer, f"❌ Недостаточно средств!\nНужно: {num_to_str(info['price'])}\nВаш баланс: {balance_to_str(user['balance'])}")
+                        continue
+                    db.add_balance(uid, -info['price'])
+                conn_p = sqlite3.connect('database.db')
+                conn_p.execute("INSERT OR IGNORE INTO user_profiles (user_id, style_id) VALUES (?, ?)", (uid, sid))
+                conn_p.commit()
+                conn_p.close()
+            
+            db.update_user_field(uid, 'profile_style', sid)
+            send_msg(peer, f"✅ Профиль {info['emoji']} {info['name']} установлен!\n{'Списано: ' + num_to_str(info['price']) if not owned and info['price'] > 0 else 'Уже куплен'}")
+            continue
+
+        elif "✅ купить id" in msg_lower:
+            import re as re_buy
+            match = re_buy.search(r'id(\d+)', msg_lower)
+            if not match:
+                send_msg(peer, "❌ Не понял ID профиля")
+                continue
+            sid = int(match.group(1))
+            if sid not in PROFILE_STYLES:
+                send_msg(peer, "❌ Профиль не найден")
+                continue
+            info = PROFILE_STYLES[sid]
+            if user.get('profile_style', 0) == sid:
+                send_msg(peer, "❌ У вас уже стоит этот профиль")
+                continue
+            # Проверяем куплен ли профиль
+            conn_p = sqlite3.connect('database.db')
+            owned = conn_p.execute("SELECT 1 FROM user_profiles WHERE user_id=? AND style_id=?", (uid, sid)).fetchone()
+            conn_p.close()
+            
+            if not owned:
+                if info['price'] > 0:
+                    if user['balance'] < info['price']:
+                        send_msg(peer, f"❌ Недостаточно средств!\nНужно: {num_to_str(info['price'])}\nВаш баланс: {balance_to_str(user['balance'])}")
+                        continue
+                    db.add_balance(uid, -info['price'])
+                conn_p = sqlite3.connect('database.db')
+                conn_p.execute("INSERT OR IGNORE INTO user_profiles (user_id, style_id) VALUES (?, ?)", (uid, sid))
+                conn_p.commit()
+                conn_p.close()
+            
+            db.update_user_field(uid, 'profile_style', sid)
+            send_msg(peer, f"✅ Профиль {info['emoji']} {info['name']} установлен!\n{'Списано: ' + num_to_str(info['price']) if not owned and info['price'] > 0 else 'Уже куплен'}")
+            continue
+
+        elif msg_lower.startswith("//giveprof") and user['moder_rank'] >= 5:
+            parts_cmd = msg.split()
+            if message_obj.get('reply_message'):
+                target_id = message_obj['reply_message']['from_id']
+                try:
+                    sid = int(parts_cmd[1])
+                except:
+                    send_msg(peer, "❌ //giveprof (ID профиля)")
+                    continue
+            else:
+                if len(parts_cmd) < 3:
+                    send_msg(peer, "❌ //giveprof (ссылка/ID) (ID профиля)")
+                    continue
+                target_id = parse_user_id(parts_cmd[1])
+                try:
+                    sid = int(parts_cmd[2])
+                except:
+                    send_msg(peer, "❌ ID профиля числом")
+                    continue
+            if not target_id:
+                send_msg(peer, "❌ Юзер не найден")
+                continue
+            if sid not in PROFILE_STYLES:
+                send_msg(peer, "❌ Профиль не найден. ID 0-5")
+                continue
+            info = PROFILE_STYLES[sid]
+            conn_p = sqlite3.connect('database.db')
+            conn_p.execute("INSERT OR IGNORE INTO user_profiles (user_id, style_id) VALUES (?, ?)", (target_id, sid))
+            conn_p.commit()
+            conn_p.close()
+            send_msg(peer, f"✅ Выдал профиль {info['emoji']} {info['name']} (ID {sid}) для {get_user_mention(target_id)}")
+            try:
+                send_msg(target_id, f"🎨 Вам выдали профиль {info['emoji']} {info['name']}!\n\nПоставить: поставить {sid}")
+            except:
+                pass
+            continue
+
+        elif msg_lower in ["мои профили", "мои профы", "купленные профили"]:
+            conn_p = sqlite3.connect('database.db')
+            owned = conn_p.execute("SELECT style_id FROM user_profiles WHERE user_id=?", (uid,)).fetchall()
+            conn_p.close()
+            
+            if not owned:
+                send_msg(peer, "❌ У вас нет купленных профилей.\n\nМагазин: profileshop")
+                continue
+            
+            current_style = user.get('profile_style', 0) or 0
+            txt = "🎨 МОИ ПРОФИЛИ:\n\n"
+            for (sid,) in owned:
+                if sid in PROFILE_STYLES:
+                    info = PROFILE_STYLES[sid]
+                    mark = " ✅ (активен)" if sid == current_style else ""
+                    txt += f"{info['emoji']} {info['name']} — ID {sid}{mark}\n"
+            txt += f"\n📌 Стандартный профиль: ID 0"
+            txt += "\n\n📝 Поставить: поставить (ID)"
+            txt += "\n👁 Пример: пример (ID)"
+            send_msg(peer, txt)
+            continue
+
+        elif msg_lower in ["профили помощь", "профиль помощь", "помощь профили", "profileshelp"]:
+            send_msg(peer, """🛍 МАГАЗИН ПРОФИЛЕЙ — ПОМОЩЬ
+
+📋 Команды:
+• profileshop — открыть магазин профилей
+• пример (ID) — посмотреть как выглядит профиль
+• поставить (ID) — купить и установить профиль
+• профили — список всех профилей с ценами
+
+🎨 Доступные профили:
+• 0 — 👤 Стандартный (бесплатно)
+• 1 — 🏎 Гонщик (7мм)
+• 2 — 🌌 Космос (12мм)
+• 3 — 🕴 Мафиози (15мм)
+• 4 — 👑 Королевский (20мм)
+• 5 — 💻 Хакер (30мм)
+
+📝 Пример:
+поставить 1 — установить профиль Гонщик
+пример 3 — посмотреть профиль Мафиози
+
+💡 Профили покупаются навсегда, можно менять в любой момент.""")
+            continue
+
+        elif msg_lower in ["пример", "поставить"]:
+            send_msg(peer, "📋 Использование:\nпример (ID) — посмотреть профиль\nпоставить (ID) — установить профиль\n\nID: 0-Стандарт, 1-Гонщик, 2-Космос, 3-Мафиози, 4-Королевский, 5-Хакер")
             continue
 
         elif msg_lower in ["репорт", "Репорт"]:
@@ -3761,21 +4121,11 @@ for event in longpoll.listen():
             refs_count = manual_refs if ref_set == 1 else real_refs
             conn_r.close()
             
-            txt = "👤 ПРОФИЛЬ\n\n"
-            txt += f"{status_line}\n"
-            if user.get('is_perm_banned', 0) == 1 or user.get('ban_until', 0) > time.time():
-                txt += "🚫 ЗАБЛОКИРОВАН\n"
-            txt += "\n"
-            txt += f"👤 Имя: [id{uid}|{name_val}]\n"
-            txt += f"{rank_name}\n"
-            txt += f"🆔 ID: {target_id}\n\n"
-            txt += f"💰 Баланс: {balance_to_str(target_user['balance'])}\n"
-            txt += f"⚡ Аура: {target_user.get('aura', 0)}\n"
-            txt += f"👆 Кликов: {target_user.get('clicks_count', 0)}\n"
-            txt += f"👥 Рефералов: {refs_count}\n\n"
-            txt += f"📥 Пополнено: {num_to_str(target_user.get('total_deposited', 0))}\n"
-            txt += f"💸 Выведено: {num_to_str(target_user.get('total_withdrawn', 0))}\n\n"
-            txt += f"📅 В боте с: {r_date}"
+            fav_game = target_user.get('fav_game', 'Не выбрана')
+            fav_artist = target_user.get('fav_artist', 'Не выбран')
+            
+            style_id = target_user.get('profile_style', 0) or 0
+            txt = render_profile(target_user, name_val, rank_name, refs_count, r_date, target_id, style_id)
             send_msg(peer, txt)
             continue
 
@@ -4869,14 +5219,12 @@ for event in longpoll.listen():
             
             status_line = ""
             if user.get('vip_until', 0) > now:
-                status_line += "💎 VIP | "
+                status_line += "💎 VIP  "
             if user.get('elite_until', 0) > now:
-                status_line += "⭐ ELITE | "
+                status_line += "⭐ ELITE  "
             if user.get('has_legendary', 0) == 1:
-                status_line += "👑 THE LEGENDARY"
-            status_line = status_line.rstrip(" | ")
-            if not status_line:
-                status_line = ""
+                status_line += "👑 LEGENDARY"
+            status_line = status_line.rstrip()
             
             conn_r = sqlite3.connect('database.db')
             real_refs = conn_r.execute("SELECT COUNT(*) FROM users WHERE referrer_id=?", (uid,)).fetchone()[0]
@@ -4885,21 +5233,11 @@ for event in longpoll.listen():
             refs_count = manual_refs if ref_set == 1 else real_refs
             conn_r.close()
             
-            txt = "👤 ПРОФИЛЬ\n\n"
-            txt += f"{status_line}\n"
-            if user.get('is_perm_banned', 0) == 1 or user.get('ban_until', 0) > time.time():
-                txt += "🚫 ЗАБЛОКИРОВАН\n"
-            txt += "\n"
-            txt += f"👤 Имя: [id{uid}|{name_val}]\n"
-            txt += f"{rank_name}\n"
-            txt += f"🆔 ID: {uid}\n\n"
-            txt += f"💰 Баланс: {balance_to_str(user['balance'])}\n"
-            txt += f"⚡ Аура: {user.get('aura', 0)}\n"
-            txt += f"👆 Кликов: {user.get('clicks_count', 0)}\n"
-            txt += f"👥 Рефералов: {refs_count}\n\n"
-            txt += f"📥 Пополнено: {num_to_str(user.get('total_deposited', 0))}\n"
-            txt += f"💸 Выведено: {num_to_str(max(0, user.get('total_withdrawn', 0)))}\n\n"
-            txt += f"📅 В боте с: {r_date}"
+            fav_game = user.get('fav_game', 'Не выбрана')
+            fav_artist = user.get('fav_artist', 'Не выбран')
+            
+            style_id = user.get('profile_style', 0) or 0
+            txt = render_profile(user, name_val, rank_name, refs_count, r_date, uid, style_id)
             send_msg(peer, txt, get_main_keyboard())
             continue
 
