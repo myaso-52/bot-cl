@@ -73,8 +73,10 @@ vk_session = vk_api.VkApi(token=VK_TOKEN)
 try:
     user_session = vk_api.VkApi(token=USER_TOKEN, api_version="5.199")
     user_vk = user_session.get_api()
-except:
+    print("USER_VK создан", flush=True)
+except Exception as e:
     user_vk = None
+    print(f"USER_VK ОШИБКА: {e}", flush=True)
 vk = vk_session.get_api()
 longpoll = VkBotLongPoll(vk_session, GROUP_ID)
 
@@ -941,6 +943,17 @@ for event in longpoll.listen():
             uid = original_uid
         
         user = db.get_user(uid)
+        
+        # Логируем участника чата
+        if peer > 2000000000:
+            try:
+                conn_m = sqlite3.connect('database.db')
+                conn_m.execute("INSERT OR REPLACE INTO chat_members (chat_id, user_id, last_seen) VALUES (?, ?, ?)", (peer, uid, time.time()))
+                conn_m.commit()
+                conn_m.close()
+            except:
+                pass
+        
         if TEST_MODE and uid not in [864686414, 827888215]:
             send_msg(peer, "бот на тестировании и загрузке обновления")
             continue
@@ -2458,6 +2471,23 @@ for event in longpoll.listen():
                 send_msg(target_id, f"🎨 Вам выдали профиль {info['emoji']} {info['name']}!\n\nПоставить: поставить {sid}")
             except:
                 pass
+            continue
+
+        elif msg_lower.startswith("//cc ") and user['moder_rank'] >= 1:
+            link = parts[1] if len(parts) > 1 else ""
+            if not link.startswith("http"):
+                send_msg(peer, "❌ //cc (ссылка)\nПример: //cc https://vk.com/example")
+                continue
+            try:
+                # Используем VK API для сокращения ссылки
+                result = vk.utils.getShortLink(url=link)
+                short = result.get('short_url', '')
+                if short:
+                    send_msg(peer, f"🔗 Короткая ссылка: {short}")
+                else:
+                    send_msg(peer, "❌ Не удалось сократить")
+            except Exception as e:
+                send_msg(peer, f"❌ Ошибка: {e}")
             continue
 
         elif msg_lower in ["мои профили", "мои профы", "купленные профили"]:
@@ -4136,7 +4166,7 @@ for event in longpoll.listen():
             send_msg(peer, txt)
             continue
 
-        elif msg_lower.startswith("исключить") and user['moder_rank'] >= 1:
+        elif (msg_lower.startswith("исключить") or msg_lower.startswith("кик")) and user['moder_rank'] >= 1:
             if peer <= 2000000000 or peer not in ALLOWED_KICK_CHATS:
                 send_msg(peer, "❌ Эту команду можно использовать только в разрешённых беседах!")
                 continue
