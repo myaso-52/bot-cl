@@ -2789,7 +2789,7 @@ for event in longpoll.listen():
                     used = []
                 for tx in history:
                     tx_time = tx.get("time", 0)
-                    tx_id = f"{tx.get("id", "")}_{tx.get("amount", 0)}_{tx.get("time", 0)}"
+                    tx_id = f"{tx.get('id', '')}_{tx.get('amount', 0)}_{tx.get('time', 0)}"
                     if tx.get("amount", 0) == amount and tx_id and tx_id not in used and (time.time() - tx_time) < 3600:
                         found = True
                         try:
