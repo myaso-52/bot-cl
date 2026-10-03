@@ -775,15 +775,38 @@ MILLIONER_QUESTIONS = [
     {"q": "Дней в неделе?", "a": ["5", "6", "7", "8"], "correct": 2},
 ]
 
-# Автосохранение БД в git раз в час
+# Автосохранение БД через Amvera API раз в час
 def auto_save_db():
     while True:
         time.sleep(3600)
         try:
-            os.system("cd /app && git add database.db && git commit -m 'auto-save db' && git push amvera main:master")
-            print("БД сохранена в git", flush=True)
+            from modules.amvera_restart import _create_session
+            import base64, requests
+            headers = _create_session()
+            if not headers:
+                print("Автосохранение: нет сессии", flush=True)
+                continue
+            with open("database.db", "rb") as f:
+                db_content = f.read()
+            resp = requests.post("https://openmcp.msk0.amvera.ru/mcp", json={
+                "jsonrpc": "2.0", "id": 2, "method": "tools/call",
+                "params": {
+                    "name": "uploadFiles",
+                    "arguments": {
+                        "slug": "bot-cl",
+                        "filePath": "",
+                        "fileText": "",
+                        "fileBase64": base64.b64encode(db_content).decode(),
+                        "filename": "database.db",
+                        "path": "/",
+                        "commitMessage": "auto-save db",
+                        "branch": "master"
+                    }
+                }
+            }, headers=headers, timeout=30)
+            print(f"БД сохранена: {resp.text[:200]}", flush=True)
         except Exception as e:
-            print(f"Ошибка авто-сохранения: {e}", flush=True)
+            print(f"Ошибка автосохранения: {e}", flush=True)
 
 threading.Thread(target=auto_save_db, daemon=True).start()
 
