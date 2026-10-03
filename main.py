@@ -1100,7 +1100,7 @@ for event in longpoll.listen():
                 send_msg(peer, f"💡 Подсказка: последняя цифра {hint_text}.\n⚠️ Награда уменьшена на 10 мк.")
                 continue
             # Всё верно!
-            reward = 100000000000 - game.get("reward_penalty", 0)
+            reward = 200000000000 - game.get("reward_penalty", 0)
             if user.get('game_boost_until', 0) > now:
                 reward *= 2
             db.add_balance(uid, reward)
@@ -1139,7 +1139,7 @@ for event in longpoll.listen():
             attempts = game["attempts"]
             
             if guess == secret:
-                reward = 70000000000
+                reward = 140000000000
                 if user.get('game_boost_until', 0) > time.time():
                     reward *= 2
                 db.add_balance(uid, reward)
@@ -1185,11 +1185,11 @@ for event in longpoll.listen():
             
             if guess == secret:
                 if attempts == 1:
-                    reward = 150000000000
+                    reward = 300000000000
                 elif attempts <= 4:
-                    reward = 60000000000
+                    reward = 120000000000
                 else:
-                    reward = 35000000000
+                    reward = 70000000000
                 if user.get('game_boost_until', 0) > time.time():
                     reward *= 2
                 db.add_balance(uid, reward)
@@ -1235,7 +1235,7 @@ for event in longpoll.listen():
                 active_games.pop(uid, None)
             else:
                 game["opened"].append(idx)
-                game["current_bank"] += 40000000000
+                game["current_bank"] += 80000000000
                 max_diamonds = 6 if game.get("elite") else 3
                 if len(game["opened"]) == max_diamonds:
                     win_reward = game["current_bank"]
@@ -1272,7 +1272,7 @@ for event in longpoll.listen():
                 continue
             board[cell] = "X"
             if check_xo_win(board, "X"):
-                win_reward = 30000000000
+                win_reward = 60000000000
                 if user.get('game_boost_until', 0) > time.time():
                     win_reward *= 2
                 db.add_balance(uid, win_reward)
@@ -1281,7 +1281,7 @@ for event in longpoll.listen():
                 active_games.pop(uid, None)
                 continue
             if " " not in board:
-                tie_reward = 5000000000
+                tie_reward = 10000000000
                 if user.get('game_boost_until', 0) > time.time():
                     tie_reward *= 2
                 db.add_balance(uid, tie_reward)
@@ -1328,7 +1328,7 @@ for event in longpoll.listen():
             bot_emoji = choices[bot_choice]
             
             if player_choice == bot_choice:
-                reward = 5000000000
+                reward = 10000000000
                 if user.get('game_boost_until', 0) > time.time():
                     reward *= 2
                 db.add_balance(uid, reward)
@@ -1336,7 +1336,7 @@ for event in longpoll.listen():
             elif (player_choice == "камень" and bot_choice == "ножницы") or \
                  (player_choice == "ножницы" and bot_choice == "бумага") or \
                  (player_choice == "бумага" and bot_choice == "камень"):
-                reward = 20000000000
+                reward = 40000000000
                 if user.get('game_boost_until', 0) > time.time():
                     reward *= 2
                 db.add_balance(uid, reward)
@@ -1468,10 +1468,10 @@ for event in longpoll.listen():
                 continue
             if user.get('elite_until', 0) > now or user.get('x2_until', 0) > now:
                 required_cd = 0.05
-                reward = 30000000000
+                reward = 60000000000
             else:
                 required_cd = 0.05 if user.get('no_cd_until', 0) > now else 4.0
-                reward = 15000000000
+                reward = 30000000000
             if (now - user.get('last_click', 0)) < required_cd:
                 continue
             db.update_user_field(uid, 'last_click', now)
@@ -1529,7 +1529,7 @@ for event in longpoll.listen():
         elif msg_lower in ["🧮 математика", "математика"]:
             a = random.randint(10, 99)
             b = random.randint(10, 99)
-            user_states[uid] = {"action": "waiting_math_answer", "answers": [str(a + b)], "reward": 25000000000}
+            user_states[uid] = {"action": "waiting_math_answer", "answers": [str(a + b)], "reward": 50000000000}
             send_msg(peer, f"🧮 Математика (+25 мк)\n\nРеши пример: {a} + {b} = ?\n⚠️ У тебя 1 попытка!")
             continue
         elif msg_lower in ["🕵 загадки", "загадки"]:
@@ -1537,7 +1537,7 @@ for event in longpoll.listen():
                 send_msg(peer, "❌ Только в ЛС!", get_games_keyboard(1))
                 continue
             r = random.choice(RIDDLES_POOL)
-            user_states[uid] = {"action": "waiting_riddle_answer", "answers": r["a"], "reward": 40000000000}
+            user_states[uid] = {"action": "waiting_riddle_answer", "answers": r["a"], "reward": 80000000000}
             send_msg(peer, f"🕵️‍♂️ Загадка (+40 мк)\n\n{r['q']}\n⚠️ 1 попытка!")
             continue
         # угадай число удалено
@@ -1791,7 +1791,7 @@ for event in longpoll.listen():
                 if i == 1:
                     kb.add_line()
             kb.add_button("💡 50/50 (100мк)", color=VkKeyboardColor.NEGATIVE, payload={"cmd": "millioner_5050"})
-            active_games[uid] = {"game": "millioner", "question": q, "reward": 40000000000, "bank": 0}
+            active_games[uid] = {"game": "millioner", "question": q, "reward": 80000000000, "bank": 0}
             send_msg(peer, f"💰 Миллионер?\n\n{q['q']}\n\n+40мк за ответ!", keyboard=kb.get_keyboard())
             continue
 
@@ -1808,11 +1808,11 @@ for event in longpoll.listen():
             shuffled_str = ''.join(shuffled)
             word_len = len(word)
             if word_len <= 8:
-                reward = 40000000000
+                reward = 80000000000
             elif word_len <= 10:
-                reward = 60000000000
+                reward = 120000000000
             else:
-                reward = 85000000000
+                reward = 170000000000
             active_games[uid] = {"game": "hangman", "word": word, "shuffled": shuffled_str, "reward": reward, "attempts": 0}
             send_msg(peer, f"🪢 Виселица!\n\nПеремешанные буквы: {shuffled_str.upper()}\nДлина: {word_len} букв\nНаграда: {num_to_str(reward)}\n\nПиши слово (1 попытка):")
             continue
