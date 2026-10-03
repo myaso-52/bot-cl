@@ -935,6 +935,9 @@ for event in longpoll.listen():
                     elif cmd_val.startswith("knb_"):
                         msg = f"knb_{cmd_val.split('_')[-1]}"
                         msg_lower = msg.lower()
+                    elif cmd_val.startswith("millioner_"):
+                        msg = f"millioner_{cmd_val.split('_', 1)[1]}"
+                        msg_lower = msg.lower()
                     elif cmd_val.startswith("buy_"):
                         print(f"DEBUG: buy clicked {cmd_val} by {uid}")
                         item_id = int(cmd_val.split("_")[-1])
@@ -1864,6 +1867,71 @@ for event in longpoll.listen():
             kb.add_button("💡 50/50 (100мк)", color=VkKeyboardColor.NEGATIVE, payload={"cmd": "millioner_5050"})
             active_games[uid] = {"game": "millioner", "question": q, "reward": 80000000000, "bank": 0}
             send_msg(peer, f"💰 Миллионер?\n\n{q['q']}\n\n+40мк за ответ!", keyboard=kb.get_keyboard())
+            continue
+
+        elif msg_lower.startswith("millioner_"):
+            game = active_games.get(uid)
+            if not game or game.get("game") != "millioner":
+                continue
+            arg = msg_lower.replace("millioner_", "")
+            
+            if arg == "5050":
+                if user['balance'] < 100000000000:
+                    send_msg(peer, "❌ Нужно 100мк для 50/50")
+                    continue
+                db.add_balance(uid, -100000000000)
+                q = game["question"]
+                correct = q["correct"]
+                # Убираем 2 неправильных
+                wrong = [i for i in range(4) if i != correct]
+                random.shuffle(wrong)
+                to_remove = wrong[:2]
+                kb = VkKeyboard(one_time=True)
+                for i, ans in enumerate(q["a"]):
+                    if i not in to_remove:
+                        kb.add_button(ans, color=VkKeyboardColor.PRIMARY, payload={"cmd": f"millioner_{i}"})
+                        if i % 2 == 1:
+                            kb.add_line()
+                send_msg(peer, f"💡 50/50\n\n{q['q']}", keyboard=kb.get_keyboard())
+                continue
+            
+            if arg == "take":
+                reward = game.get("bank", 0)
+                if reward > 0:
+                    db.add_balance(uid, reward)
+                    send_msg(peer, f"💰 Забрал {num_to_str(reward)}!")
+                active_games.pop(uid, None)
+                continue
+            
+            if arg == "next":
+                q = random.choice(MILLIONER_QUESTIONS)
+                game["question"] = q
+                kb = VkKeyboard(one_time=True)
+                for i, ans in enumerate(q["a"]):
+                    kb.add_button(ans, color=VkKeyboardColor.PRIMARY, payload={"cmd": f"millioner_{i}"})
+                    if i == 1:
+                        kb.add_line()
+                kb.add_line()
+                kb.add_button("💡 50/50 (100мк)", color=VkKeyboardColor.NEGATIVE, payload={"cmd": "millioner_5050"})
+                kb.add_button("💰 Забрать", color=VkKeyboardColor.POSITIVE, payload={"cmd": "millioner_take"})
+                send_msg(peer, f"💰 Банк: {num_to_str(game.get('bank', 0))}\n\n{q['q']}", keyboard=kb.get_keyboard())
+                continue
+            
+            try:
+                idx = int(arg)
+            except:
+                continue
+            
+            q = game["question"]
+            if idx == q["correct"]:
+                game["bank"] = game.get("bank", 0) + 80000000000
+                kb = VkKeyboard(one_time=True)
+                kb.add_button("💰 Забрать", color=VkKeyboardColor.POSITIVE, payload={"cmd": "millioner_take"})
+                kb.add_button("▶️ Продолжить", color=VkKeyboardColor.PRIMARY, payload={"cmd": "millioner_next"})
+                send_msg(peer, f"🎉 Верно! Банк: {num_to_str(game['bank'])}", keyboard=kb.get_keyboard())
+            else:
+                send_msg(peer, f"❌ Неверно! Правильный ответ: {q['a'][q['correct']]}\nПроигрыш!", get_games_keyboard(3))
+                active_games.pop(uid, None)
             continue
 
         elif msg_lower in ["виселица", "🪢 виселица"]:
@@ -4980,11 +5048,11 @@ for event in longpoll.listen():
                         # Кик из всех чатов
                         print(f"KICK START: uid={target_id}, old_rank={old_rank}", flush=True)
                         if old_rank == 1:
-                            chats_to_kick = [2000000738, 2000000741, 2000000798]
+                            chats_to_kick = [2000000738, 2000000798]
                         elif old_rank in [2, 3]:
-                            chats_to_kick = [2000000738, 2000000741, 2000000798, 2000000739]
+                            chats_to_kick = [2000000738, 2000000798, 2000000739]
                         elif old_rank in [4, 5]:
-                            chats_to_kick = [2000000738, 2000000741, 2000000798, 2000000739, 2000000745]
+                            chats_to_kick = [2000000738, 2000000798, 2000000739, 2000000745]
                         else:
                             chats_to_kick = []
                         for chat_peer in chats_to_kick:
