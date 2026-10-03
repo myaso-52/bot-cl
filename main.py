@@ -3,6 +3,7 @@ import vk_api
 from vk_api.bot_longpoll import VkBotLongPoll, VkBotEventType
 from vk_api.keyboard import VkKeyboard, VkKeyboardColor
 import src.db as db
+from modules.amvera_restart import restart_project
 import src.badbotik as badbot
 import sqlite3
 import random
@@ -3805,6 +3806,15 @@ for event in longpoll.listen():
             send_msg(peer, "сохраняю...")
             subprocess.run("cd /root/bot-cl && git add . && git commit -m 'update' && git push https://myaso-52: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@github.com/myaso-52/bot-cl.git main", shell=True)
             send_msg(peer, "сохранено")
+            continue
+
+        elif msg_lower == "//restart" and user['moder_rank'] == 5:
+            send_msg(peer, "🔄 Перезапускаю бота на Amvera...")
+            ok, msg = restart_project()
+            if ok:
+                send_msg(peer, "✅ Команда отправлена! Бот вернётся через 30-60 секунд.")
+            else:
+                send_msg(peer, f"❌ Ошибка: {str(msg)[:200]}")
             continue
 
         elif msg_lower == "//upgrade" and user['moder_rank'] == 5:
