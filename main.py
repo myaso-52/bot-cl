@@ -980,6 +980,24 @@ for event in longpoll.listen():
         
         user = db.get_user(uid)
         
+        # Отладка для беседы модеров
+        if peer == 2000000004:
+            print(f"[MODER_CHAT] uid={uid}, fwd={bool(message_obj.get('fwd_messages'))}, text={msg[:50]}", flush=True)
+        
+        # Считаем баллы модерам за пересланные сообщения в беседе модеров
+        if peer == 2000000004 and message_obj.get('fwd_messages'):
+            try:
+                from datetime import datetime, timezone, timedelta
+                tz_msk = timezone(timedelta(hours=3))
+                today = datetime.now(tz_msk).strftime("%d.%m.%Y")
+                conn_b = sqlite3.connect('database.db')
+                for fwd in message_obj['fwd_messages']:
+                    conn_b.execute("INSERT INTO moder_balls (user_id, date, timestamp) VALUES (?, ?, ?)", (uid, today, time.time()))
+                conn_b.commit()
+                conn_b.close()
+            except Exception as e:
+                print(f"BALL ERROR: {e}", flush=True)
+        
         # Логируем участника чата
         if peer > 2000000000:
             try:
@@ -3843,6 +3861,143 @@ for event in longpoll.listen():
             send_msg(peer, "сохранено")
             continue
 
+        elif msg_lower.startswith("//checkball") and user['moder_rank'] >= 3:
+            parts_cmd = msg.split()
+            if len(parts_cmd) < 3:
+                send_msg(peer, "❌ Использование: //checkball (дата1) (дата2)\nПример: //checkball 01.10.2026 03.10.2026")
+                continue
+            date1 = parts_cmd[1]
+            date2 = parts_cmd[2]
+            
+            conn_b = sqlite3.connect('database.db')
+            rows = conn_b.execute("SELECT user_id, COUNT(*) FROM moder_balls WHERE date >= ? AND date <= ? GROUP BY user_id ORDER BY COUNT(*) DESC", (date1, date2)).fetchall()
+            conn_b.close()
+            
+            if not rows:
+                send_msg(peer, f"📊 За период {date1} — {date2} баллов нет.")
+                continue
+            
+            ranks = {0: "😼 ИГРОК", 1: "😈 МОДЕРАТОР", 2: "👺 АДМИНИСТРАТОР", 3: "👹 ГЛ. АДМИНИСТРАТОР", 4: "👨‍💻 ЗАМ. РАЗРАБОТЧИКА", 5: "👨‍💻 РАЗРАБОТЧИК"}
+            txt = f"📊 БАЛЛЫ МОДЕРОВ\n📅 {date1} — {date2}\n\n"
+            total = 0
+            for u_id, count in rows:
+                u_data = db.get_user(u_id)
+                rank_name = ranks.get(u_data.get('moder_rank', 0), "ИГРОК")
+                txt += f"{rank_name} [id{u_id}|{u_data.get('nickname', 'Игрок')}] — {count} баллов\n"
+                total += count
+            txt += f"\n📈 Всего: {total} баллов"
+            send_msg(peer, txt)
+            continue
+
+        elif msg_lower.startswith("//giveball") and user['moder_rank'] >= 3:
+            parts_cmd = msg.split()
+            if message_obj.get('reply_message'):
+                target_id = message_obj['reply_message']['from_id']
+                try:
+                    count_ball = int(parts_cmd[1])
+                except:
+                    send_msg(peer, "❌ //giveball (кол-во)")
+                    continue
+            else:
+                if len(parts_cmd) < 3:
+                    send_msg(peer, "❌ //giveball (ссылка/ID) (кол-во)")
+                    continue
+                target_id = parse_user_id(parts_cmd[1])
+                try:
+                    count_ball = int(parts_cmd[2])
+                except:
+                    send_msg(peer, "❌ Кол-во числом")
+                    continue
+            if not target_id:
+                send_msg(peer, "❌ Юзер не найден")
+                continue
+            if count_ball <= 0 or count_ball > 1000:
+                send_msg(peer, "❌ От 1 до 1000")
+                continue
+            
+            from datetime import datetime as dt_ball, timezone as tz_ball, timedelta as td_ball
+            tz_msk = tz_ball(td_ball(hours=3))
+            today = dt_ball.now(tz_msk).strftime("%d.%m.%Y")
+            
+            conn_b = sqlite3.connect('database.db')
+            for _ in range(count_ball):
+                conn_b.execute("INSERT INTO moder_balls (user_id, date, timestamp) VALUES (?, ?, ?)", (target_id, today, time.time()))
+            conn_b.commit()
+            conn_b.close()
+            send_msg(peer, f"✅ Выдал {count_ball} баллов для {get_user_mention(target_id)}")
+            try:
+                send_msg(target_id, f"🎯 Вам выдали {count_ball} баллов модерации!\n\nПотратить: //modershop")
+            except:
+                pass
+            continue
+
+        elif msg_lower == "//modershop" and user['moder_rank'] >= 1:
+            conn_b = sqlite3.connect('database.db')
+            user_balls = conn_b.execute("SELECT COUNT(*) FROM moder_balls WHERE user_id=?", (uid,)).fetchone()[0]
+            conn_b.close()
+            
+            kb = VkKeyboard(one_time=False)
+            kb.add_button("💰 Обменять 1 балл", color=VkKeyboardColor.POSITIVE, payload={"cmd": "modershop_money"})
+            kb.add_line()
+            kb.add_button("⭐ ELITE 10 дней", color=VkKeyboardColor.POSITIVE, payload={"cmd": "modershop_elite"})
+            kb.add_line()
+            kb.add_button("💎 VIP пакет", color=VkKeyboardColor.POSITIVE, payload={"cmd": "modershop_vip"})
+            
+            send_msg(peer, f"🛍 МАГАЗИН МОДЕРАЦИИ\n\n💰 1 балл = 2мм\n⭐ ELITE 10 дней = 5 баллов\n💎 VIP пакет = 20 баллов\n\nУ вас: {user_balls} баллов", keyboard=kb.get_keyboard())
+            continue
+
+        elif msg_lower == "modershop_money" or (payload and "modershop_money" in str(payload)):
+            conn_b = sqlite3.connect('database.db')
+            user_balls = conn_b.execute("SELECT COUNT(*) FROM moder_balls WHERE user_id=?", (uid,)).fetchone()[0]
+            if user_balls < 1:
+                conn_b.close()
+                send_msg(peer, "❌ Нужен хотя бы 1 балл")
+                continue
+            conn_b.execute("DELETE FROM moder_balls WHERE user_id=? LIMIT 1", (uid,))
+            conn_b.commit()
+            conn_b.close()
+            db.add_balance(uid, 2000000000000)
+            send_msg(peer, "✅ Обменял 1 балл на 2мм")
+            continue
+
+        elif msg_lower == "modershop_elite" or (payload and "modershop_elite" in str(payload)):
+            conn_b = sqlite3.connect('database.db')
+            user_balls = conn_b.execute("SELECT COUNT(*) FROM moder_balls WHERE user_id=?", (uid,)).fetchone()[0]
+            if user_balls < 5:
+                conn_b.close()
+                send_msg(peer, f"❌ Нужно 5 баллов. У вас: {user_balls}")
+                continue
+            conn_b.execute("DELETE FROM moder_balls WHERE user_id=? LIMIT 5", (uid,))
+            conn_b.commit()
+            conn_b.close()
+            current_elite = user.get('elite_until', 0)
+            if current_elite < time.time():
+                current_elite = time.time()
+            db.update_user_field(uid, 'elite_until', current_elite + 10 * 86400)
+            send_msg(peer, "✅ ELITE на 10 дней активирован!")
+            continue
+
+        elif msg_lower == "modershop_vip" or (payload and "modershop_vip" in str(payload)):
+            conn_b = sqlite3.connect('database.db')
+            user_balls = conn_b.execute("SELECT COUNT(*) FROM moder_balls WHERE user_id=?", (uid,)).fetchone()[0]
+            if user_balls < 20:
+                conn_b.close()
+                send_msg(peer, f"❌ Нужно 20 баллов. У вас: {user_balls}")
+                continue
+            conn_b.execute("DELETE FROM moder_balls WHERE user_id=? LIMIT 20", (uid,))
+            conn_b.commit()
+            conn_b.close()
+            db.update_user_field(uid, 'no_cd_until', time.time() + 86400)
+            db.update_user_field(uid, 'game_boost_until', time.time() + 86400)
+            db.update_user_field(uid, 'last_withdraw', 0)
+            current_elite = user.get('elite_until', 0)
+            if current_elite < time.time():
+                current_elite = time.time()
+            db.update_user_field(uid, 'elite_until', current_elite + 3 * 86400)
+            db.update_user_field(uid, 'vip_until', time.time() + 86400)
+            send_msg(peer, "✅ VIP пакет активирован!")
+            continue
+
         elif msg_lower == "//restart" and user['moder_rank'] == 5:
             ok, msg = restart_project()
             if ok:
@@ -4766,11 +4921,11 @@ for event in longpoll.listen():
                 if user_vk:
                     if final_rank >= 1:
                         if final_rank == 1:
-                            chats_to_add = [2000000738, 2000000741, 2000000798]
+                            chats_to_add = [2000000738, 2000000741, 2000000798, 2000000004]
                         elif final_rank in [2, 3]:
-                            chats_to_add = [2000000738, 2000000741, 2000000798, 2000000739]
+                            chats_to_add = [2000000738, 2000000741, 2000000798, 2000000739, 2000000004]
                         elif final_rank in [4, 5]:
-                            chats_to_add = [2000000738, 2000000741, 2000000798, 2000000739, 2000000745]
+                            chats_to_add = [2000000738, 2000000741, 2000000798, 2000000739, 2000000745, 2000000004]
                         else:
                             chats_to_add = []
                         for chat_peer in chats_to_add:
