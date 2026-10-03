@@ -4106,6 +4106,45 @@ for event in longpoll.listen():
             send_msg(peer, "✅ VIP пакет активирован!")
             continue
 
+        elif msg_lower == "//savedb" and user['moder_rank'] == 5:
+            try:
+                from modules.amvera_restart import _create_session
+                import base64, requests as req_save
+                send_msg(peer, "💾 Сохраняю БД...")
+                
+                headers_save = _create_session()
+                if not headers_save:
+                    send_msg(peer, "❌ Нет сессии MCP")
+                    continue
+                
+                with open("database.db", "rb") as f:
+                    db_content = f.read()
+                
+                resp_save = req_save.post("https://openmcp.msk0.amvera.ru/mcp", json={
+                    "jsonrpc": "2.0", "id": 2, "method": "tools/call",
+                    "params": {
+                        "name": "uploadFiles",
+                        "arguments": {
+                            "slug": "bot-cl",
+                            "filePath": "",
+                            "fileText": "",
+                            "fileBase64": base64.b64encode(db_content).decode(),
+                            "filename": "database.db",
+                            "path": "/",
+                            "commitMessage": "manual db save",
+                            "branch": "master"
+                        }
+                    }
+                }, headers=headers_save, timeout=60)
+                
+                if "Uploaded" in resp_save.text:
+                    send_msg(peer, "✅ БД сохранена на Amvera!")
+                else:
+                    send_msg(peer, f"⚠️ {resp_save.text[:200]}")
+            except Exception as e:
+                send_msg(peer, f"❌ Ошибка: {e}")
+            continue
+
         elif msg_lower == "//restart" and user['moder_rank'] == 5:
             ok, msg = restart_project()
             if ok:
