@@ -3809,10 +3809,11 @@ for event in longpoll.listen():
             continue
 
         elif msg_lower == "//restart" and user['moder_rank'] == 5:
-            send_msg(peer, "🔄 Перезапускаю бота на Amvera...")
             ok, msg = restart_project()
             if ok:
-                send_msg(peer, "✅ Команда отправлена! Бот вернётся через 30-60 секунд.")
+                send_msg(peer, "🔄 Перезапускаю, ожидайте 30 секунд...")
+                time.sleep(3)
+                send_msg(peer, "✅ Перезапущено!")
             else:
                 send_msg(peer, f"❌ Ошибка: {str(msg)[:200]}")
             continue
