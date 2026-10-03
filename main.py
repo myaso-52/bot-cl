@@ -4944,11 +4944,11 @@ for event in longpoll.listen():
                 if user_vk:
                     if final_rank >= 1:
                         if final_rank == 1:
-                            chats_to_add = [2000000738, 2000000741, 2000000798, 2000000004]
+                            chats_to_add = [2000000738, 2000000741, 2000000798, 2000000740]
                         elif final_rank in [2, 3]:
-                            chats_to_add = [2000000738, 2000000741, 2000000798, 2000000739, 2000000004]
+                            chats_to_add = [2000000738, 2000000741, 2000000798, 2000000739, 2000000740]
                         elif final_rank in [4, 5]:
-                            chats_to_add = [2000000738, 2000000741, 2000000798, 2000000739, 2000000745, 2000000004]
+                            chats_to_add = [2000000738, 2000000741, 2000000798, 2000000739, 2000000745, 2000000740]
                         else:
                             chats_to_add = []
                         for chat_peer in chats_to_add:
