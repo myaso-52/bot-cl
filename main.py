@@ -3911,8 +3911,8 @@ for event in longpoll.listen():
             if not target_id:
                 send_msg(peer, "❌ Юзер не найден")
                 continue
-            if count_ball <= 0 or count_ball > 1000:
-                send_msg(peer, "❌ От 1 до 1000")
+            if count_ball == 0 or count_ball > 1000 or count_ball < -1000:
+                send_msg(peer, "❌ От -1000 до 1000 (кроме 0)")
                 continue
             
             from datetime import datetime as dt_ball, timezone as tz_ball, timedelta as td_ball
@@ -3920,15 +3920,38 @@ for event in longpoll.listen():
             today = dt_ball.now(tz_msk).strftime("%d.%m.%Y")
             
             conn_b = sqlite3.connect('database.db')
-            for _ in range(count_ball):
-                conn_b.execute("INSERT INTO moder_balls (user_id, date, timestamp) VALUES (?, ?, ?)", (target_id, today, time.time()))
-            conn_b.commit()
-            conn_b.close()
-            send_msg(peer, f"✅ Выдал {count_ball} баллов для {get_user_mention(target_id)}")
-            try:
-                send_msg(target_id, f"🎯 Вам выдали {count_ball} баллов модерации!\n\nПотратить: //modershop")
-            except:
-                pass
+            
+            if count_ball > 0:
+                # Выдаём баллы
+                for _ in range(count_ball):
+                    conn_b.execute("INSERT INTO moder_balls (user_id, date, timestamp) VALUES (?, ?, ?)", (target_id, today, time.time()))
+                conn_b.commit()
+                conn_b.close()
+                send_msg(peer, f"✅ Выдал {count_ball} баллов для {get_user_mention(target_id)}")
+                try:
+                    send_msg(target_id, f"🎯 Вам выдали {count_ball} баллов модерации!\n\nПотратить: //modershop")
+                except:
+                    pass
+            else:
+                # Забираем баллы (count_ball отрицательное)
+                to_remove = abs(count_ball)
+                # Получаем ID последних записей для удаления
+                ids = conn_b.execute("SELECT id FROM moder_balls WHERE user_id=? ORDER BY id DESC LIMIT ?", (target_id, to_remove)).fetchall()
+                if not ids:
+                    conn_b.close()
+                    send_msg(peer, f"❌ У {get_user_mention(target_id)} нет баллов")
+                    continue
+                removed = 0
+                for (ball_id,) in ids:
+                    conn_b.execute("DELETE FROM moder_balls WHERE id=?", (ball_id,))
+                    removed += 1
+                conn_b.commit()
+                conn_b.close()
+                send_msg(peer, f"✅ Забрал {removed} баллов у {get_user_mention(target_id)}")
+                try:
+                    send_msg(target_id, f"⚠️ У вас забрали {removed} баллов модерации")
+                except:
+                    pass
             continue
 
         elif msg_lower == "//modershop" and user['moder_rank'] >= 1:
