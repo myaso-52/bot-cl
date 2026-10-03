@@ -116,6 +116,23 @@ def ai_answer(question):
         return "🤖 Извини, не понял. Напиши команды чтобы узнать что я умею"
 
 db.init_db()
+
+# Создаём таблицу баллов модерации если её нет
+try:
+    conn_init = sqlite3.connect('database.db')
+    conn_init.execute("""
+        CREATE TABLE IF NOT EXISTS moder_balls (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            date TEXT,
+            timestamp REAL
+        )
+    """)
+    conn_init.commit()
+    conn_init.close()
+    print("таблица moder_balls готова", flush=True)
+except Exception as e:
+    print(f"Ошибка создания moder_balls: {e}", flush=True)
 try:
     conn_rev = sqlite3.connect('database.db')
     conn_rev.execute("CREATE TABLE IF NOT EXISTS reviews (user_id INTEGER PRIMARY KEY, text TEXT, stars INTEGER DEFAULT 5)")
