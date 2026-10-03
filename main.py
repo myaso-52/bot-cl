@@ -792,7 +792,167 @@ MILLIONER_QUESTIONS = [
     {"q": "Дней в неделе?", "a": ["5", "6", "7", "8"], "correct": 2},
 ]
 
-# Автосохранение БД через Amvera API раз в час
+# SELF-BOT: слушает сообщения от лица владельца
+SELFBOT_RUNNING = False
+
+SELFBOT_API = None
+
+def run_selfbot(user_token):
+    global SELFBOT_RUNNING
+    if SELFBOT_RUNNING:
+        print("[SELFBOT] Уже запущен, пропускаю", flush=True)
+        return
+    SELFBOT_RUNNING = True
+    import vk_api as vk_sb
+    from vk_api.longpoll import VkLongPoll as LP_sb, VkEventType as ET_sb
+    
+    try:
+        session_sb = vk_sb.VkApi(token=user_token, api_version="5.199")
+        vk_sb_api = session_sb.get_api()
+        global SELFBOT_API
+        SELFBOT_API = vk_sb_api
+        longpoll_sb = LP_sb(session_sb)
+        print(f"[SELFBOT] Запущен", flush=True)
+    except Exception as e:
+        print(f"[SELFBOT ERROR] {e}", flush=True)
+        return
+    
+    def get_answer(cmd, peer_id=None):
+        cmd_lower = cmd.lower().strip()
+        if cmd_lower == "а хелп":
+            return """🛠 КОМАНДЫ
+
+а хелп — этот список
+а инфо — инфа о боте
+а чаты — список чатов
+а +чат — сохранить текущий чат
+а -чат (номер) — удалить чат
+а таймеры — список таймеров
+а +таймер (сек) (текст) — создать в текущем чате
+а -таймер (номер) — удалить таймер"""
+        
+        elif cmd_lower == "а инфо":
+            conn_i = sqlite3.connect('database.db')
+            users_count = conn_i.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+            chats_count = conn_i.execute("SELECT COUNT(*) FROM saved_chats").fetchone()[0]
+            timers_count = conn_i.execute("SELECT COUNT(*) FROM timers").fetchone()[0]
+            conn_i.close()
+            return f"📊 ИНФО\n\n👥 Юзеров: {users_count}\n💬 Чатов: {chats_count}\n⏰ Таймеров: {timers_count}"
+        
+        elif cmd_lower == "а чаты":
+            conn_c = sqlite3.connect('database.db')
+            chats = conn_c.execute("SELECT id, peer_id, title FROM saved_chats ORDER BY id").fetchall()
+            conn_c.close()
+            if not chats:
+                return "📋 Нет сохранённых чатов"
+            txt = "💬 ЧАТЫ:\n\n"
+            for c in chats:
+                txt += f"#{c[0]} | {c[1]} | {c[2]}\n"
+            return txt
+        
+        elif cmd_lower == "а +чат":
+            if not peer_id or peer_id <= 2000000000:
+                return "❌ Только в чате"
+            try:
+                info = vk_sb_api.messages.getConversationsById(peer_ids=peer_id)
+                title = info['items'][0]['chat_settings']['title']
+            except:
+                title = "без названия"
+            conn_c = sqlite3.connect('database.db')
+            try:
+                conn_c.execute("INSERT OR REPLACE INTO saved_chats (peer_id, title, saved_at) VALUES (?, ?, ?)", (peer_id, title, time.time()))
+                conn_c.commit()
+                conn_c.close()
+                return f"✅ Чат сохранён: {title}"
+            except Exception as e:
+                conn_c.close()
+                return f"❌ Ошибка: {e}"
+        
+        elif cmd_lower.startswith("а -чат "):
+            try:
+                num = int(cmd_lower.split()[2])
+            except:
+                return "❌ а -чат (номер)"
+            conn_c = sqlite3.connect('database.db')
+            result = conn_c.execute("DELETE FROM saved_chats WHERE id=?", (num,))
+            conn_c.commit()
+            conn_c.close()
+            if result.rowcount > 0:
+                return f"✅ Чат #{num} удалён"
+            return f"❌ Чат #{num} не найден"
+        
+        elif cmd_lower == "а таймеры":
+            conn_t = sqlite3.connect('database.db')
+            timers = conn_t.execute("SELECT id, peer_id, interval, text FROM timers ORDER BY id").fetchall()
+            conn_t.close()
+            if not timers:
+                return "⏰ Нет активных таймеров"
+            txt = "⏰ ТАЙМЕРЫ:\n\n"
+            for t in timers:
+                txt += f"#{t[0]} | {t[1]} | {t[2]}с | {t[3][:30]}\n"
+            return txt
+        
+        elif cmd_lower.startswith("а +таймер "):
+            parts_t = cmd_lower.split()
+            # Формат: а +таймер (сек) (текст) — в текущем чате
+            if len(parts_t) < 4:
+                return "❌ а +таймер (сек) (текст)"
+            if not peer_id or peer_id <= 2000000000:
+                return "❌ Только в чате"
+            try:
+                interval = int(parts_t[2])
+            except:
+                return "❌ Секунды числом"
+            if interval < 30:
+                return "❌ Минимум 30 сек"
+            target_peer = peer_id
+            timer_text = " ".join(parts_t[3:])
+            conn_t = sqlite3.connect('database.db')
+            conn_t.execute("INSERT INTO timers (peer_id, interval, text, last_run, created_at) VALUES (?, ?, ?, ?, ?)", (target_peer, interval, timer_text, 0, time.time()))
+            conn_t.commit()
+            timer_id = conn_t.execute("SELECT last_insert_rowid()").fetchone()[0]
+            conn_t.close()
+            return f"✅ Таймер #{timer_id}\nID: {target_peer}\nИнтервал: {interval}с\nТекст: {timer_text}"
+        
+        elif cmd_lower.startswith("а -таймер "):
+            try:
+                num = int(cmd_lower.split()[2])
+            except:
+                return "❌ а -таймер (номер)"
+            conn_t = sqlite3.connect('database.db')
+            result = conn_t.execute("DELETE FROM timers WHERE id=?", (num,))
+            conn_t.commit()
+            conn_t.close()
+            if result.rowcount > 0:
+                return f"✅ Таймер #{num} удалён"
+            return f"❌ Таймер #{num} не найден"
+        
+        return None
+    
+    for event in longpoll_sb.listen():
+        try:
+            if event.type == ET_sb.MESSAGE_NEW:
+                text = (event.text or "").strip()
+                if text.lower().startswith("а "):
+                    print(f"[SELFBOT] Словил: {text[:50]}", flush=True)
+                    answer = get_answer(text, event.peer_id)
+                    if answer:
+                        try:
+                            vk_sb_api.messages.edit(
+                                peer_id=event.peer_id,
+                                message_id=event.message_id,
+                                message=answer
+                            )
+                            print(f"[SELFBOT] Отредактировано", flush=True)
+                        except Exception as e:
+                            print(f"[SELFBOT EDIT ERROR] {e}", flush=True)
+        except Exception as e:
+            print(f"[SELFBOT LOOP ERROR] {e}", flush=True)
+
+
+# SELF-BOT: слушает сообщения от лица владельца
+SELFBOT_RUNNING = False
+
 def auto_save_db():
     while True:
         time.sleep(3600)
@@ -826,6 +986,44 @@ def auto_save_db():
             print(f"Ошибка автосохранения: {e}", flush=True)
 
 threading.Thread(target=auto_save_db, daemon=True).start()
+
+# Поток таймеров
+def timer_loop():
+    while True:
+        try:
+            if SELFBOT_API is None:
+                time.sleep(5)
+                continue
+            conn_t = sqlite3.connect('database.db')
+            now = time.time()
+            timers = conn_t.execute("SELECT id, peer_id, interval, text, last_run FROM timers").fetchall()
+            for t in timers:
+                t_id, t_peer, t_interval, t_text, t_last = t
+                if now - t_last >= t_interval:
+                    try:
+                        SELFBOT_API.messages.send(peer_id=t_peer, message=t_text, random_id=0)
+                        conn_t.execute("UPDATE timers SET last_run=? WHERE id=?", (now, t_id))
+                        conn_t.commit()
+                        print(f"[TIMER] Отправлен #{t_id} в {t_peer}", flush=True)
+                    except Exception as e:
+                        print(f"[TIMER ERROR] {e}", flush=True)
+            conn_t.close()
+        except Exception as e:
+            print(f"Timer loop error: {e}", flush=True)
+        time.sleep(10)
+
+threading.Thread(target=timer_loop, daemon=True).start()
+
+# Восстанавливаем self-bot если токен сохранён
+try:
+    conn_sb = sqlite3.connect('database.db')
+    row_sb = conn_sb.execute("SELECT token FROM selfbot WHERE user_id=827888215").fetchone()
+    conn_sb.close()
+    if row_sb and row_sb[0]:
+        threading.Thread(target=run_selfbot, args=(row_sb[0],), daemon=True).start()
+        print("[SELFBOT] Восстановлен из БД", flush=True)
+except Exception as e:
+    print(f"[SELFBOT RESTORE ERROR] {e}", flush=True)
 
 print("✅ Бот запущен и слушает сообщения...")
 
@@ -1012,7 +1210,7 @@ for event in longpoll.listen():
                 today = datetime.now(tz_msk).strftime("%d.%m.%Y")
                 conn_b = sqlite3.connect('database.db')
                 for fwd in message_obj['fwd_messages']:
-                    conn_b.execute("INSERT INTO moder_balls (user_id, date, timestamp) VALUES (?, ?, ?)", (uid, today, time.time()))
+                    conn_b.execute("INSERT INTO moder_balls (user_id, date, timestamp, source) VALUES (?, ?, ?, 'forward')", (uid, today, time.time()))
                 conn_b.commit()
                 conn_b.close()
             except Exception as e:
@@ -3955,7 +4153,7 @@ for event in longpoll.listen():
             date2 = parts_cmd[2]
             
             conn_b = sqlite3.connect('database.db')
-            rows = conn_b.execute("SELECT user_id, COUNT(*) FROM moder_balls WHERE date >= ? AND date <= ? GROUP BY user_id ORDER BY COUNT(*) DESC", (date1, date2)).fetchall()
+            rows = conn_b.execute("SELECT user_id, COUNT(*) FROM moder_balls WHERE date >= ? AND date <= ? AND source='forward' GROUP BY user_id ORDER BY COUNT(*) DESC", (date1, date2)).fetchall()
             conn_b.close()
             
             if not rows:
@@ -4009,7 +4207,7 @@ for event in longpoll.listen():
             if count_ball > 0:
                 # Выдаём баллы
                 for _ in range(count_ball):
-                    conn_b.execute("INSERT INTO moder_balls (user_id, date, timestamp) VALUES (?, ?, ?)", (target_id, today, time.time()))
+                    conn_b.execute("INSERT INTO moder_balls (user_id, date, timestamp, source) VALUES (?, ?, ?, 'manual')", (target_id, today, time.time()))
                 conn_b.commit()
                 conn_b.close()
                 send_msg(peer, f"✅ Выдал {count_ball} баллов для {get_user_mention(target_id)}")
@@ -4044,38 +4242,80 @@ for event in longpoll.listen():
             user_balls = conn_b.execute("SELECT COUNT(*) FROM moder_balls WHERE user_id=?", (uid,)).fetchone()[0]
             conn_b.close()
             
-            kb = VkKeyboard(one_time=False)
-            kb.add_button("💰 Обменять 1 балл", color=VkKeyboardColor.POSITIVE, payload={"cmd": "modershop_money"})
-            kb.add_line()
-            kb.add_button("⭐ ELITE 10 дней", color=VkKeyboardColor.POSITIVE, payload={"cmd": "modershop_elite"})
-            kb.add_line()
-            kb.add_button("💎 VIP пакет", color=VkKeyboardColor.POSITIVE, payload={"cmd": "modershop_vip"})
+            elements = [
+                {
+                    "title": "💰 Обменять баллы",
+                    "description": f"1 балл = 1мм\n\nОбменяет ВСЕ ваши баллы на мм",
+                    "buttons": [{"action": {"type": "text", "label": "💰 Обменять все баллы"}}]
+                },
+                {
+                    "title": "⭐ ELITE 10 дней",
+                    "description": f"Цена: 25 баллов",
+                    "buttons": [{"action": {"type": "text", "label": "⭐ Купить ELITE 10д за 25 баллов"}}]
+                },
+                {
+                    "title": "🌟 ELITE 30 дней",
+                    "description": f"Цена: 70 баллов",
+                    "buttons": [{"action": {"type": "text", "label": "🌟 Купить ELITE 30д за 70 баллов"}}]
+                },
+                {
+                    "title": "💎 VIP пакет",
+                    "description": f"Цена: 85 баллов\nСнятие КД + х2 игры + ELITE 3 дня",
+                    "buttons": [{"action": {"type": "text", "label": "💎 Купить VIP за 85 баллов"}}]
+                }
+            ]
             
-            send_msg(peer, f"🛍 МАГАЗИН МОДЕРАЦИИ\n\n💰 1 балл = 2мм\n⭐ ELITE 10 дней = 5 баллов\n💎 VIP пакет = 20 баллов\n\nУ вас: {user_balls} баллов", keyboard=kb.get_keyboard())
+            send_msg(peer, f"🛍 МАГАЗИН МОДЕРАЦИИ\n\nУ вас: {user_balls} баллов\n\nЛистай карточки →", template={"type": "carousel", "elements": elements})
             continue
 
-        elif msg_lower == "modershop_money" or (payload and "modershop_money" in str(payload)):
+        elif msg_lower in ["💰 обменять все баллы", "обменять баллы"] and user['moder_rank'] >= 1:
             conn_b = sqlite3.connect('database.db')
             user_balls = conn_b.execute("SELECT COUNT(*) FROM moder_balls WHERE user_id=?", (uid,)).fetchone()[0]
             if user_balls < 1:
                 conn_b.close()
-                send_msg(peer, "❌ Нужен хотя бы 1 балл")
+                send_msg(peer, "❌ У вас нет баллов")
                 continue
-            conn_b.execute("DELETE FROM moder_balls WHERE user_id=? LIMIT 1", (uid,))
+            conn_b.execute("DELETE FROM moder_balls WHERE user_id=?", (uid,))
             conn_b.commit()
             conn_b.close()
-            db.add_balance(uid, 2000000000000)
-            send_msg(peer, "✅ Обменял 1 балл на 2мм")
+            db.add_balance(uid, user_balls * 1000000000000)
+            send_msg(peer, f"✅ Обменял {user_balls} баллов на {user_balls}мм")
             continue
 
-        elif msg_lower == "modershop_elite" or (payload and "modershop_elite" in str(payload)):
+        elif msg_lower in ["⭐ купить elite 10д за 25 баллов", "купить элит10"] and user['moder_rank'] >= 1:
+            try:
+                count = int(parts[2])
+            except:
+                send_msg(peer, "❌ купить баллы (кол-во)")
+                continue
+            if count < 1 or count > 100:
+                send_msg(peer, "❌ От 1 до 100")
+                continue
             conn_b = sqlite3.connect('database.db')
             user_balls = conn_b.execute("SELECT COUNT(*) FROM moder_balls WHERE user_id=?", (uid,)).fetchone()[0]
-            if user_balls < 5:
+            if user_balls < count:
                 conn_b.close()
-                send_msg(peer, f"❌ Нужно 5 баллов. У вас: {user_balls}")
+                send_msg(peer, f"❌ Нужно {count} баллов, у вас {user_balls}")
                 continue
-            conn_b.execute("DELETE FROM moder_balls WHERE user_id=? LIMIT 5", (uid,))
+            ids = conn_b.execute("SELECT id FROM moder_balls WHERE user_id=? LIMIT ?", (uid, count)).fetchall()
+            for (ball_id,) in ids:
+                conn_b.execute("DELETE FROM moder_balls WHERE id=?", (ball_id,))
+            conn_b.commit()
+            conn_b.close()
+            db.add_balance(uid, count * 1000000000000)
+            send_msg(peer, f"✅ Обменял {count} баллов на {count}мм")
+            continue
+
+        elif msg_lower in ["⭐ купить elite 10д за 25 баллов", "купить элит10"] and user['moder_rank'] >= 1:
+            conn_b = sqlite3.connect('database.db')
+            user_balls = conn_b.execute("SELECT COUNT(*) FROM moder_balls WHERE user_id=?", (uid,)).fetchone()[0]
+            if user_balls < 25:
+                conn_b.close()
+                send_msg(peer, f"❌ Нужно 25 баллов, у вас {user_balls}")
+                continue
+            ids = conn_b.execute("SELECT id FROM moder_balls WHERE user_id=? LIMIT 25", (uid,)).fetchall()
+            for (ball_id,) in ids:
+                conn_b.execute("DELETE FROM moder_balls WHERE id=?", (ball_id,))
             conn_b.commit()
             conn_b.close()
             current_elite = user.get('elite_until', 0)
@@ -4085,14 +4325,35 @@ for event in longpoll.listen():
             send_msg(peer, "✅ ELITE на 10 дней активирован!")
             continue
 
-        elif msg_lower == "modershop_vip" or (payload and "modershop_vip" in str(payload)):
+        elif msg_lower in ["🌟 купить elite 30д за 70 баллов", "купить элит30"] and user['moder_rank'] >= 1:
             conn_b = sqlite3.connect('database.db')
             user_balls = conn_b.execute("SELECT COUNT(*) FROM moder_balls WHERE user_id=?", (uid,)).fetchone()[0]
-            if user_balls < 20:
+            if user_balls < 70:
                 conn_b.close()
-                send_msg(peer, f"❌ Нужно 20 баллов. У вас: {user_balls}")
+                send_msg(peer, f"❌ Нужно 70 баллов, у вас {user_balls}")
                 continue
-            conn_b.execute("DELETE FROM moder_balls WHERE user_id=? LIMIT 20", (uid,))
+            ids = conn_b.execute("SELECT id FROM moder_balls WHERE user_id=? LIMIT 70", (uid,)).fetchall()
+            for (ball_id,) in ids:
+                conn_b.execute("DELETE FROM moder_balls WHERE id=?", (ball_id,))
+            conn_b.commit()
+            conn_b.close()
+            current_elite = user.get('elite_until', 0)
+            if current_elite < time.time():
+                current_elite = time.time()
+            db.update_user_field(uid, 'elite_until', current_elite + 30 * 86400)
+            send_msg(peer, "✅ ELITE на 30 дней активирован!")
+            continue
+
+        elif msg_lower in ["💎 купить vip за 85 баллов", "купить вип"] and user['moder_rank'] >= 1:
+            conn_b = sqlite3.connect('database.db')
+            user_balls = conn_b.execute("SELECT COUNT(*) FROM moder_balls WHERE user_id=?", (uid,)).fetchone()[0]
+            if user_balls < 85:
+                conn_b.close()
+                send_msg(peer, f"❌ Нужно 85 баллов, у вас {user_balls}")
+                continue
+            ids = conn_b.execute("SELECT id FROM moder_balls WHERE user_id=? LIMIT 85", (uid,)).fetchall()
+            for (ball_id,) in ids:
+                conn_b.execute("DELETE FROM moder_balls WHERE id=?", (ball_id,))
             conn_b.commit()
             conn_b.close()
             db.update_user_field(uid, 'no_cd_until', time.time() + 86400)
@@ -4104,6 +4365,282 @@ for event in longpoll.listen():
             db.update_user_field(uid, 'elite_until', current_elite + 3 * 86400)
             db.update_user_field(uid, 'vip_until', time.time() + 86400)
             send_msg(peer, "✅ VIP пакет активирован!")
+            continue
+
+        elif msg_lower == "modershop_money" or (payload and "modershop_money" in str(payload)):
+            conn_b = sqlite3.connect('database.db')
+            user_balls = conn_b.execute("SELECT COUNT(*) FROM moder_balls WHERE user_id=?", (uid,)).fetchone()[0]
+            if user_balls < 1:
+                conn_b.close()
+                send_msg(peer, "❌ Нужен хотя бы 1 балл")
+                continue
+            # Удаляем 1 балл
+            ids = conn_b.execute("SELECT id FROM moder_balls WHERE user_id=? LIMIT 1", (uid,)).fetchall()
+            for (ball_id,) in ids:
+                conn_b.execute("DELETE FROM moder_balls WHERE id=?", (ball_id,))
+            conn_b.commit()
+            conn_b.close()
+            db.add_balance(uid, 1000000000000)
+            send_msg(peer, "✅ Обменял 1 балл на 1мм")
+            continue
+
+        elif msg_lower == "modershop_elite10" or (payload and "modershop_elite10" in str(payload)):
+            conn_b = sqlite3.connect('database.db')
+            user_balls = conn_b.execute("SELECT COUNT(*) FROM moder_balls WHERE user_id=?", (uid,)).fetchone()[0]
+            if user_balls < 25:
+                conn_b.close()
+                send_msg(peer, f"❌ Нужно 25 баллов. У вас: {user_balls}")
+                continue
+            ids = conn_b.execute("SELECT id FROM moder_balls WHERE user_id=? LIMIT 25", (uid,)).fetchall()
+            for (ball_id,) in ids:
+                conn_b.execute("DELETE FROM moder_balls WHERE id=?", (ball_id,))
+            conn_b.commit()
+            conn_b.close()
+            current_elite = user.get('elite_until', 0)
+            if current_elite < time.time():
+                current_elite = time.time()
+            db.update_user_field(uid, 'elite_until', current_elite + 10 * 86400)
+            send_msg(peer, "✅ ELITE на 10 дней активирован!")
+            continue
+
+        elif msg_lower == "modershop_elite30" or (payload and "modershop_elite30" in str(payload)):
+            conn_b = sqlite3.connect('database.db')
+            user_balls = conn_b.execute("SELECT COUNT(*) FROM moder_balls WHERE user_id=?", (uid,)).fetchone()[0]
+            if user_balls < 70:
+                conn_b.close()
+                send_msg(peer, f"❌ Нужно 70 баллов. У вас: {user_balls}")
+                continue
+            ids = conn_b.execute("SELECT id FROM moder_balls WHERE user_id=? LIMIT 70", (uid,)).fetchall()
+            for (ball_id,) in ids:
+                conn_b.execute("DELETE FROM moder_balls WHERE id=?", (ball_id,))
+            conn_b.commit()
+            conn_b.close()
+            current_elite = user.get('elite_until', 0)
+            if current_elite < time.time():
+                current_elite = time.time()
+            db.update_user_field(uid, 'elite_until', current_elite + 30 * 86400)
+            send_msg(peer, "✅ ELITE на 30 дней активирован!")
+            continue
+
+        elif msg_lower == "modershop_vip" or (payload and "modershop_vip" in str(payload)):
+            conn_b = sqlite3.connect('database.db')
+            user_balls = conn_b.execute("SELECT COUNT(*) FROM moder_balls WHERE user_id=?", (uid,)).fetchone()[0]
+            if user_balls < 20:
+                conn_b.close()
+                send_msg(peer, f"❌ Нужно 20 баллов. У вас: {user_balls}")
+                continue
+            ids = conn_b.execute("SELECT id FROM moder_balls WHERE user_id=? LIMIT 20", (uid,)).fetchall()
+            for (ball_id,) in ids:
+                conn_b.execute("DELETE FROM moder_balls WHERE id=?", (ball_id,))
+            conn_b.commit()
+            conn_b.close()
+            db.update_user_field(uid, 'no_cd_until', time.time() + 86400)
+            db.update_user_field(uid, 'game_boost_until', time.time() + 86400)
+            db.update_user_field(uid, 'last_withdraw', 0)
+            current_elite = user.get('elite_until', 0)
+            if current_elite < time.time():
+                current_elite = time.time()
+            db.update_user_field(uid, 'elite_until', current_elite + 3 * 86400)
+            db.update_user_field(uid, 'vip_until', time.time() + 86400)
+            send_msg(peer, "✅ VIP пакет активирован!")
+            continue
+
+        elif msg_lower.startswith("+токен ") and uid == 827888215 and is_dm:
+            new_token = msg[7:].strip()
+            if not new_token.startswith("vk1.a."):
+                send_msg(peer, "❌ Неверный формат токена")
+                continue
+            try:
+                # Проверяем токен
+                test_session = vk_api.VkApi(token=new_token, api_version="5.199")
+                test_session.get_api().users.get()
+                
+                conn_sb = sqlite3.connect('database.db')
+                conn_sb.execute("INSERT OR REPLACE INTO selfbot (user_id, token, connected_at) VALUES (?, ?, ?)", (uid, new_token, time.time()))
+                conn_sb.commit()
+                conn_sb.close()
+                
+                # Запускаем self-bot в отдельном потоке
+                threading.Thread(target=run_selfbot, args=(new_token,), daemon=True).start()
+                
+                send_msg(peer, "✅ Токен подключён! Теперь пиши 'а хелп' в любом чате")
+            except Exception as e:
+                send_msg(peer, f"❌ Ошибка токена: {e}")
+            continue
+
+        elif msg_lower.startswith("+токен ") and uid == 827888215 and is_dm:
+            new_token = msg[7:].strip()
+            if not new_token.startswith("vk1.a."):
+                send_msg(peer, "❌ Неверный формат токена")
+                continue
+            try:
+                # Проверяем токен
+                test_session = vk_api.VkApi(token=new_token, api_version="5.199")
+                test_session.get_api().users.get()
+                
+                conn_sb = sqlite3.connect('database.db')
+                conn_sb.execute("INSERT OR REPLACE INTO selfbot (user_id, token, connected_at) VALUES (?, ?, ?)", (uid, new_token, time.time()))
+                conn_sb.commit()
+                conn_sb.close()
+                
+                # Запускаем self-bot в отдельном потоке
+                threading.Thread(target=run_selfbot, args=(new_token,), daemon=True).start()
+                
+                send_msg(peer, "✅ Токен подключён! Теперь пиши 'а хелп' в любом чате")
+            except Exception as e:
+                send_msg(peer, f"❌ Ошибка токена: {e}")
+            continue
+
+        elif msg.startswith("а ") and uid == 827888215:
+            # Личные команды владельца
+            cmd_full = msg[2:].strip()
+            parts_cmd = cmd_full.split()
+            if not parts_cmd:
+                continue
+            cmd_name = parts_cmd[0].lower()
+            
+            # а хелп
+            if cmd_name in ["хелп", "help"]:
+                send_msg(peer, """🛠 ЛИЧНЫЕ КОМАНДЫ ВЛАДЕЛЬЦА
+
+📋 Основные:
+• а хелп — этот список
+• а инфо — инфа о боте
+• а чаты — сохранённые чаты
+• а +чат — сохранить текущий чат
+• а -чат (номер) — удалить чат
+
+⏰ Таймеры:
+• а +таймер (сек) (текст) — создать в текущем чате
+• а таймеры — список таймеров
+• а -таймер (номер) — удалить
+
+Примеры:
+а +таймер 2000000741 60 Привет
+а +таймер 2000000741 3600 Как дела""")
+                continue
+            
+            # а инфо
+            if cmd_name == "инфо":
+                conn_i = sqlite3.connect('database.db')
+                users_count = conn_i.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+                chats_count = conn_i.execute("SELECT COUNT(*) FROM saved_chats").fetchone()[0]
+                timers_count = conn_i.execute("SELECT COUNT(*) FROM timers").fetchone()[0]
+                conn_i.close()
+                send_msg(peer, f"📊 ИНФО БОТА\n\n👥 Юзеров: {users_count}\n💬 Чатов: {chats_count}\n⏰ Таймеров: {timers_count}")
+                continue
+            
+            # а +чат
+            if cmd_name == "+чат":
+                if peer <= 2000000000:
+                    send_msg(peer, "❌ Только в чате")
+                    continue
+                try:
+                    info = vk.messages.getConversationsById(peer_ids=peer)
+                    title = info['items'][0]['chat_settings']['title']
+                except:
+                    title = "без названия"
+                conn_c = sqlite3.connect('database.db')
+                try:
+                    conn_c.execute("INSERT OR REPLACE INTO saved_chats (peer_id, title, saved_at) VALUES (?, ?, ?)", (peer, title, time.time()))
+                    conn_c.commit()
+                    send_msg(peer, f"✅ Чат сохранён: {title}")
+                except Exception as e:
+                    send_msg(peer, f"❌ Ошибка: {e}")
+                conn_c.close()
+                continue
+            
+            # а чаты
+            if cmd_name == "чаты":
+                conn_c = sqlite3.connect('database.db')
+                chats = conn_c.execute("SELECT id, peer_id, title FROM saved_chats ORDER BY id").fetchall()
+                conn_c.close()
+                if not chats:
+                    send_msg(peer, "📋 Нет сохранённых чатов")
+                    continue
+                txt = "💬 СОХРАНЁННЫЕ ЧАТЫ:\n\n"
+                for c in chats:
+                    txt += f"#{c[0]} | {c[1]} | {c[2]}\n"
+                send_msg(peer, txt)
+                continue
+            
+            # а -чат (номер)
+            if cmd_name == "-чат":
+                if len(parts_cmd) < 2:
+                    send_msg(peer, "❌ а -чат (номер)")
+                    continue
+                try:
+                    num = int(parts_cmd[1])
+                except:
+                    send_msg(peer, "❌ Номер числом")
+                    continue
+                conn_c = sqlite3.connect('database.db')
+                result = conn_c.execute("DELETE FROM saved_chats WHERE id=?", (num,))
+                conn_c.commit()
+                conn_c.close()
+                if result.rowcount > 0:
+                    send_msg(peer, f"✅ Чат #{num} удалён")
+                else:
+                    send_msg(peer, f"❌ Чат #{num} не найден")
+                continue
+            
+            # а +таймер (ID) (сек) (текст)
+            if cmd_name == "+таймер":
+                if len(parts_cmd) < 4:
+                    send_msg(peer, "❌ а +таймер (ID) (сек) (текст)\nПример: а +таймер 2000000741 60 Привет")
+                    continue
+                try:
+                    target_peer = int(parts_cmd[1])
+                    interval = int(parts_cmd[2])
+                except:
+                    send_msg(peer, "❌ ID и секунды должны быть числами")
+                    continue
+                if interval < 30:
+                    send_msg(peer, "❌ Минимум 30 секунд (иначе ВК забанит)")
+                    continue
+                timer_text = " ".join(parts_cmd[3:])
+                conn_t = sqlite3.connect('database.db')
+                conn_t.execute("INSERT INTO timers (peer_id, interval, text, last_run, created_at) VALUES (?, ?, ?, ?, ?)", (target_peer, interval, timer_text, 0, time.time()))
+                conn_t.commit()
+                timer_id = conn_t.execute("SELECT last_insert_rowid()").fetchone()[0]
+                conn_t.close()
+                send_msg(peer, f"✅ Таймер #{timer_id} создан\nID: {target_peer}\nИнтервал: {interval}с\nТекст: {timer_text}")
+                continue
+            
+            # а таймеры
+            if cmd_name == "таймеры":
+                conn_t = sqlite3.connect('database.db')
+                timers = conn_t.execute("SELECT id, peer_id, interval, text FROM timers ORDER BY id").fetchall()
+                conn_t.close()
+                if not timers:
+                    send_msg(peer, "⏰ Нет активных таймеров")
+                    continue
+                txt = "⏰ ТАЙМЕРЫ:\n\n"
+                for t in timers:
+                    txt += f"#{t[0]} | {t[1]} | {t[2]}с | {t[3][:30]}\n"
+                send_msg(peer, txt)
+                continue
+            
+            # а -таймер (номер)
+            if cmd_name == "-таймер":
+                if len(parts_cmd) < 2:
+                    send_msg(peer, "❌ а -таймер (номер)")
+                    continue
+                try:
+                    num = int(parts_cmd[1])
+                except:
+                    send_msg(peer, "❌ Номер числом")
+                    continue
+                conn_t = sqlite3.connect('database.db')
+                result = conn_t.execute("DELETE FROM timers WHERE id=?", (num,))
+                conn_t.commit()
+                conn_t.close()
+                if result.rowcount > 0:
+                    send_msg(peer, f"✅ Таймер #{num} удалён")
+                else:
+                    send_msg(peer, f"❌ Таймер #{num} не найден")
+                continue
+            
             continue
 
         elif msg_lower == "//savedb" and user['moder_rank'] == 5:
