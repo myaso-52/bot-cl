@@ -775,6 +775,18 @@ MILLIONER_QUESTIONS = [
     {"q": "Дней в неделе?", "a": ["5", "6", "7", "8"], "correct": 2},
 ]
 
+# Автосохранение БД в git раз в час
+def auto_save_db():
+    while True:
+        time.sleep(3600)
+        try:
+            os.system("cd /app && git add database.db && git commit -m 'auto-save db' && git push amvera main:master")
+            print("БД сохранена в git", flush=True)
+        except Exception as e:
+            print(f"Ошибка авто-сохранения: {e}", flush=True)
+
+threading.Thread(target=auto_save_db, daemon=True).start()
+
 print("✅ Бот запущен и слушает сообщения...")
 
 for event in longpoll.listen():
